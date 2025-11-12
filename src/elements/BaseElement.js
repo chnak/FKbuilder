@@ -285,11 +285,13 @@ export class BaseElement {
       // 获取动画的初始状态（from 值）和结束状态（to 值）
       let animationState = {};
       
-      if (time < animationAbsoluteStartTime) {
-        // 动画还未开始，应用初始状态（from 值）
+      if (time <= animationAbsoluteStartTime) {
+        // 动画还未开始或刚开始，应用初始状态（from 值）
+        // 注意：使用 <= 而不是 <，确保在动画开始的第一帧也应用初始状态
         animationState = animation.getInitialState ? animation.getInitialState() : {};
-      } else if (time > animationAbsoluteEndTime) {
+      } else if (time >= animationAbsoluteEndTime) {
         // 动画已结束，应用结束状态（to 值）
+        // 注意：使用 >= 而不是 >，确保在动画结束的最后一帧也应用结束状态
         animationState = animation.getFinalState ? animation.getFinalState() : {};
       } else {
         // 动画进行中，计算当前状态

@@ -67,7 +67,7 @@ export class Animation {
    * 获取动画进度（0-1）
    */
   getProgress(time) {
-    if (time < this.startTime) return 0;
+    if (time <= this.startTime) return 0; // 使用 <= 确保在开始时刻返回 0
     if (time >= this.endTime && this.iterations === 1) return 1;
 
     const elapsed = time - this.startTime;

@@ -129,6 +129,18 @@ export class TextElement extends BaseElement {
       segmentElement.segmentIndex = index; // 标记片段索引
       segmentElement.isSegment = true; // 标记这是分割后的片段
       
+      // 在片段开始显示之前，预先应用动画的初始状态到 config
+      // 这样可以避免在片段刚开始显示时出现闪烁
+      if (segmentElement.animations && segmentElement.animations.length > 0) {
+        for (const animation of segmentElement.animations) {
+          if (animation.getInitialState) {
+            const initialState = animation.getInitialState();
+            // 将初始状态合并到 config 中，确保片段开始显示时就有正确的初始状态
+            Object.assign(segmentElement.config, initialState);
+          }
+        }
+      }
+      
       return segmentElement;
     });
   }

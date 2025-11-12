@@ -57,5 +57,19 @@ export class FadeAnimation extends Animation {
     const opacity = lerp(this.fromOpacity, this.toOpacity, progress);
     return { opacity };
   }
+
+  /**
+   * 获取初始状态（from 值）
+   */
+  getInitialState() {
+    return { opacity: this.fromOpacity };
+  }
+
+  /**
+   * 获取结束状态（to 值）
+   */
+  getFinalState() {
+    return { opacity: this.toOpacity };
+  }
 }
 

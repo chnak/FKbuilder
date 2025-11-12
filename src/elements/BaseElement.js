@@ -282,15 +282,25 @@ export class BaseElement {
       
       const animationAbsoluteEndTime = animationAbsoluteStartTime + animation.config.duration;
       
-      // 检查动画是否在激活状态（使用绝对时间）
-      if (time >= animationAbsoluteStartTime && time <= animationAbsoluteEndTime) {
-        // 计算相对于动画开始的时间（从0开始）
+      // 获取动画的初始状态（from 值）和结束状态（to 值）
+      let animationState = {};
+      
+      if (time < animationAbsoluteStartTime) {
+        // 动画还未开始，应用初始状态（from 值）
+        animationState = animation.getInitialState ? animation.getInitialState() : {};
+      } else if (time > animationAbsoluteEndTime) {
+        // 动画已结束，应用结束状态（to 值）
+        animationState = animation.getFinalState ? animation.getFinalState() : {};
+      } else {
+        // 动画进行中，计算当前状态
         const animationRelativeTime = time - animationAbsoluteStartTime;
         // 使用动画的 startTime + 相对时间来计算状态
         // 这样 getStateAtTime 会正确计算进度
-        const animationState = animation.getStateAtTime(animation.startTime + animationRelativeTime);
-        state = { ...state, ...animationState };
+        animationState = animation.getStateAtTime(animation.startTime + animationRelativeTime);
       }
+      
+      // 合并动画状态到元素状态
+      state = { ...state, ...animationState };
     }
 
     // 处理 translateX 和 translateY（相对偏移量）

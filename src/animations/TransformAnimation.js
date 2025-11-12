@@ -52,5 +52,31 @@ export class TransformAnimation extends Animation {
 
     return state;
   }
+
+  /**
+   * 获取初始状态（from 值）
+   */
+  getInitialState() {
+    const state = {};
+    if (this.from.x !== undefined) state.x = this.from.x;
+    if (this.from.y !== undefined) state.y = this.from.y;
+    if (this.from.rotation !== undefined) state.rotation = this.from.rotation;
+    if (this.from.scaleX !== undefined) state.scaleX = this.from.scaleX;
+    if (this.from.scaleY !== undefined) state.scaleY = this.from.scaleY;
+    return state;
+  }
+
+  /**
+   * 获取结束状态（to 值）
+   */
+  getFinalState() {
+    const state = {};
+    if (this.to.x !== undefined) state.x = this.to.x;
+    if (this.to.y !== undefined) state.y = this.to.y;
+    if (this.to.rotation !== undefined) state.rotation = this.to.rotation;
+    if (this.to.scaleX !== undefined) state.scaleX = this.to.scaleX;
+    if (this.to.scaleY !== undefined) state.scaleY = this.to.scaleY;
+    return state;
+  }
 }
 

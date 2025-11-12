@@ -68,5 +68,47 @@ export class MoveAnimation extends Animation {
       };
     }
   }
+
+  /**
+   * 获取初始状态（from 值）
+   */
+  getInitialState() {
+    // 检查是否是相对偏移量模式
+    const isRelative = (this.toX === 0 && this.toY === 0) && 
+                       (this.fromX !== 0 || this.fromY !== 0);
+    
+    if (isRelative) {
+      return {
+        translateX: this.fromX,
+        translateY: this.fromY,
+      };
+    } else {
+      return {
+        x: this.fromX,
+        y: this.fromY,
+      };
+    }
+  }
+
+  /**
+   * 获取结束状态（to 值）
+   */
+  getFinalState() {
+    // 检查是否是相对偏移量模式
+    const isRelative = (this.toX === 0 && this.toY === 0) && 
+                       (this.fromX !== 0 || this.fromY !== 0);
+    
+    if (isRelative) {
+      return {
+        translateX: this.toX,
+        translateY: this.toY,
+      };
+    } else {
+      return {
+        x: this.toX,
+        y: this.toY,
+      };
+    }
+  }
 }
 

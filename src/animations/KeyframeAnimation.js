@@ -85,5 +85,45 @@ export class KeyframeAnimation extends Animation {
 
     return state;
   }
+
+  /**
+   * 获取初始状态（第一个关键帧的值）
+   */
+  getInitialState() {
+    if (this.keyframes.length === 0) return {};
+    
+    const firstKeyframe = this.keyframes[0];
+    const props = firstKeyframe.props || firstKeyframe;
+    const state = {};
+    
+    // 排除 time 属性
+    for (const key of Object.keys(props)) {
+      if (key !== 'time') {
+        state[key] = props[key];
+      }
+    }
+    
+    return state;
+  }
+
+  /**
+   * 获取结束状态（最后一个关键帧的值）
+   */
+  getFinalState() {
+    if (this.keyframes.length === 0) return {};
+    
+    const lastKeyframe = this.keyframes[this.keyframes.length - 1];
+    const props = lastKeyframe.props || lastKeyframe;
+    const state = {};
+    
+    // 排除 time 属性
+    for (const key of Object.keys(props)) {
+      if (key !== 'time') {
+        state[key] = props[key];
+      }
+    }
+    
+    return state;
+  }
 }
 

@@ -328,6 +328,15 @@ export class TextElement extends BaseElement {
     
     // 绘制文本
     if (state.text) {
+      // 如果启用了描边，先绘制描边
+      if (state.stroke && state.strokeWidth > 0) {
+        ctx.strokeStyle = state.strokeColor || '#000000';
+        ctx.lineWidth = state.strokeWidth || 2;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.strokeText(state.text, 0, 0);
+      }
+      // 绘制填充文本
       ctx.fillText(state.text, 0, 0);
     }
     

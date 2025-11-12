@@ -43,13 +43,30 @@ export class MoveAnimation extends Animation {
 
   /**
    * 获取位置状态
+   * 如果 fromX/fromY 和 toX/toY 是相对偏移量（用于滑入滑出），返回 translateX/translateY
+   * 否则返回绝对位置 x/y
    */
   getStateAtTime(time) {
     const progress = this.getEasedProgress(time);
-    return {
-      x: lerp(this.fromX, this.toX, progress),
-      y: lerp(this.fromY, this.toY, progress),
-    };
+    
+    // 检查是否是相对偏移量模式（用于滑入滑出动画）
+    // 如果 toX 和 toY 都是 0，且 fromX 或 fromY 不为 0，则认为是相对偏移量
+    const isRelative = (this.toX === 0 && this.toY === 0) && 
+                       (this.fromX !== 0 || this.fromY !== 0);
+    
+    if (isRelative) {
+      // 相对偏移量模式：返回 translateX/translateY
+      return {
+        translateX: lerp(this.fromX, this.toX, progress),
+        translateY: lerp(this.fromY, this.toY, progress),
+      };
+    } else {
+      // 绝对位置模式：返回 x/y
+      return {
+        x: lerp(this.fromX, this.toX, progress),
+        y: lerp(this.fromY, this.toY, progress),
+      };
+    }
   }
 }
 

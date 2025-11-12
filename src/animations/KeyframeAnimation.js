@@ -42,7 +42,9 @@ export class KeyframeAnimation extends Animation {
     let endKeyframe = this.keyframes[this.keyframes.length - 1];
 
     for (let i = 0; i < this.keyframes.length - 1; i++) {
-      if (normalizedTime >= this.keyframes[i].time && normalizedTime <= this.keyframes[i + 1].time) {
+      const currentTime = this.keyframes[i].time * this.config.duration;
+      const nextTime = this.keyframes[i + 1].time * this.config.duration;
+      if (normalizedTime >= currentTime && normalizedTime <= nextTime) {
         startKeyframe = this.keyframes[i];
         endKeyframe = this.keyframes[i + 1];
         break;
@@ -50,21 +52,34 @@ export class KeyframeAnimation extends Animation {
     }
 
     // 计算区间内的插值进度
-    const segmentDuration = endKeyframe.time - startKeyframe.time;
+    const startTime = startKeyframe.time * this.config.duration;
+    const endTime = endKeyframe.time * this.config.duration;
+    const segmentDuration = endTime - startTime;
     const segmentProgress = segmentDuration > 0 
-      ? (normalizedTime - startKeyframe.time) / segmentDuration 
+      ? (normalizedTime - startTime) / segmentDuration 
       : 0;
 
     // 插值所有属性
     const state = {};
+    
+    // 支持两种格式：
+    // 1. { time: 0, props: { opacity: 0, y: 50 } }
+    // 2. { time: 0, opacity: 0, y: 50 } (直接属性)
+    const startProps = startKeyframe.props || startKeyframe;
+    const endProps = endKeyframe.props || endKeyframe;
+    
+    // 排除 time 属性
     const allProps = new Set([
-      ...Object.keys(startKeyframe.props || {}),
-      ...Object.keys(endKeyframe.props || {}),
+      ...Object.keys(startProps).filter(k => k !== 'time'),
+      ...Object.keys(endProps).filter(k => k !== 'time'),
     ]);
 
     for (const prop of allProps) {
-      const startValue = startKeyframe.props[prop] ?? 0;
-      const endValue = endKeyframe.props[prop] ?? 0;
+      const startValue = startProps[prop] ?? 0;
+      const endValue = endProps[prop] ?? 0;
+      
+      // 对于 x, y 属性，如果是相对值（相对于当前位置），需要特殊处理
+      // 但这里我们直接插值，因为预设动画中的 x, y 通常是相对偏移量
       state[prop] = lerp(startValue, endValue, segmentProgress);
     }
 

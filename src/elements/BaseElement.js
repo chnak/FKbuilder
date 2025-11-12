@@ -293,6 +293,25 @@ export class BaseElement {
       }
     }
 
+    // 处理 translateX 和 translateY（相对偏移量）
+    // 这些属性来自 KeyframeAnimation，表示相对于元素原始位置的偏移
+    if (state.translateX !== undefined) {
+      // translateX 是相对于原始 x 的偏移量
+      const baseX = typeof this.config.x === 'string' 
+        ? toPixels(this.config.x, { width: context.width || 1920, height: context.height || 1080 }, 'x')
+        : (this.config.x || 0);
+      state.x = baseX + (state.translateX || 0);
+      delete state.translateX;
+    }
+    if (state.translateY !== undefined) {
+      // translateY 是相对于原始 y 的偏移量
+      const baseY = typeof this.config.y === 'string'
+        ? toPixels(this.config.y, { width: context.width || 1920, height: context.height || 1080 }, 'y')
+        : (this.config.y || 0);
+      state.y = baseY + (state.translateY || 0);
+      delete state.translateY;
+    }
+
     // 转换单位（x, y, width, height）
     const { width = 1920, height = 1080 } = context;
     const unitContext = { width, height };

@@ -24,13 +24,13 @@ export const PRESET_ANIMATIONS = {
     easing: 'easeInQuad',
   },
   
-  // 从上方滑入
+  // 从上方滑入（使用更大的偏移量，相对于画布高度）
   slideInTop: {
     type: 'move',
     fromX: 0,
-    fromY: -100,
+    fromY: -200, // 从上方 200 像素处滑入
     toX: 0,
-    toY: 0,
+    toY: 0, // 滑到原始位置
     duration: 1,
     delay: 0,
     easing: 'easeOutQuad',
@@ -39,7 +39,7 @@ export const PRESET_ANIMATIONS = {
   slideInBottom: {
     type: 'move',
     fromX: 0,
-    fromY: 100,
+    fromY: 200, // 从下方 200 像素处滑入
     toX: 0,
     toY: 0,
     duration: 1,
@@ -49,7 +49,7 @@ export const PRESET_ANIMATIONS = {
   // 从左侧滑入
   slideInLeft: {
     type: 'move',
-    fromX: -100,
+    fromX: -300, // 从左侧 300 像素处滑入（对于 1920 宽度，这个偏移量更明显）
     fromY: 0,
     toX: 0,
     toY: 0,
@@ -60,7 +60,7 @@ export const PRESET_ANIMATIONS = {
   // 从右侧滑入
   slideInRight: {
     type: 'move',
-    fromX: 100,
+    fromX: 300, // 从右侧 300 像素处滑入
     fromY: 0,
     toX: 0,
     toY: 0,
@@ -75,7 +75,7 @@ export const PRESET_ANIMATIONS = {
     fromX: 0,
     fromY: 0,
     toX: 0,
-    toY: -100,
+    toY: -200, // 向上滑出 200 像素
     duration: 1,
     delay: -1,
     easing: 'easeInQuad',
@@ -85,7 +85,7 @@ export const PRESET_ANIMATIONS = {
     fromX: 0,
     fromY: 0,
     toX: 0,
-    toY: 100,
+    toY: 200, // 向下滑出 200 像素
     duration: 1,
     delay: -1,
     easing: 'easeInQuad',
@@ -94,7 +94,7 @@ export const PRESET_ANIMATIONS = {
     type: 'move',
     fromX: 0,
     fromY: 0,
-    toX: -100,
+    toX: -300, // 向左滑出 300 像素
     toY: 0,
     duration: 1,
     delay: -1,
@@ -104,7 +104,7 @@ export const PRESET_ANIMATIONS = {
     type: 'move',
     fromX: 0,
     fromY: 0,
-    toX: 100,
+    toX: 300, // 向右滑出 300 像素
     toY: 0,
     duration: 1,
     delay: -1,
@@ -147,12 +147,13 @@ export const PRESET_ANIMATIONS = {
     easing: 'easeInQuad',
   },
   
-  // 组合动画
+  // 组合动画（使用 MoveAnimation + FadeAnimation 的组合，而不是 KeyframeAnimation）
+  // 因为 KeyframeAnimation 中的 y 会直接覆盖元素的 y，而不是作为偏移量
   fadeInUp: {
     type: 'keyframe',
     keyframes: [
-      { time: 0, opacity: 0, y: 50 },
-      { time: 1, opacity: 1, y: 0 },
+      { time: 0, opacity: 0, translateY: 50 },
+      { time: 1, opacity: 1, translateY: 0 },
     ],
     duration: 1,
     delay: 0,
@@ -161,8 +162,8 @@ export const PRESET_ANIMATIONS = {
   fadeInDown: {
     type: 'keyframe',
     keyframes: [
-      { time: 0, opacity: 0, y: -50 },
-      { time: 1, opacity: 1, y: 0 },
+      { time: 0, opacity: 0, translateY: -50 },
+      { time: 1, opacity: 1, translateY: 0 },
     ],
     duration: 1,
     delay: 0,
@@ -171,8 +172,8 @@ export const PRESET_ANIMATIONS = {
   fadeOutUp: {
     type: 'keyframe',
     keyframes: [
-      { time: 0, opacity: 1, y: 0 },
-      { time: 1, opacity: 0, y: -50 },
+      { time: 0, opacity: 1, translateY: 0 },
+      { time: 1, opacity: 0, translateY: -50 },
     ],
     duration: 1,
     delay: -1,
@@ -181,8 +182,8 @@ export const PRESET_ANIMATIONS = {
   fadeOutDown: {
     type: 'keyframe',
     keyframes: [
-      { time: 0, opacity: 1, y: 0 },
-      { time: 1, opacity: 0, y: 50 },
+      { time: 0, opacity: 1, translateY: 0 },
+      { time: 1, opacity: 0, translateY: 50 },
     ],
     duration: 1,
     delay: -1,

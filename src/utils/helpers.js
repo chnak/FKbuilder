@@ -1,24 +1,39 @@
+// 导入完整的缓动函数库
+import * as easingsLib from './easings.js';
+
 /**
- * 缓动函数集合
+ * 缓动函数集合（向后兼容的简化版本）
+ * 完整的缓动函数在 easings.js 中
  */
 export const easingFunctions = {
-  linear: (t) => t,
-  'ease-in': (t) => t * t,
-  'ease-out': (t) => t * (2 - t),
-  'ease-in-out': (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t),
-  'ease-in-quad': (t) => t * t,
-  'ease-out-quad': (t) => t * (2 - t),
-  'ease-in-out-quad': (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t),
-  'ease-in-cubic': (t) => t * t * t,
-  'ease-out-cubic': (t) => (--t) * t * t + 1,
-  'ease-in-out-cubic': (t) => (t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1),
+  linear: easingsLib.linear,
+  'ease-in': easingsLib.easeInQuad,
+  'ease-out': easingsLib.easeOutQuad,
+  'ease-in-out': easingsLib.easeInOutQuad,
+  'ease-in-quad': easingsLib.easeInQuad,
+  'ease-out-quad': easingsLib.easeOutQuad,
+  'ease-in-out-quad': easingsLib.easeInOutQuad,
+  'ease-in-cubic': easingsLib.easeInCubic,
+  'ease-out-cubic': easingsLib.easeOutCubic,
+  'ease-in-out-cubic': easingsLib.easeInOutCubic,
+  // 添加更多缓动函数
+  'ease-out-back': easingsLib.easeOutBack,
+  'ease-in-back': easingsLib.easeInBack,
+  'ease-out-bounce': easingsLib.easeOutBounce,
+  'ease-in-bounce': easingsLib.easeInBounce,
 };
 
 /**
  * 应用缓动函数
+ * 支持多种命名格式（驼峰、连字符等）
  */
 export function applyEasing(t, easingType = 'linear') {
-  const easing = easingFunctions[easingType] || easingFunctions.linear;
+  if (!easingType) {
+    return easingsLib.linear(Math.max(0, Math.min(1, t)));
+  }
+  
+  // 尝试从 easingMap 获取（支持多种格式）
+  const easing = easingsLib.getEasingFunction(easingType);
   return easing(Math.max(0, Math.min(1, t)));
 }
 

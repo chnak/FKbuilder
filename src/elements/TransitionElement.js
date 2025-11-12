@@ -135,6 +135,10 @@ export class TransitionElement extends BaseElement {
       return;
     }
 
+    let fromCanvas = null;
+    let toCanvas = null;
+    let transitionCanvas = null;
+
     try {
       // 记录转场渲染开始时间
       const renderStartTime = performance.now();
@@ -144,11 +148,11 @@ export class TransitionElement extends BaseElement {
       const toTime = Math.max(0, time - (this.startTime + this.duration / 2));
 
       // 创建临时 Canvas 来渲染两个场景
-      const fromCanvas = createCanvas(width, height);
+      fromCanvas = createCanvas(width, height);
       const fromCtx = fromCanvas.getContext('2d');
       await this.renderComposition(fromCtx, this.fromComposition, fromTime, 1);
 
-      const toCanvas = createCanvas(width, height);
+      toCanvas = createCanvas(width, height);
       const toCtx = toCanvas.getContext('2d');
       await this.renderComposition(toCtx, this.toComposition, toTime, 1);
 
@@ -164,7 +168,7 @@ export class TransitionElement extends BaseElement {
       });
 
       // 转换回 Canvas 并绘制
-      const transitionCanvas = this.bufferToCanvas(transitionBuffer, width, height);
+      transitionCanvas = this.bufferToCanvas(transitionBuffer, width, height);
       ctx.drawImage(transitionCanvas, 0, 0);
 
       // 记录转场渲染结束时间并累计
@@ -173,12 +177,43 @@ export class TransitionElement extends BaseElement {
       TransitionElement.totalTransitionTime += renderTime;
       TransitionElement.transitionRenderCount += 1;
     } catch (error) {
-      console.warn('转场渲染失败，使用简单切换:', error);
+      console.error('转场渲染失败，使用简单切换:', error);
+      console.error('错误堆栈:', error.stack);
       // 降级到简单切换
-      if (progress < 0.5) {
-        await this.renderComposition(ctx, this.fromComposition, time, 1 - progress * 2);
-      } else {
-        await this.renderComposition(ctx, this.toComposition, time, (progress - 0.5) * 2);
+      try {
+        if (progress < 0.5) {
+          await this.renderComposition(ctx, this.fromComposition, time, 1 - progress * 2);
+        } else {
+          await this.renderComposition(ctx, this.toComposition, time, (progress - 0.5) * 2);
+        }
+      } catch (fallbackError) {
+        console.error('降级渲染也失败:', fallbackError);
+        console.error('降级错误堆栈:', fallbackError.stack);
+      }
+    } finally {
+      // 清理临时 Canvas（如果 Node.js Canvas 支持的话）
+      // 注意：node-canvas 的 Canvas 对象没有 dispose 方法，但我们可以尝试设置为 null
+      if (fromCanvas) {
+        try {
+          // 尝试清理
+          fromCanvas = null;
+        } catch (e) {
+          // 忽略清理错误
+        }
+      }
+      if (toCanvas) {
+        try {
+          toCanvas = null;
+        } catch (e) {
+          // 忽略清理错误
+        }
+      }
+      if (transitionCanvas) {
+        try {
+          transitionCanvas = null;
+        } catch (e) {
+          // 忽略清理错误
+        }
       }
     }
   }

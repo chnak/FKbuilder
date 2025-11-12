@@ -63,21 +63,27 @@ export class VideoExporter {
         console.log(`开始渲染 ${totalFrames} 帧...`);
 
       for (let frame = 0; frame < totalFrames; frame++) {
-        const time = startTime + frame / fps;
-        const frameNumber = frame + 1;
+        try {
+          const time = startTime + frame / fps;
+          const frameNumber = frame + 1;
 
-        // 渲染帧（传入背景色）
-        await this.renderer.renderFrame(composition.timeline.getLayers(), time, composition.backgroundColor);
+          // 渲染帧（传入背景色）
+          await this.renderer.renderFrame(composition.timeline.getLayers(), time, composition.backgroundColor);
 
-        // 保存帧
-        const framePath = path.join(tempDir, `frame_${frameNumber.toString().padStart(4, '0')}.png`);
-        const buffer = this.renderer.getCanvasBuffer();
-        await fs.writeFile(framePath, buffer);
+          // 保存帧
+          const framePath = path.join(tempDir, `frame_${frameNumber.toString().padStart(4, '0')}.png`);
+          const buffer = this.renderer.getCanvasBuffer();
+          await fs.writeFile(framePath, buffer);
 
-        // 显示进度
-        if (frame % 30 === 0 || frame === totalFrames - 1) {
-          const progress = ((frame + 1) / totalFrames * 100).toFixed(1);
-          console.log(`渲染进度: ${progress}% (${frame + 1}/${totalFrames})`);
+          // 显示进度
+          if (frame % 30 === 0 || frame === totalFrames - 1) {
+            const progress = ((frame + 1) / totalFrames * 100).toFixed(1);
+            console.log(`渲染进度: ${progress}% (${frame + 1}/${totalFrames})`);
+          }
+        } catch (error) {
+          console.error(`渲染第 ${frame + 1} 帧时出错:`, error);
+          console.error('错误堆栈:', error.stack);
+          throw error; // 重新抛出错误，让外层捕获
         }
       }
 
@@ -117,6 +123,8 @@ export class VideoExporter {
       console.log(`视频导出完成: ${outputPath}`);
       return outputPath;
     } catch (error) {
+      console.error('视频导出失败:', error);
+      console.error('错误堆栈:', error.stack);
       // 清理临时文件
       await fs.remove(tempDir).catch(() => {});
       throw error;

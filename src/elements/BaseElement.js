@@ -2,6 +2,45 @@ import { generateId } from '../utils/helpers.js';
 import { DEFAULT_ELEMENT_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { toPixels } from '../utils/unit-converter.js';
+import { FadeAnimation } from '../animations/FadeAnimation.js';
+import { MoveAnimation } from '../animations/MoveAnimation.js';
+import { TransformAnimation } from '../animations/TransformAnimation.js';
+import { KeyframeAnimation } from '../animations/KeyframeAnimation.js';
+import { AnimationType } from '../types/enums.js';
+
+/**
+ * 根据动画配置创建动画实例
+ */
+function createAnimationFromConfig(animConfig) {
+  // 如果已经是动画实例，直接返回
+  if (animConfig && typeof animConfig.getStateAtTime === 'function') {
+    return animConfig;
+  }
+
+  // 从配置对象创建动画
+  const type = animConfig.type || animConfig.animationType;
+  const config = { ...animConfig };
+  delete config.type;
+  delete config.animationType;
+
+  switch (type) {
+    case AnimationType.FADE:
+    case 'fade':
+      return new FadeAnimation(config);
+    case AnimationType.MOVE:
+    case 'move':
+      return new MoveAnimation(config);
+    case AnimationType.TRANSFORM:
+    case 'transform':
+      return new TransformAnimation(config);
+    case AnimationType.KEYFRAME:
+    case 'keyframe':
+      return new KeyframeAnimation(config);
+    default:
+      // 默认使用 FadeAnimation
+      return new FadeAnimation(config);
+  }
+}
 
 /**
  * 元素基类
@@ -10,6 +49,11 @@ export class BaseElement {
   constructor(config = {}) {
     this.id = generateId('element');
     this.type = 'base';
+    
+    // 提取 animations 配置（在 deepMerge 之前）
+    const animationsConfig = config.animations || [];
+    delete config.animations; // 从 config 中移除，避免被合并到 this.config
+    
     this.config = deepMerge({}, DEFAULT_ELEMENT_CONFIG, config);
     this.animations = [];
     this.parent = null;
@@ -24,6 +68,16 @@ export class BaseElement {
     // 如果指定了duration但没有endTime，自动计算endTime
     if (this.duration !== undefined && this.endTime === Infinity) {
       this.endTime = this.startTime + this.duration;
+    }
+
+    // 从配置中添加动画
+    if (Array.isArray(animationsConfig)) {
+      for (const animConfig of animationsConfig) {
+        if (animConfig) {
+          const animation = createAnimationFromConfig(animConfig);
+          this.addAnimation(animation);
+        }
+      }
     }
   }
 
@@ -172,9 +226,20 @@ export class BaseElement {
     let state = { ...this.config };
 
     // 应用所有动画
+    // 注意：动画的 startTime 是相对于元素自己的 startTime 的
+    // 所以需要将全局时间转换为相对于元素的时间
     for (const animation of this.animations) {
-      if (animation.isActiveAtTime(time)) {
-        const animationState = animation.getStateAtTime(time);
+      // 动画的绝对开始时间 = 元素的开始时间 + 动画的相对开始时间
+      const animationAbsoluteStartTime = this.startTime + animation.startTime;
+      const animationAbsoluteEndTime = animationAbsoluteStartTime + animation.config.duration;
+      
+      // 检查动画是否在激活状态（使用绝对时间）
+      if (time >= animationAbsoluteStartTime && time <= animationAbsoluteEndTime) {
+        // 计算相对于动画开始的时间（从0开始）
+        const animationRelativeTime = time - animationAbsoluteStartTime;
+        // 使用动画的 startTime + 相对时间来计算状态
+        // 这样 getStateAtTime 会正确计算进度
+        const animationState = animation.getStateAtTime(animation.startTime + animationRelativeTime);
         state = { ...state, ...animationState };
       }
     }

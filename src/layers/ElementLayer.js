@@ -30,13 +30,25 @@ export class ElementLayer extends BaseLayer {
   async renderToCanvas(ctx, time) {
     if (!this.isActiveAtTime(time)) return;
 
-    // 先预渲染所有嵌套合成
+    // 先预渲染所有嵌套合成和字幕元素
     for (const element of this.elements) {
-      if (element.visible && element.type === 'composition' && typeof element.preRender === 'function') {
-        try {
-          await element.preRender(time);
-        } catch (error) {
-          console.warn('预渲染嵌套合成失败:', error);
+      if (element.visible) {
+        // 预渲染嵌套合成
+        if (element.type === 'composition' && typeof element.preRender === 'function') {
+          try {
+            await element.preRender(time);
+          } catch (error) {
+            console.warn('预渲染嵌套合成失败:', error);
+          }
+        }
+        // 初始化字幕元素（如果需要）
+        if (element.type === 'text' && element.constructor.name === 'SubtitleElement' && !element.initialized) {
+          try {
+            const canvas = ctx.canvas;
+            await element.initialize({ width: canvas.width, height: canvas.height });
+          } catch (error) {
+            console.warn('初始化字幕元素失败:', error);
+          }
         }
       }
     }

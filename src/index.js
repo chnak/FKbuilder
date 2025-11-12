@@ -20,6 +20,7 @@ export { OverlayLayer } from './layers/OverlayLayer.js';
 // 元素类
 export { BaseElement } from './elements/BaseElement.js';
 export { TextElement } from './elements/TextElement.js';
+export { SubtitleElement } from './elements/SubtitleElement.js';
 export { ImageElement } from './elements/ImageElement.js';
 export { RectElement } from './elements/RectElement.js';
 export { CircleElement } from './elements/CircleElement.js';
@@ -45,6 +46,7 @@ export * from './types/constants.js';
 export * from './utils/helpers.js';
 export * from './utils/validator.js';
 export * from './utils/unit-converter.js';
+export { parseSubtitles, calculateMixedTextCapacity, calculateSpeechTimeMixed } from './utils/subtitle-utils.js';
 
 // 构建器类（高级API）
 export { VideoBuilder } from './builder/VideoBuilder.js';

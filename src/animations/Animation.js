@@ -11,7 +11,8 @@ export class Animation {
     this.type = 'base';
     this.config = deepMerge({}, DEFAULT_ANIMATION_CONFIG, config);
     this.target = null; // 目标元素
-    this.startTime = this.config.delay || 0;
+    // startTime 优先使用 config.startTime，如果没有则使用 delay
+    this.startTime = config.startTime !== undefined ? config.startTime : (this.config.delay || 0);
     this.endTime = this.startTime + this.config.duration;
     this.iterations = this.config.iterations || 1;
     this.currentIteration = 0;

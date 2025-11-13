@@ -69,6 +69,14 @@ export class TextElement extends BaseElement {
     // 获取分割后的片段
     const segments = this.splitter.getTextSegments(this.split);
     
+    // 调试：检查 segments 的位置
+    if (segments.length > 0) {
+      console.log(`[TextElement] 分割文本 "${this.config.text}"，片段数: ${segments.length}`);
+      for (let i = 0; i < Math.min(3, segments.length); i++) {
+        console.log(`  片段 ${i}: text="${segments[i].text}", x=${segments[i].x}, y=${segments[i].y}, width=${segments[i].width}`);
+      }
+    }
+    
     // 计算文本总宽度和高度（用于对齐）
     const totalWidth = this.splitter.getTotalWidth();
     const totalHeight = this.splitter.getTotalHeight();
@@ -94,6 +102,7 @@ export class TextElement extends BaseElement {
         ...this.config,
         text: segment.text,
         // 子元素的位置偏移（相对于父元素位置）
+        // 注意：这些值必须在 ...this.config 之后设置，确保不被覆盖
         segmentOffsetX: segment.x,
         segmentOffsetY: segment.y,
         // 保存父元素的位置和对齐信息，用于动态计算
@@ -115,7 +124,8 @@ export class TextElement extends BaseElement {
         // 子元素的文本对齐方式改为 left（因为位置已经计算好了）
         textAlign: 'left',
         // 分割文本初始透明度为 0，动画开始时才设置为 1
-        opacity: 0,
+        // 注意：不要在这里设置 opacity: 0，因为这会覆盖动画的初始状态
+        // opacity 应该由动画来控制
         // 继承父元素的动画配置，但会应用到每个片段
         // 注意：动画的 startTime 是相对于子元素的 startTime 的，所以不需要调整
         // 使用 originalAnimations（原始配置数组），而不是动画实例
@@ -135,16 +145,23 @@ export class TextElement extends BaseElement {
             if (anim.to !== undefined) animConfig.to = anim.to;
             return animConfig;
           } else {
-            // 这是配置对象，直接深拷贝（只拷贝基本类型）
+            // 这是配置对象，直接深拷贝（只拷贝基本类型和数组）
+            // 注意：需要确保所有属性都被正确拷贝，包括 duration, delay 等
             const animConfig = {};
             for (const key in anim) {
-              if (anim.hasOwnProperty(key) && typeof anim[key] !== 'object') {
-                animConfig[key] = anim[key];
-              } else if (anim.hasOwnProperty(key) && Array.isArray(anim[key])) {
-                animConfig[key] = [...anim[key]];
-              } else if (anim.hasOwnProperty(key) && anim[key] !== null && typeof anim[key] === 'object' && !anim[key].target) {
-                // 只拷贝非循环引用的对象
-                animConfig[key] = { ...anim[key] };
+              if (anim.hasOwnProperty(key)) {
+                const value = anim[key];
+                // 拷贝基本类型（number, string, boolean, null, undefined）
+                if (value === null || value === undefined || 
+                    typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') {
+                  animConfig[key] = value;
+                } else if (Array.isArray(value)) {
+                  // 拷贝数组
+                  animConfig[key] = [...value];
+                } else if (typeof value === 'object' && !value.target) {
+                  // 只拷贝非循环引用的对象（避免拷贝 target 等循环引用）
+                  animConfig[key] = { ...value };
+                }
               }
             }
             return animConfig;
@@ -152,21 +169,63 @@ export class TextElement extends BaseElement {
         }) : [],
       };
       
+      // 调试：检查 segmentConfig
+      if (index < 2) {
+        console.log(`[TextElement] 创建子元素 ${index}: text="${segmentConfig.text}", segmentOffsetX=${segmentConfig.segmentOffsetX}, segmentOffsetY=${segmentConfig.segmentOffsetY}`);
+      }
+      
       // 创建子 TextElement
       const segmentElement = new TextElement(segmentConfig);
       segmentElement.parentElement = this; // 标记父元素
       segmentElement.segmentIndex = index; // 标记片段索引
       segmentElement.isSegment = true; // 标记这是分割后的片段
       
+      // 调试：检查创建后的子元素配置
+      if (index < 2) {
+        console.log(`[TextElement] 子元素 ${index} 创建后: segmentOffsetX=${segmentElement.config.segmentOffsetX}, segmentOffsetY=${segmentElement.config.segmentOffsetY}`);
+      }
+      
       // 分割文本初始透明度为 0，动画开始时才设置为 1
       // 检查是否有淡入动画（fadeIn），如果没有则添加一个默认的淡入动画
-      const hasFadeInAnimation = segmentElement.animations && segmentElement.animations.some(anim => {
-        if (anim && typeof anim.getStateAtTime === 'function') {
-          // 这是动画实例
-          return anim.type === 'fade' || (anim.property === 'opacity' && anim.fromOpacity === 0);
+      // 检查原始动画配置和已创建的动画实例
+      const hasFadeInAnimation = (() => {
+        // 检查已创建的动画实例
+        if (segmentElement.animations && segmentElement.animations.length > 0) {
+          const hasFadeIn = segmentElement.animations.some(anim => {
+            if (anim && typeof anim.getStateAtTime === 'function') {
+              // 这是动画实例
+              return anim.type === 'fade' && anim.fromOpacity === 0;
+            }
+            return false;
+          });
+          if (hasFadeIn) return true;
         }
+        
+        // 检查原始动画配置
+        if (this.originalAnimations && Array.isArray(this.originalAnimations)) {
+          const hasFadeInConfig = this.originalAnimations.some(anim => {
+            if (anim && typeof anim === 'object') {
+              // 检查配置对象
+              const animType = anim.type || anim.animationType;
+              // 检查是否是淡入动画：type 为 'fade' 或 'fadeIn'，或者 fromOpacity 为 0
+              if (animType === 'fade' || animType === 'fadeIn') {
+                // 如果是 fade 类型，检查 fromOpacity 是否为 0 或未定义（默认从 0 开始）
+                if (anim.fromOpacity === 0 || anim.fromOpacity === undefined || anim.from === 0) {
+                  return true;
+                }
+              }
+              // 直接检查 fromOpacity 或 from 是否为 0
+              if (anim.fromOpacity === 0 || anim.from === 0) {
+                return true;
+              }
+            }
+            return false;
+          });
+          if (hasFadeInConfig) return true;
+        }
+        
         return false;
-      });
+      })();
       
       // 如果没有淡入动画，添加一个默认的淡入动画（从 0 到 1）
       if (!hasFadeInAnimation) {
@@ -269,17 +328,8 @@ export class TextElement extends BaseElement {
       fontSize = 24; // 默认字体大小
     }
 
-    // 转换位置单位
-    let x = state.x;
-    let y = state.y;
-    if (typeof x === 'string') {
-      x = toPixels(x, context.width, 'x');
-    }
-    if (typeof y === 'string') {
-      y = toPixels(y, context.height, 'y');
-    }
-
-    // 处理分割后的片段位置计算
+    // 处理分割后的片段位置计算（需要在转换单位之前处理）
+    let x, y;
     if (this.isSegment && this.config.segmentOffsetX !== undefined) {
       // 这是分割后的片段，需要计算最终位置
       const parentX = this.config.parentX || 0;
@@ -323,8 +373,25 @@ export class TextElement extends BaseElement {
       }
       
       // 最终位置 = 基准位置 + 片段偏移
-      x = baseX + (this.config.segmentOffsetX || 0);
-      y = baseY + (this.config.segmentOffsetY || 0);
+      const offsetX = this.config.segmentOffsetX !== undefined ? this.config.segmentOffsetX : 0;
+      const offsetY = this.config.segmentOffsetY !== undefined ? this.config.segmentOffsetY : 0;
+      x = baseX + offsetX;
+      y = baseY + offsetY;
+      
+      // 调试：检查位置计算
+      if (this.segmentIndex !== undefined && this.segmentIndex < 2) {
+        console.log(`[TextElement] 渲染子元素 ${this.segmentIndex}: baseX=${baseX}, offsetX=${offsetX}, finalX=${x}, baseY=${baseY}, offsetY=${offsetY}, finalY=${y}`);
+      }
+    } else {
+      // 普通元素，转换位置单位
+      x = state.x;
+      y = state.y;
+      if (typeof x === 'string') {
+        x = toPixels(x, context.width, 'x');
+      }
+      if (typeof y === 'string') {
+        y = toPixels(y, context.height, 'y');
+      }
     }
 
     // 构建字体字符串

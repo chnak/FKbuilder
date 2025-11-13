@@ -26,6 +26,7 @@ export const ElementType = {
   COMPOSITION: 'composition',
   TRANSITION: 'transition',
   AUDIO: 'audio',
+  OSCILLOSCOPE: 'oscilloscope',
 };
 
 /**

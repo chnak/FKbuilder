@@ -27,6 +27,7 @@ export { RectElement } from './elements/RectElement.js';
 export { CircleElement } from './elements/CircleElement.js';
 export { SpriteElement } from './elements/SpriteElement.js';
 export { CompositionElement } from './elements/CompositionElement.js';
+export { OscilloscopeElement } from './elements/OscilloscopeElement.js';
 
 // 动画类
 export { Animation } from './animations/Animation.js';
@@ -49,6 +50,7 @@ export * from './utils/helpers.js';
 export * from './utils/validator.js';
 export * from './utils/unit-converter.js';
 export { parseSubtitles, calculateMixedTextCapacity, calculateSpeechTimeMixed } from './utils/subtitle-utils.js';
+export { getAudioDuration } from './utils/audio-utils.js';
 
 // 构建器类（高级API）
 export { VideoBuilder } from './builder/VideoBuilder.js';

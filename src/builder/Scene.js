@@ -7,6 +7,7 @@ import { RectElement } from '../elements/RectElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
 import { AudioElement } from '../elements/AudioElement.js';
 import { SubtitleElement } from '../elements/SubtitleElement.js';
+import { OscilloscopeElement } from '../elements/OscilloscopeElement.js';
 import { LRCSubtitleBuilder } from '../utils/lrcSubtitleBuilder.js';
 
 /**
@@ -148,6 +149,24 @@ export class Scene {
     this.elements.push({
       type: 'audio',
       element: audioElement,
+    });
+    return this;
+  }
+
+  /**
+   * 添加示波器元素
+   * @param {Object} config - 示波器配置 { audioPath, waveColor, style, width, height, ... }
+   * @returns {Promise<Scene>} 返回自身以支持链式调用
+   */
+  async addOscilloscope(config = {}) {
+    const oscilloscopeElement = new OscilloscopeElement(config);
+    // 异步加载音频数据
+    await oscilloscopeElement.load().catch(err => {
+      console.warn('示波器音频加载失败:', config.audioPath || config.src, err);
+    });
+    this.elements.push({
+      type: 'oscilloscope',
+      element: oscilloscopeElement,
     });
     return this;
   }

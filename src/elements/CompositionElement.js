@@ -172,6 +172,14 @@ export class CompositionElement extends BaseElement {
           console.warn('音频加载失败:', elementConfig.src || elementConfig.audioPath, err);
         });
         return audioElement;
+      case 'oscilloscope':
+        const { OscilloscopeElement } = await import('./OscilloscopeElement.js');
+        const oscilloscopeElement = new OscilloscopeElement(elementConfig);
+        // 异步加载音频数据
+        oscilloscopeElement.load().catch(err => {
+          console.warn('示波器音频加载失败:', elementConfig.audioPath || elementConfig.src, err);
+        });
+        return oscilloscopeElement;
       default:
         console.warn(`未知的元素类型: ${elementType}`);
         return null;

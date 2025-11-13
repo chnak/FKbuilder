@@ -54,18 +54,46 @@ export class BackgroundLayer extends BaseLayer {
 
     // 渲染背景元素
     if (this.backgroundElement) {
-      const result = this.backgroundElement.render(layer, time);
-      if (result && typeof result.then === 'function') {
-        await result;
+      try {
+        // 在渲染之前先初始化元素（如果还未初始化）
+        if (typeof this.backgroundElement.isInitialized === 'function' && !this.backgroundElement.isInitialized()) {
+          if (typeof this.backgroundElement.initialize === 'function') {
+            const initResult = this.backgroundElement.initialize();
+            if (initResult && typeof initResult.then === 'function') {
+              await initResult;
+            }
+          }
+        }
+        
+        const result = this.backgroundElement.render(layer, time);
+        if (result && typeof result.then === 'function') {
+          await result;
+        }
+      } catch (error) {
+        console.error(`渲染背景元素失败:`, error);
       }
     }
 
     // 渲染其他元素
     for (const element of this.elements) {
       if (element !== this.backgroundElement && element.visible) {
-        const result = element.render(layer, time);
-        if (result && typeof result.then === 'function') {
-          await result;
+        try {
+          // 在渲染之前先初始化元素（如果还未初始化）
+          if (typeof element.isInitialized === 'function' && !element.isInitialized()) {
+            if (typeof element.initialize === 'function') {
+              const initResult = element.initialize();
+              if (initResult && typeof initResult.then === 'function') {
+                await initResult;
+              }
+            }
+          }
+          
+          const result = element.render(layer, time);
+          if (result && typeof result.then === 'function') {
+            await result;
+          }
+        } catch (error) {
+          console.error(`渲染元素失败 (${element.type || 'unknown'}, id: ${element.id}):`, error);
         }
       }
     }

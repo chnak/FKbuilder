@@ -27,11 +27,25 @@ export class OverlayLayer extends BaseLayer {
     // 渲染所有元素（可以应用混合模式）
     for (const element of this.elements) {
       if (element.visible) {
-        // Paper.js 的混合模式可以通过 blendMode 属性设置
-        // 这里先渲染元素，混合模式可以在元素配置中设置
-        const result = element.render(layer, time);
-        if (result && typeof result.then === 'function') {
-          await result;
+        try {
+          // 在渲染之前先初始化元素（如果还未初始化）
+          if (typeof element.isInitialized === 'function' && !element.isInitialized()) {
+            if (typeof element.initialize === 'function') {
+              const initResult = element.initialize();
+              if (initResult && typeof initResult.then === 'function') {
+                await initResult;
+              }
+            }
+          }
+          
+          // Paper.js 的混合模式可以通过 blendMode 属性设置
+          // 这里先渲染元素，混合模式可以在元素配置中设置
+          const result = element.render(layer, time);
+          if (result && typeof result.then === 'function') {
+            await result;
+          }
+        } catch (error) {
+          console.error(`渲染元素失败 (${element.type || 'unknown'}, id: ${element.id}):`, error);
         }
       }
     }

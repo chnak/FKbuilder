@@ -27,20 +27,30 @@ export class ElementLayer extends BaseLayer {
     for (const element of sortedElements) {
       // 检查元素是否在指定时间激活（使用相对时间）
       if (element.visible && element.isActiveAtTime && element.isActiveAtTime(time)) {
-        // 使用 Paper.js 渲染
-        if (typeof element.render === 'function') {
-          try {
+        try {
+          // 在渲染之前先初始化元素（如果还未初始化）
+          if (typeof element.isInitialized === 'function' && !element.isInitialized()) {
+            if (typeof element.initialize === 'function') {
+              const initResult = element.initialize();
+              if (initResult && typeof initResult.then === 'function') {
+                await initResult;
+              }
+            }
+          }
+          
+          // 使用 Paper.js 渲染
+          if (typeof element.render === 'function') {
             // 支持异步渲染（如 CompositionElement）
             const result = element.render(layer, time);
             if (result && typeof result.then === 'function') {
               await result;
             }
-          } catch (error) {
-            console.error(`渲染元素失败 (${element.type || 'unknown'}, id: ${element.id}):`, error);
-            console.error('错误堆栈:', error.stack);
+          } else {
+            console.warn(`元素 ${element.type || 'unknown'} 没有 render 方法`);
           }
-        } else {
-          console.warn(`元素 ${element.type || 'unknown'} 没有 render 方法`);
+        } catch (error) {
+          console.error(`渲染元素失败 (${element.type || 'unknown'}, id: ${element.id}):`, error);
+          console.error('错误堆栈:', error.stack);
         }
       }
     }

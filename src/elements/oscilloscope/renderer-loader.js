@@ -73,10 +73,25 @@ export function getRegisteredStyles() {
 
 // 自动加载渲染器（延迟加载，避免循环依赖）
 let loadPromise = null;
+let renderersLoaded = false;
+
 export function ensureRenderersLoaded() {
+  if (renderersLoaded) {
+    return Promise.resolve();
+  }
   if (!loadPromise) {
-    loadPromise = loadRenderers();
+    loadPromise = loadRenderers().then(() => {
+      renderersLoaded = true;
+    });
   }
   return loadPromise;
+}
+
+// 在模块加载时预加载渲染器（非阻塞）
+if (typeof window === 'undefined') {
+  // Node.js 环境：立即开始加载
+  ensureRenderersLoaded().catch(err => {
+    console.warn('[OscilloscopeRenderer] 预加载渲染器失败:', err.message);
+  });
 }
 

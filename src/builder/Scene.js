@@ -156,14 +156,12 @@ export class Scene {
   /**
    * 添加示波器元素
    * @param {Object} config - 示波器配置 { audioPath, waveColor, style, width, height, ... }
-   * @returns {Promise<Scene>} 返回自身以支持链式调用
+   * @returns {Scene} 返回自身以支持链式调用
    */
-  async addOscilloscope(config = {}) {
+  addOscilloscope(config = {}) {
     const oscilloscopeElement = new OscilloscopeElement(config);
-    // 异步加载音频数据
-    await oscilloscopeElement.load().catch(err => {
-      console.warn('示波器音频加载失败:', config.audioPath || config.src, err);
-    });
+    // 初始化会在渲染时自动调用，不需要在这里手动加载
+    // 这样可以支持链式调用，同时确保在渲染前数据已准备好
     this.elements.push({
       type: 'oscilloscope',
       element: oscilloscopeElement,

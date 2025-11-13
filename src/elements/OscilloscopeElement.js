@@ -9,6 +9,11 @@ import { execa } from 'execa';
 import paper from 'paper-jsdom-canvas';
 import { ensureRenderersLoaded, getRenderer } from './oscilloscope/renderer-loader.js';
 
+// 在模块加载时预加载渲染器（非阻塞）
+ensureRenderersLoaded().catch(err => {
+  console.warn('[OscilloscopeElement] 预加载渲染器失败:', err.message);
+});
+
 /**
  * 示波器元素 - 可视化音频波形
  */
@@ -29,7 +34,7 @@ export class OscilloscopeElement extends BaseElement {
     this.lineWidth = config.lineWidth || 2; // 线条宽度
     this.smoothing = config.smoothing !== undefined ? config.smoothing : 0.3; // 平滑度 (0-1)
     this.mirror = config.mirror !== undefined ? config.mirror : true; // 是否镜像显示
-    this.style = config.style || 'line'; // 样式: 'line', 'bars', 'circle', 'spectrum', 'particles', 'waterfall', 'spiral', 'ripple', 'grid', 'explosion'
+    this.style = config.style || 'line'; // 样式: 'line', 'bars', 'circle', 'spectrum', 'particles', 'waterfall', 'spiral', 'ripple', 'grid', 'explosion', 'blob', 'rotating3d', 'trail', 'weave', 'lightwave', 'particleflow'
     this.barWidth = config.barWidth || 2; // 柱状图宽度（当 style 为 'bars' 时）
     this.barGap = config.barGap || 1; // 柱状图间距
     this.sensitivity = config.sensitivity !== undefined ? config.sensitivity : 1.0; // 灵敏度
@@ -70,6 +75,29 @@ export class OscilloscopeElement extends BaseElement {
     // Blob 球体碰撞样式配置
     this.blobBallCount = config.blobBallCount || 12; // Blob 球体数量（默认12个）
     
+    // 3D旋转样式配置
+    this.rotationSpeed = config.rotationSpeed || 1.0; // 旋转速度
+    
+    // 轨迹追踪样式配置
+    this.trailParticleCount = config.trailParticleCount || 20; // 轨迹粒子数量
+    this.trailLength = config.trailLength || 50; // 轨迹长度
+    this.trailSpeed = config.trailSpeed || 1.0; // 轨迹移动速度
+    
+    // 波形编织样式配置
+    this.weaveLayers = config.weaveLayers || 5; // 编织层数
+    this.weaveLayerSpacing = config.weaveLayerSpacing || 30; // 层间距
+    this.weaveSpeed = config.weaveSpeed || 0.5; // 编织动画速度
+    
+    // 光波扩散样式配置
+    this.lightwaveCount = config.lightwaveCount || 8; // 光波数量
+    this.lightwaveSpeed = config.lightwaveSpeed || 2.0; // 光波速度
+    this.lightwaveSegments = config.lightwaveSegments || 64; // 光波分段数
+    
+    // 粒子流样式配置
+    this.flowParticleCount = config.flowParticleCount || 100; // 粒子流粒子数量
+    this.flowSpeed = config.flowSpeed || 1.0; // 粒子流速度
+    this.showWaveform = config.showWaveform !== undefined ? config.showWaveform : true; // 是否显示基础波形
+    
     // 音频数据
     this.audioData = null; // 解析后的音频波形数据
     this.sampleRate = 44100; // 采样率
@@ -83,12 +111,63 @@ export class OscilloscopeElement extends BaseElement {
     // 显示窗口配置
     this.windowSize = config.windowSize || 0.1; // 显示窗口大小（秒），0 表示显示全部
     this.scrollSpeed = config.scrollSpeed || 1.0; // 滚动速度
+    
+    // 初始化状态
+    this._initialized = false;
+  }
+  
+  /**
+   * 初始化元素（加载音频数据）
+   * @returns {Promise<void>}
+   */
+  async initialize() {
+    // 如果已经初始化，直接返回
+    if (this._initialized && this.loaded && this.audioData && this.audioData.length > 0) {
+      return;
+    }
+    
+    // 加载音频数据
+    await this.load();
+    
+    // 标记为已初始化
+    this._initialized = true;
+  }
+  
+  /**
+   * 检查元素是否已初始化
+   * @returns {boolean}
+   */
+  isInitialized() {
+    return this._initialized && this.loaded && this.audioData && this.audioData.length > 0;
   }
 
   /**
    * 加载音频文件并解析波形数据
    */
   async load() {
+    // 如果已经在加载中，返回现有的 Promise
+    if (this._loadingPromise) {
+      return this._loadingPromise;
+    }
+    
+    // 如果已经加载完成，直接返回
+    if (this.loaded && this.audioData && this.audioData.length > 0) {
+      return;
+    }
+    
+    // 创建加载 Promise（不在这里 await，让调用者决定是否等待）
+    this._loadingPromise = this._doLoad().finally(() => {
+      // 加载完成后清除 Promise 引用
+      this._loadingPromise = null;
+    });
+    
+    return this._loadingPromise;
+  }
+  
+  /**
+   * 实际执行加载音频文件并解析波形数据
+   */
+  async _doLoad() {
     if (!this.audioPath || !await fs.pathExists(this.audioPath)) {
       console.warn(`音频文件不存在: ${this.audioPath}`);
       return;
@@ -249,8 +328,20 @@ export class OscilloscopeElement extends BaseElement {
       return null;
     }
 
+    // 如果音频数据还没加载完成，尝试初始化（通常应该在渲染前通过 initialize 完成）
     if (!this.loaded || !this.audioData || this.audioData.length === 0) {
-      return null;
+      // 如果正在加载中，等待加载完成
+      if (this._loadingPromise) {
+        await this._loadingPromise;
+      } else if (this.audioPath && !this._initialized) {
+        // 如果还没初始化，尝试初始化（作为后备方案）
+        await this.initialize();
+      }
+      
+      // 加载完成后再次检查
+      if (!this.loaded || !this.audioData || this.audioData.length === 0) {
+        return null;
+      }
     }
 
     // 获取当前状态
@@ -319,7 +410,8 @@ export class OscilloscopeElement extends BaseElement {
       bgRect.sendToBack();
     }
 
-    // 确保渲染器已加载
+    // 确保渲染器已加载（通常已经在初始化时加载完成）
+    // 如果还没加载完成，这里会等待，但通常不会阻塞
     await ensureRenderersLoaded();
     
     // 根据样式绘制波形 - 使用动态加载的渲染器

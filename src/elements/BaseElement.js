@@ -357,6 +357,27 @@ export class BaseElement {
   }
 
   /**
+   * 初始化元素（在渲染之前调用）
+   * 子类可以覆盖此方法来实现异步初始化逻辑（如加载资源）
+   * @returns {Promise<void>|void} 如果返回 Promise，渲染器会等待初始化完成
+   */
+  initialize() {
+    // 默认实现为空，子类可以覆盖
+    // 如果子类需要异步初始化，可以返回 Promise
+    return Promise.resolve();
+  }
+
+  /**
+   * 检查元素是否已初始化
+   * 子类可以覆盖此方法来自定义初始化状态检查
+   * @returns {boolean} 是否已初始化
+   */
+  isInitialized() {
+    // 默认返回 true，子类可以覆盖
+    return true;
+  }
+
+  /**
    * 渲染元素到 Paper.js 图层（子类实现）
    * @param {Object} layer - Paper.js 图层对象
    * @param {number} time - 当前时间（秒）

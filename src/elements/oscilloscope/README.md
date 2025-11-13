@@ -17,7 +17,13 @@ oscilloscope/
 │   ├── spiral.js        # 螺旋波形
 │   ├── ripple.js        # 涟漪波形
 │   ├── grid.js          # 网格波形
-│   └── explosion.js     # 爆炸波形
+│   ├── explosion.js     # 爆炸波形
+│   ├── blob.js          # Blob 球体碰撞
+│   ├── rotating3d.js    # 3D旋转波形
+│   ├── trail.js         # 粒子轨迹追踪
+│   ├── weave.js         # 波形编织
+│   ├── lightwave.js     # 光波扩散
+│   └── particleflow.js  # 波形粒子流
 └── README.md
 ```
 
@@ -78,6 +84,12 @@ myCustomRenderer.style = 'my-custom';
 - `element.rippleCount`, `element.rippleSpeed` - 涟漪配置
 - `element.gridRows`, `element.gridCols` - 网格配置
 - `element.explosionParticles` - 爆炸配置
+- `element.blobBallCount` - Blob 球体数量
+- `element.rotationSpeed` - 3D旋转速度
+- `element.trailParticleCount`, `element.trailLength`, `element.trailSpeed` - 轨迹追踪配置
+- `element.weaveLayers`, `element.weaveLayerSpacing`, `element.weaveSpeed` - 波形编织配置
+- `element.lightwaveCount`, `element.lightwaveSpeed`, `element.lightwaveSegments` - 光波扩散配置
+- `element.flowParticleCount`, `element.flowSpeed`, `element.showWaveform` - 粒子流配置
 
 ## 使用自定义渲染器
 
@@ -89,10 +101,35 @@ await scene.addOscilloscope({
 });
 ```
 
+## 内置渲染器说明
+
+### 基础样式
+- **line** - 线条波形：经典的波形线条显示
+- **bars** - 柱状波形：柱状图形式的波形
+- **circle** - 圆形波形：圆形排列的波形
+- **spectrum** - 频谱波形：频谱分析显示
+
+### 动态样式
+- **particles** - 粒子波形：粒子形式的波形显示
+- **waterfall** - 瀑布图：时间序列频谱瀑布图
+- **spiral** - 螺旋波形：螺旋形状的波形
+- **ripple** - 涟漪波形：水波纹扩散效果
+- **grid** - 网格波形：网格形式的波形显示
+- **explosion** - 爆炸波形：粒子从中心爆炸的效果
+
+### 高级样式（新增）
+- **blob** - Blob 球体碰撞：物理碰撞的球体，随音频变形
+- **rotating3d** - 3D旋转波形：3D透视旋转的波形效果
+- **trail** - 粒子轨迹追踪：粒子沿波形移动留下轨迹
+- **weave** - 波形编织：多条波形交织在一起
+- **lightwave** - 光波扩散：光波从中心向外扩散
+- **particleflow** - 波形粒子流：粒子沿波形流动
+
 ## 注意事项
 
 1. 渲染器函数必须是同步的（不能使用 async/await）
 2. 使用 Paper.js 进行绘制，确保已导入 `paper-jsdom-canvas`
 3. 渲染器会在首次使用时自动加载
 4. 如果渲染器加载失败，会自动回退到默认的 `line` 渲染器
+5. 某些渲染器（如 `waterfall`, `ripple`, `blob`, `rotating3d`, `trail`, `weave`, `lightwave`, `particleflow`）需要 `time` 参数，系统会自动传递
 

@@ -70,9 +70,18 @@ export class SubtitleElement extends BaseElement {
     
     // 为每个段落创建 TextElement
     this.textElements = [];
+    
+    // 如果配置中有明确的 startTime（如 LRC 歌词），使用它；否则使用累计时间
+    const hasExplicitStartTime = this.startTime !== undefined && this.startTime !== null;
     let currentStartTime = this.startTime || 0;
     
     for (const segment of subtitleSegments) {
+      // 如果只有一个段落且有明确的 startTime（LRC 歌词），使用配置的 startTime
+      // 否则使用累计时间
+      const segmentStartTime = (hasExplicitStartTime && subtitleSegments.length === 1) 
+        ? this.startTime 
+        : currentStartTime;
+      
       const textElement = new TextElement({
         text: segment.text,
         x: this.config.x || (this.position === 'center' ? '50%' : this.config.x),
@@ -83,9 +92,9 @@ export class SubtitleElement extends BaseElement {
         textAlign: this.textAlign,
         anchor: this.config.anchor || [0.5, 0.5],
         // 时间范围
-        startTime: currentStartTime,
+        startTime: segmentStartTime,
         duration: segment.duration,
-        endTime: currentStartTime + segment.duration,
+        endTime: segmentStartTime + segment.duration,
         // 分割配置
         split: this.split,
         splitDelay: this.splitDelay,

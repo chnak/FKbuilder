@@ -61,41 +61,20 @@ export class VideoExporter {
         const framePattern = path.join(tempDir, 'frame_%04d.png');
 
         console.log(`开始渲染 ${totalFrames} 帧...`);
+        
+        // 使用串行渲染
+        const backgroundColor = composition.backgroundColor || '#000000';
+        await this.renderFramesSerial(composition, totalFrames, startTime, fps, tempDir, backgroundColor);
 
-      for (let frame = 0; frame < totalFrames; frame++) {
-        try {
-          const time = startTime + frame / fps;
-          const frameNumber = frame + 1;
+        // 记录渲染结束时间
+        const renderEndTime = performance.now();
+        const renderTotalTime = (renderEndTime - renderStartTime) / 1000; // 转换为秒
 
-          // 渲染帧（传入背景色）
-          await this.renderer.renderFrame(composition.timeline.getLayers(), time, composition.backgroundColor);
+        console.log('帧渲染完成，开始编码视频...');
+        console.log(`渲染总耗时: ${renderTotalTime.toFixed(2)} 秒`);
 
-          // 保存帧
-          const framePath = path.join(tempDir, `frame_${frameNumber.toString().padStart(4, '0')}.png`);
-          const buffer = this.renderer.getCanvasBuffer();
-          await fs.writeFile(framePath, buffer);
-
-          // 显示进度
-          if (frame % 30 === 0 || frame === totalFrames - 1) {
-            const progress = ((frame + 1) / totalFrames * 100).toFixed(1);
-            console.log(`渲染进度: ${progress}% (${frame + 1}/${totalFrames})`);
-          }
-        } catch (error) {
-          console.error(`渲染第 ${frame + 1} 帧时出错:`, error);
-          console.error('错误堆栈:', error.stack);
-          throw error; // 重新抛出错误，让外层捕获
-        }
-      }
-
-      // 记录渲染结束时间
-      const renderEndTime = performance.now();
-      const renderTotalTime = (renderEndTime - renderStartTime) / 1000; // 转换为秒
-
-      console.log('帧渲染完成，开始编码视频...');
-      console.log(`渲染总耗时: ${renderTotalTime.toFixed(2)} 秒`);
-
-      // 打印转场统计信息（可选）
-      TransitionElement.printTransitionStats();
+        // 打印转场统计信息（可选）
+        TransitionElement.printTransitionStats();
 
       // 收集所有音频元素（在渲染帧的同时可以提前准备）
       // 注意：需要在渲染前收集，因为 CompositionElement 可能在渲染时才初始化
@@ -296,6 +275,36 @@ export class VideoExporter {
     } finally {
       if (this.renderer) {
         this.renderer.destroy();
+      }
+    }
+  }
+
+  /**
+   * 串行渲染所有帧
+   */
+  async renderFramesSerial(composition, totalFrames, startTime, fps, tempDir, backgroundColor) {
+    for (let frame = 0; frame < totalFrames; frame++) {
+      try {
+        const time = startTime + frame / fps;
+        const frameNumber = frame + 1;
+
+        // 渲染帧（传入背景色）
+        await this.renderer.renderFrame(composition.timeline.getLayers(), time, backgroundColor);
+
+        // 保存帧
+        const framePath = path.join(tempDir, `frame_${frameNumber.toString().padStart(4, '0')}.png`);
+        const buffer = this.renderer.getCanvasBuffer();
+        await fs.writeFile(framePath, buffer);
+
+        // 显示进度
+        if (frame % 30 === 0 || frame === totalFrames - 1) {
+          const progress = ((frame + 1) / totalFrames * 100).toFixed(1);
+          console.log(`渲染进度: ${progress}% (${frame + 1}/${totalFrames})`);
+        }
+      } catch (error) {
+        console.error(`渲染第 ${frame + 1} 帧时出错:`, error);
+        console.error('错误堆栈:', error.stack);
+        throw error;
       }
     }
   }

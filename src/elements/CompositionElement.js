@@ -5,6 +5,7 @@ import { TextElement } from './TextElement.js';
 import { ImageElement } from './ImageElement.js';
 import { RectElement } from './RectElement.js';
 import { CircleElement } from './CircleElement.js';
+import { SubtitleElement } from './SubtitleElement.js';
 import { ElementLayer } from '../layers/ElementLayer.js';
 import paper from 'paper-jsdom-canvas';
 
@@ -137,6 +138,8 @@ export class CompositionElement extends BaseElement {
       case 'text':
       case 'title':
         return new TextElement(elementConfig);
+      case 'subtitle':
+        return new SubtitleElement(elementConfig);
       case 'image':
         const imageElement = new ImageElement(elementConfig);
         if (elementConfig.src) {
@@ -269,48 +272,45 @@ export class CompositionElement extends BaseElement {
     
     // 将临时 canvas 转换为 Raster
     try {
+      // 在 Node.js 环境中，使用 dataURL 创建 Raster
+      // 注意：在 Node.js 中，Raster 从 dataURL 加载通常是同步的或很快的
       const dataURL = tempCanvas.toDataURL('image/png');
       const raster = new paper.Raster(dataURL);
       
-      // 等待 Raster 加载完成
-      await new Promise((resolve) => {
-        if (raster.loaded) {
-          resolve();
-          return;
-        }
-        
-        const timeout = setTimeout(() => {
-          console.warn('[CompositionElement] Raster 加载超时');
-          resolve();
-        }, 2000);
-        
-        if (raster.onLoad) {
-          const originalOnLoad = raster.onLoad;
-          raster.onLoad = () => {
-            clearTimeout(timeout);
-            if (originalOnLoad) originalOnLoad();
+      // 在 Node.js 环境中，Raster 加载通常是同步的
+      // 但为了确保兼容性，进行快速检查（不阻塞太久）
+      if (!raster.loaded) {
+        // 使用非常短的超时（50ms），因为 Node.js 中应该很快
+        await new Promise((resolve) => {
+          // 立即检查
+          if (raster.loaded) {
             resolve();
-          };
-        } else {
-          const checkInterval = setInterval(() => {
-            if (raster.loaded) {
-              clearInterval(checkInterval);
-              clearTimeout(timeout);
-              resolve();
+            return;
+          }
+          
+          let resolved = false;
+          const timeout = setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              resolve(); // 超时后继续，Raster 可能已经可以使用
             }
           }, 50);
           
-          setTimeout(() => {
-            clearInterval(checkInterval);
-            clearTimeout(timeout);
-            resolve();
-          }, 2000);
-        }
-      });
-      
-      // 确保 Raster 已加载
-      if (!raster.loaded) {
-        console.warn('[CompositionElement] Raster 未加载完成');
+          // 快速检查（每 1ms 检查一次，最多检查 50 次）
+          let checkCount = 0;
+          const maxChecks = 50;
+          const checkInterval = setInterval(() => {
+            checkCount++;
+            if (raster.loaded || checkCount >= maxChecks) {
+              if (!resolved) {
+                resolved = true;
+                clearInterval(checkInterval);
+                clearTimeout(timeout);
+                resolve();
+              }
+            }
+          }, 1);
+        });
       }
       
       // 处理 anchor

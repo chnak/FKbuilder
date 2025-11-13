@@ -6,6 +6,8 @@ import { ImageElement } from '../elements/ImageElement.js';
 import { RectElement } from '../elements/RectElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
 import { AudioElement } from '../elements/AudioElement.js';
+import { SubtitleElement } from '../elements/SubtitleElement.js';
+import { LRCSubtitleBuilder } from '../utils/lrcSubtitleBuilder.js';
 
 /**
  * 场景类 - 不再继承 VideoMaker，而是构建 CompositionElement 配置
@@ -105,6 +107,30 @@ export class Scene {
       type: 'circle',
       element: new CircleElement(config),
     });
+    return this;
+  }
+
+  /**
+   * 添加字幕元素
+   * @param {Object} config - 字幕配置
+   * @returns {Scene} 返回自身以支持链式调用
+   */
+  addSubtitle(config = {}) {
+    this.elements.push({
+      type: 'subtitle',
+      element: new SubtitleElement(config),
+    });
+    return this;
+  }
+
+  /**
+   * 从 LRC 文件添加歌词字幕
+   * @param {string} lrcPath - LRC 文件路径
+   * @param {Object} options - 字幕样式选项
+   * @returns {Promise<Scene>} 返回自身以支持链式调用
+   */
+  async addLRC(lrcPath, options = {}) {
+    await LRCSubtitleBuilder.addSubtitlesFromLRC(this, lrcPath, options);
     return this;
   }
 
@@ -234,6 +260,17 @@ export class Scene {
       config.split = element.split !== undefined ? element.split : elementConfig.split;
       config.splitDelay = element.splitDelay !== undefined ? element.splitDelay : elementConfig.splitDelay;
       config.splitDuration = element.splitDuration !== undefined ? element.splitDuration : elementConfig.splitDuration;
+    } else if (element.type === 'subtitle') {
+      config.text = element.text !== undefined ? element.text : elementConfig.text;
+      config.fontSize = element.fontSize !== undefined ? element.fontSize : elementConfig.fontSize;
+      config.color = element.color !== undefined ? element.color : (element.textColor !== undefined ? element.textColor : elementConfig.color);
+      config.textColor = element.textColor !== undefined ? element.textColor : elementConfig.textColor;
+      config.fontFamily = element.fontFamily !== undefined ? element.fontFamily : elementConfig.fontFamily;
+      config.textAlign = element.textAlign !== undefined ? element.textAlign : elementConfig.textAlign;
+      config.split = element.split !== undefined ? element.split : elementConfig.split;
+      config.splitDelay = element.splitDelay !== undefined ? element.splitDelay : elementConfig.splitDelay;
+      config.splitDuration = element.splitDuration !== undefined ? element.splitDuration : elementConfig.splitDuration;
+      config.animations = element.animations !== undefined ? element.animations : elementConfig.animations;
     } else if (element.type === 'image') {
       config.src = element.src !== undefined ? element.src : elementConfig.src;
       config.fit = element.fit !== undefined ? element.fit : elementConfig.fit;

@@ -103,12 +103,15 @@ export class Renderer {
     ctx.fillStyle = backgroundColor;
     ctx.fillRect(0, 0, this.width, this.height);
 
-    // 重新初始化 Paper.js（确保使用当前 canvas）
-    // 这样可以避免多个 Renderer 之间的全局状态冲突
-    paper.setup(this.canvas);
-    this.project = paper.project;
+    // 复用已初始化的 Paper.js project，避免重复 setup
+    // 注意：在并行渲染中，每个 Renderer 实例是独立的，所以可以安全地复用
+    if (!this.project || paper.project !== this.project) {
+      // 如果 project 不存在或已被切换，重新 setup
+      paper.setup(this.canvas);
+      this.project = paper.project;
+    }
 
-    // 清空 Paper.js 场景（在 setup 之后）
+    // 清空 Paper.js 场景（复用 project 时只需要清空子元素）
     if (this.project && this.project.activeLayer) {
       this.project.activeLayer.removeChildren();
     }
@@ -253,10 +256,40 @@ export class Renderer {
    * 销毁渲染器
    */
   destroy() {
+    // 清理 Paper.js 项目
     if (this.project) {
-      this.project.clear();
+      try {
+        this.project.clear();
+        // 移除所有图层和项目
+        if (this.project.activeLayer) {
+          this.project.activeLayer.removeChildren();
+        }
+        // 尝试移除项目（如果 Paper.js 支持）
+        if (paper.projects && paper.projects.length > 0) {
+          const index = paper.projects.indexOf(this.project);
+          if (index > -1) {
+            paper.projects.splice(index, 1);
+          }
+        }
+      } catch (error) {
+        // 忽略清理错误
+      }
     }
-    this.canvas = null;
+    
+    // 清理 Canvas
+    if (this.canvas) {
+      try {
+        // 清空 canvas 内容
+        const ctx = this.canvas.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+      } catch (error) {
+        // 忽略清理错误
+      }
+      this.canvas = null;
+    }
+    
     this.project = null;
     this.initialized = false;
   }

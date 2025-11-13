@@ -5,6 +5,7 @@ import { ElementType } from '../types/enums.js';
 import { toFontSizePixels, toPixels } from '../utils/unit-converter.js';
 import { getDefaultFontFamily, isFontRegistered } from '../utils/font-manager.js';
 import { TextSplitter } from '../utils/text-splitter.js';
+import { FadeAnimation } from '../animations/FadeAnimation.js';
 import paper from 'paper-jsdom-canvas';
 
 /**
@@ -113,11 +114,41 @@ export class TextElement extends BaseElement {
         split: null,
         // 子元素的文本对齐方式改为 left（因为位置已经计算好了）
         textAlign: 'left',
+        // 分割文本初始透明度为 0，动画开始时才设置为 1
+        opacity: 0,
         // 继承父元素的动画配置，但会应用到每个片段
         // 注意：动画的 startTime 是相对于子元素的 startTime 的，所以不需要调整
+        // 使用 originalAnimations（原始配置数组），而不是动画实例
         animations: this.originalAnimations && Array.isArray(this.originalAnimations) ? this.originalAnimations.map(anim => {
-          // 深拷贝动画配置，确保每个片段都有独立的动画实例
-          return JSON.parse(JSON.stringify(anim));
+          // 如果是动画实例，提取其配置；如果是配置对象，直接使用
+          if (anim && typeof anim.getStateAtTime === 'function') {
+            // 这是动画实例，需要提取配置
+            // 从动画实例中提取配置信息（避免循环引用）
+            const animConfig = {};
+            if (anim.type) animConfig.type = anim.type;
+            if (anim.duration !== undefined) animConfig.duration = anim.duration;
+            if (anim.delay !== undefined) animConfig.delay = anim.delay;
+            if (anim.startTime !== undefined) animConfig.startTime = anim.startTime;
+            if (anim.easing) animConfig.easing = anim.easing;
+            if (anim.property) animConfig.property = anim.property;
+            if (anim.from !== undefined) animConfig.from = anim.from;
+            if (anim.to !== undefined) animConfig.to = anim.to;
+            return animConfig;
+          } else {
+            // 这是配置对象，直接深拷贝（只拷贝基本类型）
+            const animConfig = {};
+            for (const key in anim) {
+              if (anim.hasOwnProperty(key) && typeof anim[key] !== 'object') {
+                animConfig[key] = anim[key];
+              } else if (anim.hasOwnProperty(key) && Array.isArray(anim[key])) {
+                animConfig[key] = [...anim[key]];
+              } else if (anim.hasOwnProperty(key) && anim[key] !== null && typeof anim[key] === 'object' && !anim[key].target) {
+                // 只拷贝非循环引用的对象
+                animConfig[key] = { ...anim[key] };
+              }
+            }
+            return animConfig;
+          }
         }) : [],
       };
       
@@ -127,23 +158,30 @@ export class TextElement extends BaseElement {
       segmentElement.segmentIndex = index; // 标记片段索引
       segmentElement.isSegment = true; // 标记这是分割后的片段
       
-      // 在片段开始显示之前，预先应用动画的初始状态到 config
-      // 这样可以避免在片段刚开始显示时出现闪烁
-      // 注意：动画是在 BaseElement 构造函数中创建的，所以这里可以直接访问
-      if (segmentElement.animations && segmentElement.animations.length > 0) {
-        for (const animation of segmentElement.animations) {
-          if (animation && typeof animation.getInitialState === 'function') {
-            const initialState = animation.getInitialState();
-            // 将初始状态合并到 config 中，确保片段开始显示时就有正确的初始状态
-            // 使用深拷贝避免修改原始对象
-            for (const key in initialState) {
-              if (initialState.hasOwnProperty(key)) {
-                segmentElement.config[key] = initialState[key];
-              }
-            }
-          }
+      // 分割文本初始透明度为 0，动画开始时才设置为 1
+      // 检查是否有淡入动画（fadeIn），如果没有则添加一个默认的淡入动画
+      const hasFadeInAnimation = segmentElement.animations && segmentElement.animations.some(anim => {
+        if (anim && typeof anim.getStateAtTime === 'function') {
+          // 这是动画实例
+          return anim.type === 'fade' || (anim.property === 'opacity' && anim.fromOpacity === 0);
         }
+        return false;
+      });
+      
+      // 如果没有淡入动画，添加一个默认的淡入动画（从 0 到 1）
+      if (!hasFadeInAnimation) {
+        const defaultFadeIn = new FadeAnimation({
+          fromOpacity: 0,
+          toOpacity: 1,
+          duration: this.splitDuration || 0.3,
+          startTime: 0,
+          easing: 'easeOut',
+        });
+        segmentElement.addAnimation(defaultFadeIn);
       }
+      
+      // 不预先应用动画的初始状态，让动画在开始时才应用
+      // 这样分割文本的初始透明度就是 0，动画开始时才变为 1
       
       return segmentElement;
     });

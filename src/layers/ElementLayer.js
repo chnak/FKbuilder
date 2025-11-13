@@ -16,8 +16,15 @@ export class ElementLayer extends BaseLayer {
   async render(layer, time) {
     if (!this.isActiveAtTime(time)) return;
 
-    // 渲染所有元素
-    for (const element of this.elements) {
+    // 按 zIndex 排序元素（zIndex 小的先渲染，大的后渲染，显示在上层）
+    const sortedElements = [...this.elements].sort((a, b) => {
+      const zIndexA = a.zIndex !== undefined ? a.zIndex : 0;
+      const zIndexB = b.zIndex !== undefined ? b.zIndex : 0;
+      return zIndexA - zIndexB;
+    });
+
+    // 渲染所有元素（按 zIndex 顺序）
+    for (const element of sortedElements) {
       // 检查元素是否在指定时间激活（使用相对时间）
       if (element.visible && element.isActiveAtTime && element.isActiveAtTime(time)) {
         // 使用 Paper.js 渲染

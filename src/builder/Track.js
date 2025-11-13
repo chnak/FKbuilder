@@ -1,28 +1,20 @@
 /**
- * 轨道类 - 本身是一个独立的 VideoMaker（嵌套合成）
+ * 轨道类 - 使用 CompositionElement 方式构建
  */
 import { Scene } from './Scene.js';
 import { Transition } from './Transition.js';
-import { VideoMaker } from '../core/VideoMaker.js';
-import { CompositionLayer } from '../layers/CompositionLayer.js';
 
 /**
- * 轨道类 - 继承自 VideoMaker
+ * 轨道类 - 不再继承 VideoMaker，而是构建 CompositionElement 配置
  */
-export class Track extends VideoMaker {
+export class Track {
   constructor(config = {}) {
-    // 初始化 VideoMaker
-    super({
-      width: config.width || config.builder?.config?.width || 1920,
-      height: config.height || config.builder?.config?.height || 1080,
-      fps: config.fps || config.builder?.config?.fps || 30,
-      duration: 0, // 初始为0，会根据场景自动计算
-      backgroundColor: 'transparent', // 轨道背景透明
-    });
-    
     this.builder = config.builder;
     this.zIndex = config.zIndex || 0;
     this.name = config.name || `Track-${this.zIndex}`;
+    this.width = config.width || config.builder?.config?.width || 1920;
+    this.height = config.height || config.builder?.config?.height || 1080;
+    this.fps = config.fps || config.builder?.config?.fps || 30;
     this.scenes = [];
     this.transitions = []; // 场景之间的转场效果
   }
@@ -87,47 +79,48 @@ export class Track extends VideoMaker {
   }
 
   /**
-   * 构建轨道（将场景作为 CompositionLayer 添加到轨道）
+   * 构建轨道（返回 CompositionElement 配置，包含所有场景）
+   * @returns {Object} CompositionElement 配置对象
    */
   build() {
     const totalDuration = this.getTotalDuration();
     
-    // 更新轨道合成的时长
-    this.setDuration(totalDuration);
-    
-    // 先创建所有场景 layer
+    // 构建所有场景，获取它们的 CompositionElement 配置
+    const sceneElements = [];
     let currentTime = 0;
     
     for (let i = 0; i < this.scenes.length; i++) {
       const scene = this.scenes[i];
       const sceneStartTime = scene.startTime !== undefined ? scene.startTime : currentTime;
       
-      // 构建场景为独立的 VideoMaker
-      const sceneComposition = scene.build();
-      
-      // 创建 CompositionLayer 直接渲染场景合成
-      const sceneLayer = new CompositionLayer({
-        composition: sceneComposition,
-        x: this.width / 2,
-        y: this.height / 2,
-        width: this.width,
-        height: this.height,
-        anchor: [0.5, 0.5],
-        startTime: sceneStartTime,
-        endTime: sceneStartTime + scene.duration,
-        zIndex: 0, // 场景在轨道中的 zIndex
-      });
-      
-      // 直接添加到 timeline（作为 layer）
-      this.timeline.addLayer(sceneLayer);
+      // 构建场景，返回 CompositionElement 配置
+      const sceneElementConfig = scene.build();
+      if (sceneElementConfig) {
+        // 设置场景的时间范围
+        sceneElementConfig.startTime = sceneStartTime;
+        sceneElementConfig.duration = scene.duration;
+        sceneElements.push(sceneElementConfig);
+      }
       
       currentTime = sceneStartTime + scene.duration;
       
       // 处理转场（暂时跳过，转场需要特殊处理）
-      // TODO: 转场效果需要重新设计，可能需要使用 TransitionLayer
+      // TODO: 转场效果需要重新设计
     }
 
-    return this;
+    // 返回轨道的 CompositionElement 配置
+    return {
+      type: 'composition',
+      x: '50%',
+      y: '50%',
+      width: this.width,
+      height: this.height,
+      anchor: [0.5, 0.5],
+      startTime: 0,
+      duration: totalDuration,
+      zIndex: this.zIndex,
+      elements: sceneElements, // 所有场景作为子元素
+    };
   }
 
   /**
@@ -139,8 +132,6 @@ export class Track extends VideoMaker {
     }
     this.scenes = [];
     this.transitions = [];
-    // 调用父类的销毁方法
-    super.destroy();
   }
 }
 

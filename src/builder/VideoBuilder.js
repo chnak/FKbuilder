@@ -1,10 +1,9 @@
 /**
- * 视频构建器 - 多轨道多场景支持
+ * 视频构建器 - 多轨道多场景支持（使用 CompositionElement 嵌套）
  */
 import { VideoMaker } from '../core/VideoMaker.js';
 import { Track } from './Track.js';
-import { VideoExporter } from '../core/VideoExporter.js';
-import { CompositionLayer } from '../layers/CompositionLayer.js';
+import { CompositionElement } from '../elements/CompositionElement.js';
 
 /**
  * 视频构建器主类
@@ -15,7 +14,7 @@ export class VideoBuilder {
       width: config.width || 1920,
       height: config.height || 1080,
       fps: config.fps || 30,
-      backgroundColor: config.backgroundColor || '#000000',
+      // backgroundColor 不再在构造函数中设置，应该通过 Scene 的 addBackground() 添加
       ...config,
     };
     
@@ -58,44 +57,50 @@ export class VideoBuilder {
   }
 
   /**
-   * 构建最终的 VideoMaker
+   * 构建最终的 VideoMaker（使用 CompositionElement 嵌套）
    * @returns {VideoMaker}
    */
   build() {
     const totalDuration = this.getTotalDuration();
     
-    // 创建主合成
+    // 创建主合成（背景透明，背景应该通过 Scene 的 addBackground() 添加）
     const mainComposition = new VideoMaker({
       width: this.config.width,
       height: this.config.height,
       fps: this.config.fps,
       duration: totalDuration,
-      backgroundColor: this.config.backgroundColor,
+      backgroundColor: 'transparent', // 主合成背景透明
     });
 
     // 按 zIndex 排序轨道
     const sortedTracks = [...this.tracks].sort((a, b) => a.zIndex - b.zIndex);
 
-    // 为每个轨道创建 CompositionLayer（直接作为 layer，而不是 element）
+    // 构建所有轨道，获取它们的 CompositionElement 配置
+    const trackElements = [];
     for (const track of sortedTracks) {
-      // 构建轨道（轨道本身是 VideoMaker，会构建其内部的场景）
-      track.build();
-      
-      // 创建 CompositionLayer 直接渲染轨道合成
-      const trackLayer = new CompositionLayer({
-        composition: track, // track 本身就是 VideoMaker
-        x: this.config.width / 2,
-        y: this.config.height / 2,
+      const trackElementConfig = track.build(); // 返回 CompositionElement 的配置
+      if (trackElementConfig) {
+        trackElements.push(trackElementConfig);
+      }
+    }
+
+    // 创建主 CompositionElement，包含所有轨道
+    if (trackElements.length > 0) {
+      const mainCompositionElement = new CompositionElement({
+        x: '50%',
+        y: '50%',
         width: this.config.width,
         height: this.config.height,
         anchor: [0.5, 0.5],
-        zIndex: track.zIndex,
         startTime: 0,
-        endTime: track.duration || Infinity,
+        duration: totalDuration,
+        zIndex: 0,
+        elements: trackElements, // 所有轨道作为子元素
       });
 
-      // 直接添加到 timeline（作为 layer）
-      mainComposition.timeline.addLayer(trackLayer);
+      // 添加到主合成的图层
+      const layer = mainComposition.createElementLayer();
+      layer.addElement(mainCompositionElement);
     }
 
     return mainComposition;

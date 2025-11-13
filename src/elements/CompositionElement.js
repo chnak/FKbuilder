@@ -153,7 +153,13 @@ export class CompositionElement extends BaseElement {
       case 'composition':
         // 支持嵌套 Composition
         const { CompositionElement } = await import('./CompositionElement.js');
-        return new CompositionElement(elementConfig);
+        // 确保嵌套 Composition 使用正确的画布尺寸
+        return new CompositionElement({
+          ...elementConfig,
+          canvasWidth: this.compositionWidth,
+          canvasHeight: this.compositionHeight,
+          fps: this.fps || 30,
+        });
       default:
         console.warn(`未知的元素类型: ${elementType}`);
         return null;

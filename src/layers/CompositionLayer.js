@@ -42,39 +42,56 @@ export class CompositionLayer extends BaseLayer {
       return; // 合成已结束
     }
 
-    // 确保嵌套合成的 renderer 已初始化
-    if (!this.composition.renderer) {
-      const { Renderer } = await import('../core/Renderer.js');
-      this.composition.renderer = new Renderer({
-        width: this.composition.width || 1920,
-        height: this.composition.height || 1080,
-        fps: this.composition.fps || 30,
-      });
-    }
+    // 保存当前 Paper.js project 状态
+    const previousProject = paper.project;
     
-    if (!this.composition.renderer.initialized) {
-      await this.composition.renderer.init();
+    let nestedCanvas = null;
+    try {
+      // 确保嵌套合成的 renderer 已初始化
+      if (!this.composition.renderer) {
+        const { Renderer } = await import('../core/Renderer.js');
+        this.composition.renderer = new Renderer({
+          width: this.composition.width || 1920,
+          height: this.composition.height || 1080,
+          fps: this.composition.fps || 30,
+        });
+      }
+      
+      if (!this.composition.renderer.initialized) {
+        await this.composition.renderer.init();
+      }
+
+      // 独立渲染嵌套合成（这会改变全局 paper.project）
+      nestedCanvas = await this.composition.renderer.renderFrame(
+        this.composition.timeline.getLayers(),
+        nestedTime,
+        this.composition.backgroundColor || 'transparent'
+      );
+      
+      // 恢复父合成的 Paper.js project 状态
+      if (previousProject) {
+        paper.project = previousProject;
+      }
+      
+      if (!nestedCanvas) {
+        return;
+      }
+    } catch (error) {
+      // 确保恢复父合成的 project 状态
+      if (previousProject) {
+        paper.project = previousProject;
+      }
+      throw error;
     }
 
-    // 独立渲染嵌套合成
-    const nestedCanvas = await this.composition.renderer.renderFrame(
-      this.composition.timeline.getLayers(),
-      nestedTime,
-      this.composition.backgroundColor || 'transparent'
-    );
-
-    if (!nestedCanvas) {
-      return;
-    }
-
-    // 检查 canvas 是否有内容
+    // 检查 canvas 是否有内容（检查整个 canvas，不只是左上角）
     const ctx = nestedCanvas.getContext('2d');
-    const testImageData = ctx.getImageData(0, 0, Math.min(100, nestedCanvas.width), Math.min(100, nestedCanvas.height));
+    const fullImageData = ctx.getImageData(0, 0, nestedCanvas.width, nestedCanvas.height);
     let hasContent = false;
     let pixelCount = 0;
-    for (let i = 0; i < testImageData.data.length; i += 4) {
-      if (testImageData.data[i + 3] > 0 && 
-          (testImageData.data[i] > 10 || testImageData.data[i + 1] > 10 || testImageData.data[i + 2] > 10)) {
+    for (let i = 0; i < fullImageData.data.length; i += 4) {
+      if (fullImageData.data[i + 3] > 0 && 
+          (fullImageData.data[i] > 10 || fullImageData.data[i + 1] > 10 || fullImageData.data[i + 2] > 10)) {
         hasContent = true;
         pixelCount++;
       }
@@ -84,10 +101,15 @@ export class CompositionLayer extends BaseLayer {
       console.warn(`[CompositionLayer] 嵌套合成 canvas 没有内容 (time: ${time}, nestedTime: ${nestedTime})`);
       console.warn(`  嵌套合成尺寸: ${nestedCanvas.width}x${nestedCanvas.height}`);
       console.warn(`  嵌套合成图层数: ${this.composition.timeline.getLayers().length}`);
+      // 调试：检查嵌套合成的图层
+      for (const layer of this.composition.timeline.getLayers()) {
+        console.warn(`    图层: ${layer.type}, zIndex: ${layer.zIndex}, isActive: ${layer.isActiveAtTime ? layer.isActiveAtTime(nestedTime) : 'N/A'}`);
+        if (layer.elements) {
+          console.warn(`      元素数: ${layer.elements.length}`);
+        }
+      }
       return; // 没有内容，不渲染
     }
-    
-    console.log(`[CompositionLayer] 嵌套合成有内容，像素数: ${pixelCount}`);
 
     // 将嵌套合成的 canvas 转换为 Raster
     try {
@@ -133,21 +155,33 @@ export class CompositionLayer extends BaseLayer {
       const width = this.width || nestedCanvas.width;
       const height = this.height || nestedCanvas.height;
       
-      // 设置尺寸（必须在设置位置之前）
-      raster.size = new paper.Size(width, height);
+      // 设置 Raster 的尺寸（使用临时 canvas 的实际尺寸）
+      raster.size = new paper.Size(nestedCanvas.width, nestedCanvas.height);
       
       // 计算位置：anchor [0.5, 0.5] 表示中心对齐
       // Raster 的 position 是左上角，所以需要根据 anchor 调整
-      const rasterOffsetX = -width * this.anchor[0];
-      const rasterOffsetY = -height * this.anchor[1];
-      raster.position = new paper.Point(this.x + rasterOffsetX, this.y + rasterOffsetY);
-      raster.opacity = this.opacity !== undefined ? this.opacity : 1;
-
-      // 添加到 layer
-      layer.addChild(raster);
+      const rasterOffsetX = -nestedCanvas.width * this.anchor[0];
+      const rasterOffsetY = -nestedCanvas.height * this.anchor[1];
       
-      // 确保 Raster 在正确的层级
-      console.log(`[CompositionLayer] Raster 已添加: size=${raster.size.width}x${raster.size.height}, position=(${raster.position.x}, ${raster.position.y}), opacity=${raster.opacity}, loaded=${raster.loaded}`);
+      // 创建 Group 用于应用变换
+      const group = new paper.Group();
+      group.position = new paper.Point(this.x, this.y);
+      group.opacity = this.opacity !== undefined ? this.opacity : 1;
+      
+      // 先添加到 group，再设置位置
+      group.addChild(raster);
+      raster.position = new paper.Point(rasterOffsetX, rasterOffsetY);
+      raster.opacity = 1;
+      
+      // 如果指定了 width 和 height，需要缩放 Raster
+      if (width !== nestedCanvas.width || height !== nestedCanvas.height) {
+        const scaleX = width / nestedCanvas.width;
+        const scaleY = height / nestedCanvas.height;
+        raster.scale(scaleX, scaleY);
+      }
+      
+      // 添加到 layer
+      layer.addChild(group);
     } catch (error) {
       console.warn('[CompositionLayer] 创建 Raster 失败:', error);
     }

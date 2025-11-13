@@ -72,18 +72,22 @@ export class OscilloscopeElement extends BaseElement {
       
       // 使用 FFmpeg 提取音频波形数据
       // 将音频转换为单声道 PCM 16位数据
-      const tempPcmPath = path.join(path.dirname(this.audioPath), `temp_${Date.now()}.pcm`);
+      // 注意：临时文件放在系统临时目录，避免与源文件冲突
+      const os = await import('os');
+      const tempDir = os.tmpdir();
+      const tempPcmPath = path.join(tempDir, `oscilloscope_temp_${Date.now()}_${path.basename(this.audioPath)}.pcm`);
       
       try {
         // 提取音频数据为 PCM 格式
+        // 注意：只读取源文件，不会修改或删除源文件
         await execa('ffmpeg', [
-          '-i', this.audioPath,
+          '-i', this.audioPath, // 输入文件（只读）
           '-f', 's16le', // 16位小端 PCM
           '-acodec', 'pcm_s16le',
           '-ac', '1', // 单声道
           '-ar', '44100', // 采样率 44.1kHz
-          '-y', // 覆盖输出文件
-          tempPcmPath,
+          '-y', // 覆盖输出文件（仅对输出文件有效）
+          tempPcmPath, // 输出到临时文件
         ], { stdio: 'pipe' });
         
         // 读取 PCM 数据

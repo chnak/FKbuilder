@@ -4,7 +4,7 @@
 import { VideoMaker } from '../core/VideoMaker.js';
 import { Track } from './Track.js';
 import { VideoExporter } from '../core/VideoExporter.js';
-import { CompositionElement } from '../elements/CompositionElement.js';
+import { CompositionLayer } from '../layers/CompositionLayer.js';
 
 /**
  * 视频构建器主类
@@ -76,27 +76,26 @@ export class VideoBuilder {
     // 按 zIndex 排序轨道
     const sortedTracks = [...this.tracks].sort((a, b) => a.zIndex - b.zIndex);
 
-    // 获取主图层
-    const mainLayer = mainComposition.createElementLayer();
-
-    // 为每个轨道创建嵌套合成（CompositionElement）
+    // 为每个轨道创建 CompositionLayer（直接作为 layer，而不是 element）
     for (const track of sortedTracks) {
       // 构建轨道（轨道本身是 VideoMaker，会构建其内部的场景）
       track.build();
       
-      // 创建 CompositionElement 包装轨道合成
-      const trackElement = new CompositionElement({
+      // 创建 CompositionLayer 直接渲染轨道合成
+      const trackLayer = new CompositionLayer({
+        composition: track, // track 本身就是 VideoMaker
         x: this.config.width / 2,
         y: this.config.height / 2,
         width: this.config.width,
         height: this.config.height,
-        composition: track, // track 本身就是 VideoMaker
         anchor: [0.5, 0.5],
         zIndex: track.zIndex,
+        startTime: 0,
+        endTime: track.duration || Infinity,
       });
 
-      // 添加到主图层
-      mainLayer.addElement(trackElement);
+      // 直接添加到 timeline（作为 layer）
+      mainComposition.timeline.addLayer(trackLayer);
     }
 
     return mainComposition;

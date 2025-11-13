@@ -16,6 +16,7 @@ export { BaseLayer } from './layers/BaseLayer.js';
 export { ElementLayer } from './layers/ElementLayer.js';
 export { BackgroundLayer } from './layers/BackgroundLayer.js';
 export { OverlayLayer } from './layers/OverlayLayer.js';
+export { CompositionLayer } from './layers/CompositionLayer.js';
 
 // 元素类
 export { BaseElement } from './elements/BaseElement.js';

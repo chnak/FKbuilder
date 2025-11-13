@@ -2,9 +2,8 @@ import { BaseElement } from './BaseElement.js';
 import { DEFAULT_ELEMENT_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
-import spritejs from 'spritejs';
-
-const { Rect } = spritejs;
+import { toPixels } from '../utils/unit-converter.js';
+import paper from 'paper-jsdom-canvas';
 
 /**
  * 矩形元素
@@ -44,89 +43,108 @@ export class RectElement extends BaseElement {
   }
 
   /**
-   * 渲染矩形元素
+   * 渲染矩形元素（使用 Paper.js）
    */
-  render(scene, time) {
+  render(layer, time) {
     if (!this.visible) return null;
+    
+    // 检查时间范围
+    if (!this.isActiveAtTime(time)) {
+      return null;
+    }
 
-    const state = this.getStateAtTime(time);
+    // 优先使用元素的 canvasWidth/canvasHeight，如果没有则使用 paper.view.viewSize
+    const viewSize = paper.view.viewSize;
+    const context = { 
+      width: this.canvasWidth || viewSize.width, 
+      height: this.canvasHeight || viewSize.height 
+    };
+    const state = this.getStateAtTime(time, context);
 
-    const rect = new Rect({
-      id: this.id,
-      pos: [state.x, state.y],
-      size: [state.width, state.height],
-      bgcolor: state.bgcolor,
-      borderRadius: state.borderRadius,
-      border: state.borderWidth > 0 ? {
-        width: state.borderWidth,
-        color: state.borderColor,
-      } : null,
-      opacity: state.opacity,
-      anchor: state.anchor,
-      rotate: state.rotation,
-      scale: [state.scaleX, state.scaleY],
-    });
+    // 转换位置和尺寸单位
+    let x = state.x;
+    let y = state.y;
+    let width = state.width;
+    let height = state.height;
 
-    scene.appendChild(rect);
+    if (typeof x === 'string') {
+      x = toPixels(x, context.width, 'x');
+    }
+    if (typeof y === 'string') {
+      y = toPixels(y, context.height, 'y');
+    }
+    if (typeof width === 'string') {
+      width = toPixels(width, context.width, 'x');
+    }
+    if (typeof height === 'string') {
+      height = toPixels(height, context.height, 'y');
+    }
+
+    // 处理 anchor
+    const anchor = state.anchor || [0.5, 0.5];
+    const rectX = x - width * anchor[0];
+    const rectY = y - height * anchor[1];
+
+    // 创建矩形
+    let rect;
+    if (state.borderRadius > 0) {
+      // 圆角矩形 - Paper.js 需要手动创建圆角路径
+      const r = Math.min(state.borderRadius, width / 2, height / 2);
+      const path = new paper.Path();
+      
+      // 创建圆角矩形路径（顺时针）
+      // 从左上角开始
+      path.moveTo(new paper.Point(rectX + r, rectY));
+      // 上边
+      path.lineTo(new paper.Point(rectX + width - r, rectY));
+      // 右上角圆弧
+      path.arcTo(new paper.Point(rectX + width, rectY + r));
+      // 右边
+      path.lineTo(new paper.Point(rectX + width, rectY + height - r));
+      // 右下角圆弧
+      path.arcTo(new paper.Point(rectX + width - r, rectY + height));
+      // 下边
+      path.lineTo(new paper.Point(rectX + r, rectY + height));
+      // 左下角圆弧
+      path.arcTo(new paper.Point(rectX, rectY + height - r));
+      // 左边
+      path.lineTo(new paper.Point(rectX, rectY + r));
+      // 左上角圆弧
+      path.arcTo(new paper.Point(rectX + r, rectY));
+      path.closePath();
+      rect = path;
+    } else {
+      // 普通矩形
+      rect = new paper.Path.Rectangle({
+        rectangle: new paper.Rectangle(rectX, rectY, width, height),
+      });
+    }
+
+    // 处理填充颜色（支持 fillColor 和 bgcolor）
+    const fillColor = state.fillColor || state.bgcolor || '#ffffff';
+    rect.fillColor = fillColor;
+    rect.opacity = state.opacity !== undefined ? state.opacity : 1;
+
+    // 边框（支持 strokeColor 和 borderColor）
+    const strokeColor = state.strokeColor || state.borderColor;
+    const strokeWidth = state.strokeWidth || state.borderWidth || 0;
+    if (strokeWidth > 0 && strokeColor) {
+      rect.strokeColor = strokeColor;
+      rect.strokeWidth = strokeWidth;
+    }
+
+    // 应用变换
+    if (state.rotation) {
+      rect.rotate(state.rotation, new paper.Point(x, y));
+    }
+    if (state.scaleX !== 1 || state.scaleY !== 1) {
+      rect.scale(state.scaleX || 1, state.scaleY || 1, new paper.Point(x, y));
+    }
+
+    // 添加到 layer
+    layer.addChild(rect);
     return rect;
   }
 
-  /**
-   * 直接使用Canvas 2D API渲染矩形
-   */
-  renderToCanvas(ctx, time) {
-    // 检查可见性和时间范围（父类方法会检查）
-    if (!this.isActiveAtTime(time)) return;
-
-    // 获取Canvas尺寸用于单位转换
-    const canvas = ctx.canvas;
-    const context = { width: canvas.width, height: canvas.height };
-    const state = this.getStateAtTime(time, context);
-    
-    ctx.save();
-    ctx.globalAlpha = state.opacity;
-    
-    // 应用变换
-    ctx.translate(state.x, state.y);
-    ctx.rotate((state.rotation || 0) * Math.PI / 180);
-    ctx.scale(state.scaleX || 1, state.scaleY || 1);
-    
-    // 绘制矩形
-    ctx.fillStyle = state.bgcolor || '#ffffff';
-    if (state.borderRadius > 0) {
-      // 圆角矩形
-      const x = -state.width * (state.anchor?.[0] || 0.5);
-      const y = -state.height * (state.anchor?.[1] || 0.5);
-      const w = state.width;
-      const h = state.height;
-      const r = state.borderRadius;
-      
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.lineTo(x + w - r, y);
-      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-      ctx.lineTo(x + w, y + h - r);
-      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-      ctx.lineTo(x + r, y + h);
-      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-      ctx.lineTo(x, y + r);
-      ctx.quadraticCurveTo(x, y, x + r, y);
-      ctx.closePath();
-      ctx.fill();
-    } else {
-      const x = -state.width * (state.anchor?.[0] || 0.5);
-      const y = -state.height * (state.anchor?.[1] || 0.5);
-      ctx.fillRect(x, y, state.width, state.height);
-    }
-    
-    // 绘制边框
-    if (state.borderWidth > 0) {
-      ctx.strokeStyle = state.borderColor || '#000000';
-      ctx.lineWidth = state.borderWidth;
-      ctx.stroke();
-    }
-    
-    ctx.restore();
-  }
 }
 

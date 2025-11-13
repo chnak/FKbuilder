@@ -229,6 +229,43 @@ export class VideoMaker {
   }
 
   /**
+   * 导出动画帧序列（类似 paper.view.exportFrames）
+   * @param {Object} options - 导出选项
+   * @param {number} options.amount - 要导出的总帧数
+   * @param {string} options.directory - 保存帧的目录（默认 './frames'）
+   * @param {number} options.fps - 帧率（默认使用合成的 fps）
+   * @param {number} options.startTime - 开始时间（秒，默认 0）
+   * @param {number} options.endTime - 结束时间（秒，默认使用合成的 duration）
+   * @param {Function} options.onProgress - 进度回调函数 (current, total) => {}
+   * @param {Function} options.onComplete - 完成回调函数 (framePaths) => {}
+   * @returns {Promise<string[]>} 返回所有导出帧的文件路径数组
+   */
+  async exportFrames(options = {}) {
+    const {
+      amount,
+      directory = './frames',
+      fps = this.fps,
+      startTime = this.startTime || 0,
+      endTime = this.endTime || (this.duration ? startTime + this.duration : undefined),
+      onProgress,
+      onComplete,
+    } = options;
+
+    await this.renderer.init();
+    
+    return await this.renderer.exportFrames(this.timeline.getLayers(), {
+      amount,
+      directory,
+      fps,
+      startTime,
+      endTime,
+      backgroundColor: this.backgroundColor,
+      onProgress,
+      onComplete,
+    });
+  }
+
+  /**
    * 导出视频
    * @param {string} outputPath - 输出路径
    * @param {Object} options - 选项

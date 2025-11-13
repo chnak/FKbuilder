@@ -5,9 +5,7 @@ import { ElementType } from '../types/enums.js';
 import { toFontSizePixels, toPixels } from '../utils/unit-converter.js';
 import { getDefaultFontFamily, isFontRegistered } from '../utils/font-manager.js';
 import { TextSplitter } from '../utils/text-splitter.js';
-import spritejs from 'spritejs';
-
-const { Label } = spritejs;
+import paper from 'paper-jsdom-canvas';
 
 /**
  * 文本元素
@@ -90,7 +88,7 @@ export class TextElement extends BaseElement {
       const segmentEndTime = parentEndTime;
       
       // 创建子元素配置
-      // 注意：位置会在 renderToCanvas 时动态计算，因为需要 Canvas 尺寸来转换单位
+      // 注意：位置会在 render 时动态计算，因为需要场景尺寸来转换单位
       const segmentConfig = {
         ...this.config,
         text: segment.text,
@@ -131,12 +129,18 @@ export class TextElement extends BaseElement {
       
       // 在片段开始显示之前，预先应用动画的初始状态到 config
       // 这样可以避免在片段刚开始显示时出现闪烁
+      // 注意：动画是在 BaseElement 构造函数中创建的，所以这里可以直接访问
       if (segmentElement.animations && segmentElement.animations.length > 0) {
         for (const animation of segmentElement.animations) {
-          if (animation.getInitialState) {
+          if (animation && typeof animation.getInitialState === 'function') {
             const initialState = animation.getInitialState();
             // 将初始状态合并到 config 中，确保片段开始显示时就有正确的初始状态
-            Object.assign(segmentElement.config, initialState);
+            // 使用深拷贝避免修改原始对象
+            for (const key in initialState) {
+              if (initialState.hasOwnProperty(key)) {
+                segmentElement.config[key] = initialState[key];
+              }
+            }
           }
         }
       }
@@ -183,58 +187,61 @@ export class TextElement extends BaseElement {
   }
 
   /**
-   * 渲染文本元素
+   * 渲染文本元素（使用 Paper.js）
    */
-  render(scene, time) {
-    if (!this.visible) return null;
+  render(layer, time) {
+    if (!this.visible) {
+      return null;
+    }
 
-    const state = this.getStateAtTime(time);
-
-    const label = new Label({
-      id: this.id,
-      text: state.text,
-      pos: [state.x, state.y],
-      size: [state.width, state.height],
-      font: `${state.fontStyle} ${state.fontWeight} ${state.fontSize}px ${state.fontFamily}`,
-      color: state.color,
-      textAlign: state.textAlign,
-      textBaseline: state.textBaseline,
-      opacity: state.opacity,
-      anchor: state.anchor,
-      rotate: state.rotation,
-      scale: [state.scaleX, state.scaleY],
-    });
-
-    scene.appendChild(label);
-    return label;
-  }
-
-  /**
-   * 直接使用Canvas 2D API渲染文本
-   */
-  renderToCanvas(ctx, time) {
     // 如果启用了分割，渲染所有子片段
     if (this.split && this.segments.length > 0) {
       // 渲染所有子片段
       for (const segment of this.segments) {
-        if (segment && typeof segment.renderToCanvas === 'function') {
-          segment.renderToCanvas(ctx, time);
+        if (segment && typeof segment.render === 'function') {
+          segment.render(layer, time);
         }
       }
-      return;
+      return null; // 分割文本不返回单个元素
     }
-    
-    // 检查可见性和时间范围（父类方法会检查）
-    if (!this.isActiveAtTime(time)) return;
 
-    // 获取Canvas尺寸用于单位转换
-    const canvas = ctx.canvas;
-    const context = { width: canvas.width, height: canvas.height, baseFontSize: 16 };
-    
-    // 如果是分割后的片段，需要动态计算位置
-    let finalX = this.config.x;
-    let finalY = this.config.y;
-    
+    // 检查时间范围
+    if (!this.isActiveAtTime(time)) {
+      return null;
+    }
+
+    // 获取场景尺寸用于单位转换
+    // 优先使用元素的 canvasWidth/canvasHeight，如果没有则使用 paper.view.viewSize
+    const viewSize = paper.view.viewSize;
+    const context = { 
+      width: this.canvasWidth || viewSize.width, 
+      height: this.canvasHeight || viewSize.height, 
+      baseFontSize: 16 
+    };
+    const state = this.getStateAtTime(time, context);
+
+    // 转换字体大小单位
+    let fontSize = state.fontSize;
+    if (typeof fontSize === 'string') {
+      fontSize = toFontSizePixels(fontSize, context);
+    }
+
+    // 确保字体大小有效
+    if (!fontSize || fontSize <= 0) {
+      fontSize = 24; // 默认字体大小
+    }
+
+    // 转换位置单位
+    let x = state.x;
+    let y = state.y;
+    if (typeof x === 'string') {
+      x = toPixels(x, context.width, 'x');
+    }
+    if (typeof y === 'string') {
+      y = toPixels(y, context.height, 'y');
+    }
+
+    // 处理分割后的片段位置计算
     if (this.isSegment && this.config.segmentOffsetX !== undefined) {
       // 这是分割后的片段，需要计算最终位置
       const parentX = this.config.parentX || 0;
@@ -260,7 +267,6 @@ export class TextElement extends BaseElement {
         } else if (textAlign === 'right') {
           baseX = baseX - totalWidth;
         }
-        // left 时不需要调整
       } else if (anchor[0] === 1) {
         // 右对齐
         if (textAlign === 'center') {
@@ -279,45 +285,11 @@ export class TextElement extends BaseElement {
       }
       
       // 最终位置 = 基准位置 + 片段偏移
-      finalX = baseX + (this.config.segmentOffsetX || 0);
-      finalY = baseY + (this.config.segmentOffsetY || 0);
-    } else {
-      // 普通元素，转换单位
-      if (typeof finalX === 'string') {
-        finalX = toPixels(finalX, context.width, 'x');
-      }
-      if (typeof finalY === 'string') {
-        finalY = toPixels(finalY, context.height, 'y');
-      }
+      x = baseX + (this.config.segmentOffsetX || 0);
+      y = baseY + (this.config.segmentOffsetY || 0);
     }
-    
-    // 临时修改 config 中的 x, y 用于 getStateAtTime
-    const originalX = this.config.x;
-    const originalY = this.config.y;
-    this.config.x = finalX;
-    this.config.y = finalY;
-    
-    const state = this.getStateAtTime(time, context);
-    
-    // 恢复原始值
-    this.config.x = originalX;
-    this.config.y = originalY;
-    
-    // 转换字体大小单位（必须在getStateAtTime之后，因为fontSize可能还是字符串）
-    let fontSize = state.fontSize;
-    if (typeof fontSize === 'string') {
-      fontSize = toFontSizePixels(fontSize, context);
-    }
-    
-    // 确保字体大小有效
-    if (!fontSize || fontSize <= 0) {
-      fontSize = 24; // 默认字体大小
-    }
-    
-    ctx.save();
-    ctx.globalAlpha = state.opacity;
-    
-    // 设置字体（确保fontStyle和fontWeight有默认值）
+
+    // 构建字体字符串
     const fontStyle = state.fontStyle || 'normal';
     const fontWeight = state.fontWeight || 'normal';
     let fontFamily = state.fontFamily || getDefaultFontFamily();
@@ -326,34 +298,57 @@ export class TextElement extends BaseElement {
     if (!isFontRegistered(fontFamily)) {
       fontFamily = getDefaultFontFamily();
     }
-    
-    // 构建字体字符串
-    ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
-    ctx.fillStyle = state.color || '#000000';
-    ctx.textAlign = state.textAlign || 'center';
-    ctx.textBaseline = state.textBaseline || 'middle';
-    
-    // 应用变换
-    ctx.translate(state.x, state.y);
-    ctx.rotate((state.rotation || 0) * Math.PI / 180);
-    ctx.scale(state.scaleX || 1, state.scaleY || 1);
-    
-    // 绘制文本
-    if (state.text) {
-      // 如果启用了描边，先绘制描边
-      if (state.stroke && state.strokeWidth > 0) {
-        ctx.strokeStyle = state.strokeColor || '#000000';
-        ctx.lineWidth = state.strokeWidth || 2;
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-        ctx.strokeText(state.text, 0, 0);
-      }
-      // 绘制填充文本
-      ctx.fillText(state.text, 0, 0);
+
+    // 使用 Paper.js 的 PointText 渲染文本
+    const pointText = new paper.PointText(new paper.Point(x, y));
+    pointText.content = state.text || '';
+    pointText.fontSize = fontSize;
+    pointText.fontFamily = fontFamily;
+    pointText.fontWeight = fontWeight;
+    pointText.fontStyle = fontStyle;
+    pointText.fillColor = state.color || '#000000';
+    pointText.opacity = state.opacity !== undefined ? state.opacity : 1;
+
+    // 设置文本对齐
+    const textAlign = state.textAlign || 'center';
+    if (textAlign === 'center') {
+      pointText.justification = 'center';
+    } else if (textAlign === 'right') {
+      pointText.justification = 'right';
+    } else {
+      pointText.justification = 'left';
     }
+
+    // 处理 anchor（Paper.js 使用 justification 和 baseline）
+    const anchor = state.anchor || [0.5, 0.5];
+    if (anchor[1] === 0.5) {
+      pointText.baseline = 'middle';
+    } else if (anchor[1] === 1) {
+      pointText.baseline = 'bottom';
+    } else {
+      pointText.baseline = 'top';
+    }
+
+    // 应用变换
+    if (state.rotation) {
+      pointText.rotate(state.rotation);
+    }
+    if (state.scaleX !== 1 || state.scaleY !== 1) {
+      pointText.scale(state.scaleX || 1, state.scaleY || 1);
+    }
+
+    // 如果启用了描边
+    if (state.stroke && state.strokeWidth > 0) {
+      pointText.strokeColor = state.strokeColor || '#000000';
+      pointText.strokeWidth = state.strokeWidth || 2;
+    }
+
+    // 添加到 layer
+    layer.addChild(pointText);
     
-    ctx.restore();
+    return pointText;
   }
+
   
   /**
    * 清理资源

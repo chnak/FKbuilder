@@ -4,6 +4,7 @@ import { ElementType } from '../types/enums.js';
 import { parseSubtitles, calculateMixedTextCapacity } from '../utils/subtitle-utils.js';
 import { toFontSizePixels } from '../utils/unit-converter.js';
 import { getDefaultFontFamily } from '../utils/font-manager.js';
+import paper from 'paper-jsdom-canvas';
 
 /**
  * 字幕元素
@@ -110,21 +111,41 @@ export class SubtitleElement extends BaseElement {
   /**
    * 渲染字幕元素
    */
-  async renderToCanvas(ctx, time) {
-    // 如果未初始化，先初始化
+  /**
+   * 渲染字幕元素（使用 Paper.js）
+   * 注意：字幕元素需要异步初始化，所以在首次渲染时可能需要同步初始化
+   */
+  render(layer, time) {
+    if (!this.visible) return null;
+
+    // 如果未初始化，尝试同步初始化（使用视图尺寸）
     if (!this.initialized) {
-      const canvas = ctx.canvas;
-      await this.initialize({ width: canvas.width, height: canvas.height });
+      try {
+        const viewSize = paper.view.viewSize;
+        const width = viewSize.width || 1920;
+        const height = viewSize.height || 1080;
+        // 同步初始化（如果可能）
+        // 注意：这可能会阻塞，但对于字幕元素，初始化应该很快
+        this.initialize({ width, height }).catch(err => {
+          console.warn('SubtitleElement 初始化失败:', err);
+        });
+      } catch (error) {
+        console.warn('SubtitleElement 同步初始化失败:', error);
+      }
     }
-    
-    // 渲染所有在当前时间激活的 TextElement
-    for (const textElement of this.textElements) {
-      if (textElement.isActiveAtTime(time)) {
-        if (typeof textElement.renderToCanvas === 'function') {
-          await textElement.renderToCanvas(ctx, time);
+
+    // 如果已初始化，渲染所有 TextElement
+    if (this.initialized) {
+      for (const textElement of this.textElements) {
+        if (textElement && textElement.isActiveAtTime(time)) {
+          if (typeof textElement.render === 'function') {
+            textElement.render(layer, time);
+          }
         }
       }
     }
+    
+    return null; // 字幕元素不返回单个元素
   }
   
   /**

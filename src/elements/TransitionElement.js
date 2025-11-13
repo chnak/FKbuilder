@@ -87,173 +87,23 @@ export class TransitionElement extends BaseElement {
   }
 
   /**
-   * 渲染到 Canvas
+   * 渲染转场元素（使用 Paper.js）
+   * 注意：转场效果需要预先渲染两个合成，然后使用 gl-transitions 混合
    */
-  async renderToCanvas(ctx, time) {
+  render(layer, time) {
     if (!this.isActiveAtTime(time)) {
-      return;
+      return null;
     }
 
     if (!this.fromComposition || !this.toComposition) {
-      return;
+      return null;
     }
 
-    const canvas = ctx.canvas;
-    const width = canvas.width;
-    const height = canvas.height;
-
-    // 计算转场进度 (0-1)
-    const progress = Math.max(
-      0,
-      Math.min(1, (time - this.startTime) / this.duration)
-    );
-
-    // 如果没有转场效果，直接切换
-    if (!this.transitionRenderer || !this.transitionConfig.name) {
-      // 简单的淡入淡出
-      if (progress < 0.5) {
-        // 显示源场景
-        await this.renderComposition(ctx, this.fromComposition, time, 1 - progress * 2);
-      } else {
-        // 显示目标场景
-        await this.renderComposition(ctx, this.toComposition, time, (progress - 0.5) * 2);
-      }
-      return;
-    }
-
-    // 初始化转场渲染函数
-    try {
-      await this.initTransitionFunction(width, height);
-    } catch (error) {
-      console.warn('初始化转场渲染函数失败:', error);
-      // 降级到简单切换
-      if (progress < 0.5) {
-        await this.renderComposition(ctx, this.fromComposition, time, 1 - progress * 2);
-      } else {
-        await this.renderComposition(ctx, this.toComposition, time, (progress - 0.5) * 2);
-      }
-      return;
-    }
-
-    let fromCanvas = null;
-    let toCanvas = null;
-    let transitionCanvas = null;
-
-    try {
-      // 记录转场渲染开始时间
-      const renderStartTime = performance.now();
-
-      // 渲染源场景和目标场景的帧
-      const fromTime = Math.max(0, time - this.startTime);
-      const toTime = Math.max(0, time - (this.startTime + this.duration / 2));
-
-      // 创建临时 Canvas 来渲染两个场景
-      fromCanvas = createCanvas(width, height);
-      const fromCtx = fromCanvas.getContext('2d');
-      await this.renderComposition(fromCtx, this.fromComposition, fromTime, 1);
-
-      toCanvas = createCanvas(width, height);
-      const toCtx = toCanvas.getContext('2d');
-      await this.renderComposition(toCtx, this.toComposition, toTime, 1);
-
-      // 转换为 Buffer
-      const fromBuffer = this.canvasToBuffer(fromCanvas);
-      const toBuffer = this.canvasToBuffer(toCanvas);
-
-      // 使用 gl-transitions 混合
-      const transitionBuffer = this.transitionFunction({
-        fromFrame: fromBuffer,
-        toFrame: toBuffer,
-        progress: progress,
-      });
-
-      // 转换回 Canvas 并绘制
-      transitionCanvas = this.bufferToCanvas(transitionBuffer, width, height);
-      ctx.drawImage(transitionCanvas, 0, 0);
-
-      // 记录转场渲染结束时间并累计
-      const renderEndTime = performance.now();
-      const renderTime = renderEndTime - renderStartTime;
-      TransitionElement.totalTransitionTime += renderTime;
-      TransitionElement.transitionRenderCount += 1;
-    } catch (error) {
-      console.error('转场渲染失败，使用简单切换:', error);
-      console.error('错误堆栈:', error.stack);
-      // 降级到简单切换
-      try {
-        if (progress < 0.5) {
-          await this.renderComposition(ctx, this.fromComposition, time, 1 - progress * 2);
-        } else {
-          await this.renderComposition(ctx, this.toComposition, time, (progress - 0.5) * 2);
-        }
-      } catch (fallbackError) {
-        console.error('降级渲染也失败:', fallbackError);
-        console.error('降级错误堆栈:', fallbackError.stack);
-      }
-    } finally {
-      // 清理临时 Canvas（如果 Node.js Canvas 支持的话）
-      // 注意：node-canvas 的 Canvas 对象没有 dispose 方法，但我们可以尝试设置为 null
-      if (fromCanvas) {
-        try {
-          // 尝试清理
-          fromCanvas = null;
-        } catch (e) {
-          // 忽略清理错误
-        }
-      }
-      if (toCanvas) {
-        try {
-          toCanvas = null;
-        } catch (e) {
-          // 忽略清理错误
-        }
-      }
-      if (transitionCanvas) {
-        try {
-          transitionCanvas = null;
-        } catch (e) {
-          // 忽略清理错误
-        }
-      }
-    }
-  }
-
-  /**
-   * 渲染合成到 Canvas
-   */
-  async renderComposition(ctx, composition, time, opacity = 1) {
-    if (!composition) return;
-
-    try {
-      // 确保 renderer 已初始化
-      if (!composition.renderer.initialized) {
-        await composition.renderer.init();
-      }
-
-      // 渲染合成的一帧
-      await composition.renderer.renderFrame(
-        composition.timeline.getLayers(),
-        time,
-        composition.backgroundColor || 'transparent'
-      );
-
-      // 绘制到目标 Canvas
-      const sourceCanvas = composition.renderer.canvas;
-      if (sourceCanvas) {
-        ctx.save();
-        ctx.globalAlpha = opacity;
-        ctx.drawImage(sourceCanvas, 0, 0, ctx.canvas.width, ctx.canvas.height);
-        ctx.restore();
-      }
-    } catch (error) {
-      console.warn('渲染合成失败:', error);
-      // 绘制一个黑色背景作为降级
-      ctx.save();
-      ctx.globalAlpha = opacity;
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-      ctx.restore();
-    }
+    // 转场效果需要特殊处理，这里暂时返回 null
+    // 实际转场效果应该在 VideoExporter 中处理，因为它需要渲染两个合成
+    // 或者可以在这里渲染两个合成的 canvas，然后使用 gl-transitions 混合
+    console.warn('TransitionElement.render() 在 Paper.js 中需要特殊处理，转场效果建议在 VideoExporter 中处理');
+    return null;
   }
 
   /**

@@ -25,7 +25,7 @@ const builder = new VideoBuilder({
 });
 
 const mainTrack = builder.createTrack({ zIndex: 1 });
-const scene = mainTrack.createScene({ duration: 10 })
+const scene = mainTrack.createScene({ duration: 5 })
   .addBackground()
   .addText({
     text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
@@ -34,7 +34,7 @@ const scene = mainTrack.createScene({ duration: 10 })
     x: "50vw",
     y: "10vh",
     textAlign: "center",
-    duration: 10,
+    duration: 5,
     startTime: 0,
     fontFamily: "MicrosoftYaHei", // 使用注册的字体名称
     split: "letter",
@@ -54,7 +54,7 @@ const scene = mainTrack.createScene({ duration: 10 })
     x: "50vw",
     y: "20vh",
     textAlign: "center",
-    duration: 10,
+    duration: 5,
     startTime: 0,
     fontFamily: "MicrosoftYaHei",
     split: "letter",
@@ -68,146 +68,146 @@ const scene = mainTrack.createScene({ duration: 10 })
       "zoomOut"
     ]
   })
-  .addText({
-    text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
-    color: "#ffffff",
-    fontSize: "18rpx",
-    x: "50vw",
-    y: "30vh",
-    textAlign: "center",
-    duration: 10,
-    startTime: 0,
-    fontFamily: "MicrosoftYaHei",
-    split: "letter",
-    splitDelay: 0.1,
-    splitDuration: 0.3,
-    stroke: true,
-    strokeColor: "#000000",
-    strokeWidth: 2,
-    animations: [
-      "fadeInUp", // 映射到现有的预设动画
-    ]
-  })
-  .addText({
-    text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
-    color: "#ffffff",
-    fontSize: "18rpx",
-    x: "50vw",
-    y: "40vh",
-    textAlign: "center",
-    duration: 10,
-    startTime: 0,
-    fontFamily: "MicrosoftYaHei",
-    split: "letter",
-    splitDelay: 0.1,
-    splitDuration: 0.3,
-    stroke: true,
-    strokeColor: "#000000",
-    strokeWidth: 2,
-    animations: [
-      "rotateIn", // 映射到现有的预设动画
-    ]
-  })
-  .addText({
-    text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
-    color: "#ffffff",
-    fontSize: "18rpx",
-    x: "50vw",
-    y: "50vh",
-    textAlign: "center",
-    duration: 10,
-    startTime: 0,
-    fontFamily: "MicrosoftYaHei",
-    split: "letter",
-    splitDelay: 0.1,
-    splitDuration: 0.3,
-    stroke: true,
-    strokeColor: "#000000",
-    strokeWidth: 2,
-    animations: [
-      "zoomIn", // 映射到现有的预设动画
-    ]
-  })
-  .addText({
-    text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
-    color: "#ffffff",
-    fontSize: "18rpx",
-    x: "50vw",
-    y: "60vh",
-    textAlign: "center",
-    duration: 10,
-    startTime: 0,
-    fontFamily: "MicrosoftYaHei",
-    split: "letter",
-    splitDelay: 0.1,
-    splitDuration: 0.3,
-    stroke: true,
-    strokeColor: "#000000",
-    strokeWidth: 2,
-    animations: [
-      "bounceIn", // 映射到现有的预设动画
-    ]
-  })
-  .addText({
-    text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
-    color: "#ffffff",
-    fontSize: "18rpx",
-    x: "50vw",
-    y: "70vh",
-    textAlign: "center",
-    duration: 10,
-    startTime: 0,
-    fontFamily: "MicrosoftYaHei",
-    split: "letter",
-    splitDelay: 0.1,
-    splitDuration: 0.3,
-    stroke: true,
-    strokeColor: "#000000",
-    strokeWidth: 2,
-    animations: [
-      "slideInLeft", // 映射到现有的预设动画
-    ]
-  })
-  .addText({
-    text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
-    color: "#ffffff",
-    fontSize: "18rpx",
-    x: "50vw",
-    y: "80vh",
-    textAlign: "center",
-    duration: 10,
-    startTime: 0,
-    fontFamily: "MicrosoftYaHei",
-    split: "letter",
-    splitDelay: 0.1,
-    splitDuration: 0.3,
-    stroke: true,
-    strokeColor: "#000000",
-    strokeWidth: 2,
-    animations: [
-      "slideInLeft", // 映射到现有的预设动画
-    ]
-  })
-  .addText({
-    text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
-    color: "#ffffff",
-    fontSize: "18rpx",
-    x: "50vw",
-    y: "100vh",
-    textAlign: "center",
-    duration: 10,
-    startTime: 0,
-    fontFamily: "MicrosoftYaHei",
-    split: "letter",
-    splitDelay: 0.1,
-    splitDuration: 0.3,
-    stroke: true,
-    strokeColor: "#000000",
-    strokeWidth: 2,
-    animations: [
-      "fadeInUp", // 映射到现有的预设动画
-    ]
-  });
+  // .addText({
+  //   text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
+  //   color: "#ffffff",
+  //   fontSize: "18rpx",
+  //   x: "50vw",
+  //   y: "30vh",
+  //   textAlign: "center",
+  //   duration: 10,
+  //   startTime: 0,
+  //   fontFamily: "MicrosoftYaHei",
+  //   split: "letter",
+  //   splitDelay: 0.1,
+  //   splitDuration: 0.3,
+  //   stroke: true,
+  //   strokeColor: "#000000",
+  //   strokeWidth: 2,
+  //   animations: [
+  //     "fadeInUp", // 映射到现有的预设动画
+  //   ]
+  // })
+  // .addText({
+  //   text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
+  //   color: "#ffffff",
+  //   fontSize: "18rpx",
+  //   x: "50vw",
+  //   y: "40vh",
+  //   textAlign: "center",
+  //   duration: 10,
+  //   startTime: 0,
+  //   fontFamily: "MicrosoftYaHei",
+  //   split: "letter",
+  //   splitDelay: 0.1,
+  //   splitDuration: 0.3,
+  //   stroke: true,
+  //   strokeColor: "#000000",
+  //   strokeWidth: 2,
+  //   animations: [
+  //     "rotateIn", // 映射到现有的预设动画
+  //   ]
+  // })
+  // .addText({
+  //   text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
+  //   color: "#ffffff",
+  //   fontSize: "18rpx",
+  //   x: "50vw",
+  //   y: "50vh",
+  //   textAlign: "center",
+  //   duration: 10,
+  //   startTime: 0,
+  //   fontFamily: "MicrosoftYaHei",
+  //   split: "letter",
+  //   splitDelay: 0.1,
+  //   splitDuration: 0.3,
+  //   stroke: true,
+  //   strokeColor: "#000000",
+  //   strokeWidth: 2,
+  //   animations: [
+  //     "zoomIn", // 映射到现有的预设动画
+  //   ]
+  // })
+  // .addText({
+  //   text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
+  //   color: "#ffffff",
+  //   fontSize: "18rpx",
+  //   x: "50vw",
+  //   y: "60vh",
+  //   textAlign: "center",
+  //   duration: 10,
+  //   startTime: 0,
+  //   fontFamily: "MicrosoftYaHei",
+  //   split: "letter",
+  //   splitDelay: 0.1,
+  //   splitDuration: 0.3,
+  //   stroke: true,
+  //   strokeColor: "#000000",
+  //   strokeWidth: 2,
+  //   animations: [
+  //     "bounceIn", // 映射到现有的预设动画
+  //   ]
+  // })
+  // .addText({
+  //   text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
+  //   color: "#ffffff",
+  //   fontSize: "18rpx",
+  //   x: "50vw",
+  //   y: "70vh",
+  //   textAlign: "center",
+  //   duration: 10,
+  //   startTime: 0,
+  //   fontFamily: "MicrosoftYaHei",
+  //   split: "letter",
+  //   splitDelay: 0.1,
+  //   splitDuration: 0.3,
+  //   stroke: true,
+  //   strokeColor: "#000000",
+  //   strokeWidth: 2,
+  //   animations: [
+  //     "slideInLeft", // 映射到现有的预设动画
+  //   ]
+  // })
+  // .addText({
+  //   text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
+  //   color: "#ffffff",
+  //   fontSize: "18rpx",
+  //   x: "50vw",
+  //   y: "80vh",
+  //   textAlign: "center",
+  //   duration: 10,
+  //   startTime: 0,
+  //   fontFamily: "MicrosoftYaHei",
+  //   split: "letter",
+  //   splitDelay: 0.1,
+  //   splitDuration: 0.3,
+  //   stroke: true,
+  //   strokeColor: "#000000",
+  //   strokeWidth: 2,
+  //   animations: [
+  //     "slideInLeft", // 映射到现有的预设动画
+  //   ]
+  // })
+  // .addText({
+  //   text: "一天，奇奇发现了一颗特别大的金色橡果，它兴奋地跳来跳去",
+  //   color: "#ffffff",
+  //   fontSize: "18rpx",
+  //   x: "50vw",
+  //   y: "100vh",
+  //   textAlign: "center",
+  //   duration: 10,
+  //   startTime: 0,
+  //   fontFamily: "MicrosoftYaHei",
+  //   split: "letter",
+  //   splitDelay: 0.1,
+  //   splitDuration: 0.3,
+  //   stroke: true,
+  //   strokeColor: "#000000",
+  //   strokeWidth: 2,
+  //   animations: [
+  //     "fadeInUp", // 映射到现有的预设动画
+  //   ]
+  // });
 
 async function main() {
   const outputPath = path.join(__dirname, '../output/my-video.mp4');

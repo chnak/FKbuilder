@@ -34,6 +34,7 @@ export const LayerType = {
   ELEMENT: 'element',
   BACKGROUND: 'background',
   OVERLAY: 'overlay',
+  COMPOSITION: 'composition',
 };
 
 /**

@@ -2,10 +2,11 @@ import { BaseElement } from './BaseElement.js';
 import { DEFAULT_ELEMENT_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
-import spritejs from 'spritejs';
+import { toPixels } from '../utils/unit-converter.js';
+import paper from 'paper-jsdom-canvas';
 
 /**
- * SpriteJS 精灵元素（通用元素包装器）
+ * 精灵元素（通用元素包装器，使用 Paper.js）
  */
 export class SpriteElement extends BaseElement {
   constructor(config = {}) {
@@ -31,28 +32,69 @@ export class SpriteElement extends BaseElement {
   }
 
   /**
-   * 渲染 Sprite 元素
+   * 渲染 Sprite 元素（使用 Paper.js）
+   * 注意：SpriteElement 在 Paper.js 中可能需要根据 spriteType 创建不同的元素
    */
-  render(scene, time) {
+  render(layer, time) {
     if (!this.visible) return null;
 
-    const state = this.getStateAtTime(time);
-    const SpriteClass = spritejs[this.spriteType] || spritejs.Sprite;
+    const viewSize = paper.view.viewSize;
+    const context = { width: viewSize.width, height: viewSize.height };
+    const state = this.getStateAtTime(time, context);
 
-    const spriteConfig = {
-      id: this.id,
-      pos: [state.x, state.y],
-      size: [state.width, state.height],
-      opacity: state.opacity,
-      anchor: state.anchor,
-      rotate: state.rotation,
-      scale: [state.scaleX, state.scaleY],
-      ...this.spriteConfig,
-    };
+    // 转换位置和尺寸单位
+    let x = state.x;
+    let y = state.y;
+    let width = state.width;
+    let height = state.height;
 
-    const sprite = new SpriteClass(spriteConfig);
-    scene.appendChild(sprite);
-    return sprite;
+    if (typeof x === 'string') {
+      x = toPixels(x, context.width, 'x');
+    }
+    if (typeof y === 'string') {
+      y = toPixels(y, context.height, 'y');
+    }
+    if (typeof width === 'string') {
+      width = toPixels(width, context.width, 'x');
+    }
+    if (typeof height === 'string') {
+      height = toPixels(height, context.height, 'y');
+    }
+
+    // 根据 spriteType 创建对应的 Paper.js 元素
+    let item;
+    switch (this.spriteType) {
+      case 'Rect':
+        item = new paper.Path.Rectangle({
+          rectangle: new paper.Rectangle(x - width * 0.5, y - height * 0.5, width, height),
+        });
+        break;
+      case 'Circle':
+        item = new paper.Path.Circle({
+          center: new paper.Point(x, y),
+          radius: Math.min(width, height) / 2,
+        });
+        break;
+      default:
+        // 默认创建矩形
+        item = new paper.Path.Rectangle({
+          rectangle: new paper.Rectangle(x - width * 0.5, y - height * 0.5, width, height),
+        });
+    }
+
+    item.fillColor = this.spriteConfig.bgcolor || '#ffffff';
+    item.opacity = state.opacity !== undefined ? state.opacity : 1;
+
+    // 应用变换
+    if (state.rotation) {
+      item.rotate(state.rotation, new paper.Point(x, y));
+    }
+    if (state.scaleX !== 1 || state.scaleY !== 1) {
+      item.scale(state.scaleX || 1, state.scaleY || 1, new paper.Point(x, y));
+    }
+
+    layer.addChild(item);
+    return item;
   }
 }
 

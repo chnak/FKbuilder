@@ -1,8 +1,7 @@
-import { createCanvas } from 'canvas';
-
 /**
  * 文本分割工具类
  * 用于将文本按字符、单词或行进行分割，并计算每个片段的位置和尺寸
+ * 注意：使用估算方式计算文本尺寸，不使用 Canvas API
  */
 export class TextSplitter {
   constructor(text, options = {}) {
@@ -23,11 +22,6 @@ export class TextSplitter {
       ...options
     };
 
-    // 创建临时 Canvas 用于测量文本
-    this.canvas = createCanvas(1, 1);
-    this.ctx = this.canvas.getContext('2d');
-    this._setupContext();
-
     // 存储分割后的数据
     this.characters = [];
     this.words = [];
@@ -45,20 +39,32 @@ export class TextSplitter {
   }
 
   /**
-   * 设置 Canvas 上下文
-   */
-  _setupContext() {
-    const { fontSize, fontFamily, fontWeight, fontStyle } = this.options;
-    this.ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
-    this.ctx.textAlign = 'left';
-    this.ctx.textBaseline = 'top';
-  }
-
-  /**
-   * 测量文本宽度
+   * 估算文本宽度（不使用 Canvas API）
    */
   _measureText(text) {
-    return this.ctx.measureText(text).width;
+    if (!text) return 0;
+    
+    const { fontSize } = this.options;
+    let totalWidth = 0;
+    
+    // 遍历每个字符，估算宽度
+    for (const char of text) {
+      if (this._isSpace(char)) {
+        // 空格字符
+        totalWidth += fontSize * 0.25;
+      } else if (this._isSymbol(char)) {
+        // 符号字符
+        totalWidth += fontSize * 0.5;
+      } else if (/[\u4e00-\u9fa5]/.test(char)) {
+        // 中文字符
+        totalWidth += fontSize;
+      } else {
+        // 英文字母和数字
+        totalWidth += fontSize * 0.6;
+      }
+    }
+    
+    return totalWidth;
   }
 
   /**
@@ -454,10 +460,7 @@ export class TextSplitter {
    * 清理资源
    */
   destroy() {
-    if (this.canvas) {
-      this.canvas = null;
-      this.ctx = null;
-    }
+    // 不再需要清理 Canvas
   }
 }
 

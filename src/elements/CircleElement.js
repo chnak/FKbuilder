@@ -3,9 +3,7 @@ import { DEFAULT_ELEMENT_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
 import { toPixels } from '../utils/unit-converter.js';
-import spritejs from 'spritejs';
-
-const { Circle } = spritejs;
+import paper from 'paper-jsdom-canvas';
 
 /**
  * 圆形元素
@@ -50,45 +48,26 @@ export class CircleElement extends BaseElement {
   }
 
   /**
-   * 渲染圆形元素
+   * 渲染圆形元素（使用 Paper.js）
    */
-  render(scene, time) {
+  render(layer, time) {
     if (!this.visible) return null;
 
-    const state = this.getStateAtTime(time);
-
-    const circle = new Circle({
-      id: this.id,
-      pos: [state.x, state.y],
-      radius: state.radius || Math.min(state.width, state.height) / 2,
-      bgcolor: state.bgcolor,
-      border: state.borderWidth > 0 ? {
-        width: state.borderWidth,
-        color: state.borderColor,
-      } : null,
-      opacity: state.opacity,
-      anchor: state.anchor,
-      rotate: state.rotation,
-      scale: [state.scaleX, state.scaleY],
-    });
-
-    scene.appendChild(circle);
-    return circle;
-  }
-
-  /**
-   * 直接使用Canvas 2D API渲染圆形
-   */
-  renderToCanvas(ctx, time) {
-    // 检查可见性和时间范围（父类方法会检查）
-    if (!this.isActiveAtTime(time)) return;
-
-    // 获取Canvas尺寸用于单位转换
-    const canvas = ctx.canvas;
-    const context = { width: canvas.width, height: canvas.height };
+    const viewSize = paper.view.viewSize;
+    const context = { width: viewSize.width, height: viewSize.height };
     const state = this.getStateAtTime(time, context);
 
-    // 计算半径（支持单位转换）
+    // 转换位置单位
+    let x = state.x;
+    let y = state.y;
+    if (typeof x === 'string') {
+      x = toPixels(x, context.width, 'x');
+    }
+    if (typeof y === 'string') {
+      y = toPixels(y, context.height, 'y');
+    }
+
+    // 计算半径
     let radius = state.radius;
     if (typeof radius === 'string') {
       radius = toPixels(radius, context);
@@ -96,28 +75,33 @@ export class CircleElement extends BaseElement {
       radius = Math.min(state.width, state.height) / 2;
     }
 
-    ctx.save();
-    ctx.globalAlpha = state.opacity;
+    // 创建圆形
+    const circle = new paper.Path.Circle({
+      center: new paper.Point(x, y),
+      radius: radius,
+    });
 
-    // 应用变换
-    ctx.translate(state.x, state.y);
-    ctx.rotate((state.rotation || 0) * Math.PI / 180);
-    ctx.scale(state.scaleX || 1, state.scaleY || 1);
+    circle.fillColor = state.bgcolor || '#ffffff';
+    circle.opacity = state.opacity !== undefined ? state.opacity : 1;
 
-    // 绘制圆形
-    ctx.beginPath();
-    ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    ctx.fillStyle = state.bgcolor || '#ffffff';
-    ctx.fill();
-
-    // 绘制边框
+    // 边框
     if (state.borderWidth > 0) {
-      ctx.strokeStyle = state.borderColor || '#000000';
-      ctx.lineWidth = state.borderWidth;
-      ctx.stroke();
+      circle.strokeColor = state.borderColor || '#000000';
+      circle.strokeWidth = state.borderWidth;
     }
 
-    ctx.restore();
+    // 应用变换
+    if (state.rotation) {
+      circle.rotate(state.rotation, new paper.Point(x, y));
+    }
+    if (state.scaleX !== 1 || state.scaleY !== 1) {
+      circle.scale(state.scaleX || 1, state.scaleY || 1, new paper.Point(x, y));
+    }
+
+    // 添加到 layer
+    layer.addChild(circle);
+    return circle;
   }
+
 }
 

@@ -4,7 +4,7 @@
 import { Scene } from './Scene.js';
 import { Transition } from './Transition.js';
 import { VideoMaker } from '../core/VideoMaker.js';
-import { CompositionElement } from '../elements/CompositionElement.js';
+import { CompositionLayer } from '../layers/CompositionLayer.js';
 
 /**
  * 轨道类 - 继承自 VideoMaker
@@ -87,7 +87,7 @@ export class Track extends VideoMaker {
   }
 
   /**
-   * 构建轨道（将场景作为 CompositionElement 添加到轨道）
+   * 构建轨道（将场景作为 CompositionLayer 添加到轨道）
    */
   build() {
     const totalDuration = this.getTotalDuration();
@@ -95,11 +95,7 @@ export class Track extends VideoMaker {
     // 更新轨道合成的时长
     this.setDuration(totalDuration);
     
-    // 获取轨道图层
-    const trackLayer = this.createElementLayer();
-    
-    // 先创建所有场景元素
-    const sceneElements = [];
+    // 先创建所有场景 layer
     let currentTime = 0;
     
     for (let i = 0; i < this.scenes.length; i++) {
@@ -109,64 +105,26 @@ export class Track extends VideoMaker {
       // 构建场景为独立的 VideoMaker
       const sceneComposition = scene.build();
       
-      // 创建 CompositionElement 包装场景合成
-      const sceneElement = new CompositionElement({
+      // 创建 CompositionLayer 直接渲染场景合成
+      const sceneLayer = new CompositionLayer({
+        composition: sceneComposition,
         x: this.width / 2,
         y: this.height / 2,
         width: this.width,
         height: this.height,
-        composition: sceneComposition,
         anchor: [0.5, 0.5],
         startTime: sceneStartTime,
         endTime: sceneStartTime + scene.duration,
+        zIndex: 0, // 场景在轨道中的 zIndex
       });
       
-      sceneElements.push(sceneElement);
+      // 直接添加到 timeline（作为 layer）
+      this.timeline.addLayer(sceneLayer);
+      
       currentTime = sceneStartTime + scene.duration;
-    }
-    
-    // 应用转场效果并添加场景元素到图层
-    for (let i = 0; i < sceneElements.length; i++) {
-      const sceneElement = sceneElements[i];
-      const scene = this.scenes[i];
       
-      // 添加到轨道图层
-      trackLayer.addElement(sceneElement);
-      
-      // 处理转场
-      if (i < sceneElements.length - 1) {
-        const nextSceneElement = sceneElements[i + 1];
-        const nextScene = this.scenes[i + 1];
-        
-        // 查找转场
-        const transition = this.transitions.find(t => 
-          (t.fromScene === scene || t.fromSceneIndex === i) &&
-          (t.toScene === nextScene || t.toSceneIndex === i + 1)
-        );
-        
-        if (transition && transition.duration > 0) {
-          // 计算转场时间（前一个场景结束时间）
-          const transitionTime = sceneElement.endTime;
-          const transitionStartTime = Math.max(0, transitionTime - transition.duration);
-          
-          // 创建转场元素（Scene 本身就是 VideoMaker）
-          const transitionElement = transition.createTransitionElement(
-            scene, // 源场景合成（Scene extends VideoMaker）
-            nextScene, // 目标场景合成（Scene extends VideoMaker）
-            transitionTime,
-            this.width,
-            this.height
-          );
-          
-          // 调整场景元素的可见时间，避免与转场重叠
-          sceneElement.endTime = transitionStartTime;
-          nextSceneElement.startTime = transitionTime;
-          
-          // 添加转场元素到图层（zIndex 更高，确保在最上层）
-          transitionElement.zIndex = 9999;
-          trackLayer.addElement(transitionElement);
-        }
-      }
+      // 处理转场（暂时跳过，转场需要特殊处理）
+      // TODO: 转场效果需要重新设计，可能需要使用 TransitionLayer
     }
 
     return this;

@@ -47,37 +47,30 @@ export class BackgroundLayer extends BaseLayer {
   }
 
   /**
-   * 渲染背景图层
+   * 渲染背景图层（使用 Paper.js）
    */
-  render(scene, time) {
+  async render(layer, time) {
     if (!this.isActiveAtTime(time)) return;
 
     // 渲染背景元素
     if (this.backgroundElement) {
-      this.backgroundElement.render(scene, time);
+      const result = this.backgroundElement.render(layer, time);
+      if (result && typeof result.then === 'function') {
+        await result;
+      }
     }
 
     // 渲染其他元素
     for (const element of this.elements) {
       if (element !== this.backgroundElement && element.visible) {
-        element.render(scene, time);
+        const result = element.render(layer, time);
+        if (result && typeof result.then === 'function') {
+          await result;
+        }
       }
     }
   }
 
-  /**
-   * 直接使用Canvas 2D API渲染背景图层
-   */
-  renderToCanvas(ctx, time) {
-    if (!this.isActiveAtTime(time)) return;
-
-    // 背景已经在Renderer中绘制了，这里不需要再绘制背景元素
-    // 只渲染其他元素
-    for (const element of this.elements) {
-      if (element !== this.backgroundElement && element.visible && typeof element.renderToCanvas === 'function') {
-        element.renderToCanvas(ctx, time);
-      }
-    }
-  }
 }
+
 

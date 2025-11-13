@@ -11,62 +11,33 @@ export class ElementLayer extends BaseLayer {
   }
 
   /**
-   * 渲染元素图层
+   * 渲染元素图层（使用 Paper.js）
    */
-  render(scene, time) {
+  async render(layer, time) {
     if (!this.isActiveAtTime(time)) return;
 
     // 渲染所有元素
     for (const element of this.elements) {
-      if (element.visible) {
-        element.render(scene, time);
+      // 检查元素是否在指定时间激活（使用相对时间）
+      if (element.visible && element.isActiveAtTime && element.isActiveAtTime(time)) {
+        // 使用 Paper.js 渲染
+        if (typeof element.render === 'function') {
+          try {
+            // 支持异步渲染（如 CompositionElement）
+            const result = element.render(layer, time);
+            if (result && typeof result.then === 'function') {
+              await result;
+            }
+          } catch (error) {
+            console.error(`渲染元素失败 (${element.type || 'unknown'}, id: ${element.id}):`, error);
+            console.error('错误堆栈:', error.stack);
+          }
+        } else {
+          console.warn(`元素 ${element.type || 'unknown'} 没有 render 方法`);
+        }
       }
     }
   }
 
-  /**
-   * 直接使用Canvas 2D API渲染图层
-   */
-  async renderToCanvas(ctx, time) {
-    if (!this.isActiveAtTime(time)) return;
-
-    // 先预渲染所有嵌套合成和字幕元素
-    for (const element of this.elements) {
-      if (element.visible) {
-        // 预渲染嵌套合成
-        if (element.type === 'composition' && typeof element.preRender === 'function') {
-          try {
-            await element.preRender(time);
-          } catch (error) {
-            console.warn('预渲染嵌套合成失败:', error);
-          }
-        }
-        // 初始化字幕元素（如果需要）
-        if (element.type === 'text' && element.constructor.name === 'SubtitleElement' && !element.initialized) {
-          try {
-            const canvas = ctx.canvas;
-            await element.initialize({ width: canvas.width, height: canvas.height });
-          } catch (error) {
-            console.warn('初始化字幕元素失败:', error);
-          }
-        }
-      }
-    }
-
-    // 然后渲染所有元素（支持异步）
-    for (const element of this.elements) {
-      if (element.visible && typeof element.renderToCanvas === 'function') {
-        try {
-          const result = element.renderToCanvas(ctx, time);
-          // 如果是 Promise，等待完成
-          if (result && typeof result.then === 'function') {
-            await result;
-          }
-        } catch (error) {
-          console.error(`渲染元素失败 (${element.type || 'unknown'}):`, error);
-        }
-      }
-    }
-  }
 }
 

@@ -3,9 +3,8 @@ import { DEFAULT_IMAGE_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
 import { imageLoader } from '../utils/image-loader.js';
-import spritejs from 'spritejs';
-
-const { Sprite } = spritejs;
+import { toPixels } from '../utils/unit-converter.js';
+import paper from 'paper-jsdom-canvas';
 
 /**
  * 图片元素
@@ -51,50 +50,63 @@ export class ImageElement extends BaseElement {
   }
 
   /**
-   * 渲染图片元素
+   * 渲染图片元素（使用 Paper.js）
    */
-  render(scene, time) {
+  render(layer, time) {
     if (!this.visible || !this.loaded || !this.imageData) return null;
 
-    const state = this.getStateAtTime(time);
+    const viewSize = paper.view.viewSize;
+    const context = { width: viewSize.width, height: viewSize.height };
+    const state = this.getStateAtTime(time, context);
 
-    const sprite = new Sprite({
-      id: this.id,
-      texture: this.imageData,
-      pos: [state.x, state.y],
-      size: [state.width, state.height],
-      opacity: state.opacity,
-      anchor: state.anchor,
-      rotate: state.rotation,
-      scale: [state.scaleX, state.scaleY],
-      bgcolor: 'transparent',
-    });
+    // 转换位置和尺寸单位
+    let x = state.x;
+    let y = state.y;
+    let width = state.width;
+    let height = state.height;
+
+    if (typeof x === 'string') {
+      x = toPixels(x, context.width, 'x');
+    }
+    if (typeof y === 'string') {
+      y = toPixels(y, context.height, 'y');
+    }
+    if (typeof width === 'string') {
+      width = toPixels(width, context.width, 'x');
+    }
+    if (typeof height === 'string') {
+      height = toPixels(height, context.height, 'y');
+    }
+
+    // 处理 anchor
+    const anchor = state.anchor || [0.5, 0.5];
+    const rectX = x - width * anchor[0];
+    const rectY = y - height * anchor[1];
+
+    // 使用 Paper.js 的 Raster 渲染图片
+    const raster = new paper.Raster(this.imageData);
+    raster.position = new paper.Point(x, y);
+    raster.size = new paper.Size(width, height);
+    raster.opacity = state.opacity !== undefined ? state.opacity : 1;
 
     // 处理图片适配方式
     if (state.fit === 'cover' || state.fit === 'contain') {
-      // SpriteJS 会自动处理，这里可以添加额外逻辑
+      // Paper.js 的 Raster 需要手动处理适配
+      // 这里可以添加额外逻辑
     }
 
-    scene.appendChild(sprite);
-    return sprite;
+    // 应用变换
+    if (state.rotation) {
+      raster.rotate(state.rotation);
+    }
+    if (state.scaleX !== 1 || state.scaleY !== 1) {
+      raster.scale(state.scaleX || 1, state.scaleY || 1);
+    }
+
+    // 添加到 layer
+    layer.addChild(raster);
+    return raster;
   }
 
-  /**
-   * 直接使用Canvas 2D API渲染图片
-   */
-  renderToCanvas(ctx, time) {
-    // 检查可见性和时间范围（父类方法会检查）
-    if (!this.isActiveAtTime(time) || !this.loaded || !this.imageData) return;
-
-    // 获取Canvas尺寸用于单位转换
-    const canvas = ctx.canvas;
-    const context = { width: canvas.width, height: canvas.height };
-    const state = this.getStateAtTime(time, context);
-
-    // 注意：这里需要将Buffer转换为Image对象
-    // 由于Node.js环境限制，图片渲染可能需要特殊处理
-    // 暂时跳过，或者使用其他图片处理库
-    console.warn('ImageElement.renderToCanvas: 图片渲染在Node.js环境下需要额外处理');
-  }
 }
 

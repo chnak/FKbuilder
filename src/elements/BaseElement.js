@@ -256,7 +256,10 @@ export class BaseElement {
       return { ...this.config, opacity: 0, visible: false };
     }
     
-    let state = { ...this.config };
+    // 深拷贝 config，避免修改原始配置
+    // 注意：不能使用 JSON.stringify，因为 config 中可能包含循环引用（如 parent、layer 等）
+    // 使用深合并来创建一个新的对象，只拷贝基本类型的属性
+    let state = deepMerge({}, this.config);
 
     // 应用所有动画
     // 注意：动画的 startTime 是相对于元素自己的 startTime 的
@@ -285,13 +288,16 @@ export class BaseElement {
       // 获取动画的初始状态（from 值）和结束状态（to 值）
       let animationState = {};
       
-      if (time <= animationAbsoluteStartTime) {
+      // 使用一个小的阈值（1ms）来处理浮点数精度问题
+      const epsilon = 0.001;
+      
+      if (time < animationAbsoluteStartTime + epsilon) {
         // 动画还未开始或刚开始，应用初始状态（from 值）
-        // 注意：使用 <= 而不是 <，确保在动画开始的第一帧也应用初始状态
+        // 使用 epsilon 来处理浮点数精度问题，确保在动画开始的第一帧也应用初始状态
         animationState = animation.getInitialState ? animation.getInitialState() : {};
-      } else if (time >= animationAbsoluteEndTime) {
+      } else if (time > animationAbsoluteEndTime - epsilon) {
         // 动画已结束，应用结束状态（to 值）
-        // 注意：使用 >= 而不是 >，确保在动画结束的最后一帧也应用结束状态
+        // 使用 epsilon 来处理浮点数精度问题，确保在动画结束的最后一帧也应用结束状态
         animationState = animation.getFinalState ? animation.getFinalState() : {};
       } else {
         // 动画进行中，计算当前状态
@@ -301,8 +307,12 @@ export class BaseElement {
         animationState = animation.getStateAtTime(animation.startTime + animationRelativeTime);
       }
       
-      // 合并动画状态到元素状态
-      state = { ...state, ...animationState };
+      // 合并动画状态到元素状态（只合并非 undefined 的值）
+      for (const key in animationState) {
+        if (animationState.hasOwnProperty(key) && animationState[key] !== undefined) {
+          state[key] = animationState[key];
+        }
+      }
     }
 
     // 处理 translateX 和 translateY（相对偏移量）
@@ -347,28 +357,15 @@ export class BaseElement {
   }
 
   /**
-   * 渲染元素到 SpriteJS 场景（子类实现）
-   * @param {Object} scene - SpriteJS 场景对象
+   * 渲染元素到 Paper.js 图层（子类实现）
+   * @param {Object} layer - Paper.js 图层对象
    * @param {number} time - 当前时间（秒）
    */
-  render(scene, time) {
+  render(layer, time) {
     // 子类实现具体渲染逻辑
     throw new Error('render method must be implemented by subclass');
   }
 
-  /**
-   * 直接使用Canvas 2D API渲染元素（子类实现）
-   * @param {CanvasRenderingContext2D} ctx - Canvas 2D 上下文
-   * @param {number} time - 当前时间（秒）
-   */
-  renderToCanvas(ctx, time) {
-    // 检查时间范围，如果不在范围内则不渲染
-    if (!this.isActiveAtTime(time)) {
-      return;
-    }
-    // 子类实现具体渲染逻辑
-    throw new Error('renderToCanvas method must be implemented by subclass');
-  }
 
   /**
    * 销毁元素

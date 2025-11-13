@@ -1,7 +1,7 @@
 {
   "name": "FKvideo-spritejs",
   "version": "1.0.3",
-  "description": "基于 Creatomate 配置结构的视频制作库，使用 SpriteJS 渲染引擎",
+  "description": "基于 Creatomate 配置结构的视频制作库，使用 Paper.js 渲染引擎",
   "main": "index.cjs",
   "module": "index.js",
   "type": "module",
@@ -22,7 +22,7 @@
     "video",
     "animation",
     "canvas",
-    "spritejs",
+    "paper.js",
     "webgl",
     "ffmpeg",
     "creatomate",
@@ -44,6 +44,9 @@
     "gl-transitions": "^1.43.0",
     "lrc-kit": "^1.1.1",
     "nanoid": "^5.0.4",
+    "node-canvas-webgl": "^0.3.0",
+    "paper": "^0.12.18",
+    "paper-jsdom-canvas": "^0.12.18",
     "spritejs": "^3.8.3",
     "zod": "^4.1.12"
   },

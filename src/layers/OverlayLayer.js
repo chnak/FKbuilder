@@ -19,17 +19,20 @@ export class OverlayLayer extends BaseLayer {
   }
 
   /**
-   * 渲染叠加图层
+   * 渲染叠加图层（使用 Paper.js）
    */
-  render(scene, time) {
+  async render(layer, time) {
     if (!this.isActiveAtTime(time)) return;
 
     // 渲染所有元素（可以应用混合模式）
     for (const element of this.elements) {
       if (element.visible) {
-        // 注意：SpriteJS 的混合模式需要通过样式设置
+        // Paper.js 的混合模式可以通过 blendMode 属性设置
         // 这里先渲染元素，混合模式可以在元素配置中设置
-        element.render(scene, time);
+        const result = element.render(layer, time);
+        if (result && typeof result.then === 'function') {
+          await result;
+        }
       }
     }
   }

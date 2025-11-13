@@ -152,9 +152,9 @@ async function testAllOscilloscopeStyles() {
     {
       name: 'grid',
       title: '网格波形',
-      x: '50%',
+      x: '12.5%',
       y: '50%',
-      width: 400,
+      width: 350,
       height: 200,
       waveColor: '#80ff00',
       gridRows: 8,
@@ -168,6 +168,21 @@ async function testAllOscilloscopeStyles() {
       width: 400,
       height: 400,
       explosionParticles: 80,
+      particleColors: [
+        '#ff0080', '#ff4080', '#ff8000', '#ffc000',
+        '#ffff00', '#80ff00', '#00ff80', '#00ffff',
+        '#0080ff', '#8000ff', '#ff00ff', '#ff0080',
+      ],
+    },
+    {
+      name: 'blob',
+      title: 'Blob 球体碰撞',
+      x: '87.5%',
+      y: '50%',
+      width: 400,
+      height: 400,
+      blobBallCount: 6,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
       particleColors: [
         '#ff0080', '#ff4080', '#ff8000', '#ffc000',
         '#ffff00', '#80ff00', '#00ff80', '#00ffff',
@@ -225,6 +240,9 @@ async function testAllOscilloscopeStyles() {
     }
     if (styleConfig.explosionParticles) {
       config.explosionParticles = styleConfig.explosionParticles;
+    }
+    if (styleConfig.blobBallCount) {
+      config.blobBallCount = styleConfig.blobBallCount;
     }
 
     await scene.addOscilloscope(config);

@@ -137,13 +137,14 @@ function createBlobBall(radius, point, vector, element, index) {
   
   const path = new paper.Path({
     fillColor: fillColor,
-    blendMode: 'lighter'
+    blendMode: 'lighter',
+    closed: true
   });
   
   for (let i = 0; i < numSegment; i++) {
     boundOffset.push(radius);
     boundOffsetBuff.push(radius);
-    path.add(new paper.Point());
+    path.add(new paper.Point(point.x, point.y)); // 初始位置设置为球心
     sidePoints.push(new paper.Point({
       angle: 360 / numSegment * i,
       length: 1

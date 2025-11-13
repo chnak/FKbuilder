@@ -117,34 +117,28 @@ async function testOscilloscope() {
     zIndex: 1,
   });
 
-  // 添加示波器 - 粒子样式（底部）
-  console.log('添加粒子样式示波器...');
+  // 添加示波器 - Blob 球体碰撞样式（底部）
+  console.log('添加 Blob 球体碰撞样式示波器...');
   await scene.addOscilloscope({
     audioPath: audioFile,
     cutFrom: AUDIO_START_TIME, // 从音频文件的哪个时间点开始
     cutTo: cutTo, // 裁剪到哪个时间点
     x: '50%',
     y: '80%',
-    width: 500,
-    height: 500,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    style: 'particles',
-    mirror: true,
+    width: 600,
+    height: 600,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    style: 'blob',
     sensitivity: 3.0, // 增大振幅
-    particleCount: 60,
-    particleMinSize: 4,
-    particleMaxSize: 20,
+    blobBallCount: 6, // Blob 球体数量
     particleColors: [
       '#ff0080', '#ff4080', '#ff8000', '#ffc000',
       '#ffff00', '#80ff00', '#00ff80', '#00ffff',
       '#0080ff', '#8000ff', '#ff00ff', '#ff0080',
     ],
-    particleTrail: true,
     windowSize: 0.1,
     startTime: 0,
-    duration: 60,
-    cutFrom: 0, // 从音频文件的哪个时间点开始
-    cutTo: 60, // 裁剪到哪个时间点
+    duration: VIDEO_DURATION,
     zIndex: 1,
   });
 

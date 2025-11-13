@@ -328,11 +328,7 @@ export class OscilloscopeElement extends BaseElement {
     
     if (renderer) {
       // 调用渲染器函数，传递 element, data, x, y, width, height, time
-      if (styleName === 'waterfall' || styleName === 'ripple') {
-        renderer(this, waveformData, rectX, rectY, width, height, time);
-      } else {
-        renderer(this, waveformData, rectX, rectY, width, height);
-      }
+      renderer(this, waveformData, rectX, rectY, width, height, time);
     } else {
       console.warn(`[OscilloscopeElement] 未找到渲染器: ${styleName}，使用默认 line 渲染器`);
       const defaultRenderer = getRenderer('line');

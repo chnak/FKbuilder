@@ -7,6 +7,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import { execa } from 'execa';
 import paper from 'paper-jsdom-canvas';
+import { ensureRenderersLoaded, getRenderer } from './oscilloscope/renderer-loader.js';
 
 /**
  * 示波器元素 - 可视化音频波形
@@ -72,6 +73,10 @@ export class OscilloscopeElement extends BaseElement {
     this.channels = 1; // 声道数（单声道）
     this.loaded = false;
     
+    // 音频裁剪时间（从原始音频文件中裁剪的开始和结束时间）
+    this.cutFrom = config.cutFrom !== undefined ? config.cutFrom : 0; // 从音频文件的哪个时间点开始裁剪（秒）
+    this.cutTo = config.cutTo !== undefined ? config.cutTo : undefined; // 裁剪到音频文件的哪个时间点（秒，undefined 表示裁剪到文件末尾）
+    
     // 显示窗口配置
     this.windowSize = config.windowSize || 0.1; // 显示窗口大小（秒），0 表示显示全部
     this.scrollSpeed = config.scrollSpeed || 1.0; // 滚动速度
@@ -87,7 +92,10 @@ export class OscilloscopeElement extends BaseElement {
     }
 
     try {
-      console.log(`[OscilloscopeElement] 开始解析音频文件: ${this.audioPath}`);
+      const cutInfo = this.cutFrom > 0 || this.cutTo !== undefined 
+        ? ` (截取: ${this.cutFrom}s${this.cutTo !== undefined ? ` - ${this.cutTo}s` : ' - 结束'})`
+        : '';
+      console.log(`[OscilloscopeElement] 开始解析音频文件: ${this.audioPath}${cutInfo}`);
       
       // 使用 FFmpeg 提取音频波形数据
       // 将音频转换为单声道 PCM 16位数据
@@ -99,15 +107,31 @@ export class OscilloscopeElement extends BaseElement {
       try {
         // 提取音频数据为 PCM 格式
         // 注意：只读取源文件，不会修改或删除源文件
-        await execa('ffmpeg', [
-          '-i', this.audioPath, // 输入文件（只读）
+        const ffmpegArgs = [];
+        
+        // 如果指定了音频起始时间，添加 -ss 参数（放在 -i 之前可以提高精度）
+        if (this.cutFrom > 0) {
+          ffmpegArgs.push('-ss', this.cutFrom.toString());
+        }
+        
+        ffmpegArgs.push('-i', this.audioPath); // 输入文件（只读）
+        
+        // 如果指定了音频结束时间，添加 -t 参数（时长 = cutTo - cutFrom）
+        if (this.cutTo !== undefined && this.cutTo > this.cutFrom) {
+          const duration = this.cutTo - this.cutFrom;
+          ffmpegArgs.push('-t', duration.toString());
+        }
+        
+        ffmpegArgs.push(
           '-f', 's16le', // 16位小端 PCM
           '-acodec', 'pcm_s16le',
           '-ac', '1', // 单声道
           '-ar', '44100', // 采样率 44.1kHz
           '-y', // 覆盖输出文件（仅对输出文件有效）
           tempPcmPath, // 输出到临时文件
-        ], { stdio: 'pipe' });
+        );
+        
+        await execa('ffmpeg', ffmpegArgs, { stdio: 'pipe' });
         
         // 读取 PCM 数据
         const pcmBuffer = await fs.readFile(tempPcmPath);
@@ -214,7 +238,7 @@ export class OscilloscopeElement extends BaseElement {
   /**
    * 渲染示波器元素
    */
-  render(layer, time) {
+  async render(layer, time) {
     if (!this.visible) return null;
     
     // 检查时间范围
@@ -292,556 +316,29 @@ export class OscilloscopeElement extends BaseElement {
       bgRect.sendToBack();
     }
 
-    // 根据样式绘制波形
-    switch (this.style) {
-      case 'bars':
-        this.renderBars(waveformData, rectX, rectY, width, height);
-        break;
-      case 'circle':
-        this.renderCircle(waveformData, rectX, rectY, width, height);
-        break;
-      case 'spectrum':
-        this.renderSpectrum(waveformData, rectX, rectY, width, height);
-        break;
-      case 'particles':
-      case 'dots':
-        this.renderParticles(waveformData, rectX, rectY, width, height);
-        break;
-      case 'waterfall':
-        this.renderWaterfall(waveformData, rectX, rectY, width, height, time);
-        break;
-      case 'spiral':
-        this.renderSpiral(waveformData, rectX, rectY, width, height);
-        break;
-      case 'ripple':
-        this.renderRipple(waveformData, rectX, rectY, width, height, time);
-        break;
-      case 'grid':
-        this.renderGrid(waveformData, rectX, rectY, width, height);
-        break;
-      case 'explosion':
-        this.renderExplosion(waveformData, rectX, rectY, width, height);
-        break;
-      case 'line':
-      default:
-        this.renderLine(waveformData, rectX, rectY, width, height);
-        break;
+    // 确保渲染器已加载
+    await ensureRenderersLoaded();
+    
+    // 根据样式绘制波形 - 使用动态加载的渲染器
+    const styleName = (this.style === 'dots') ? 'particles' : this.style;
+    const renderer = getRenderer(styleName) || getRenderer('line');
+    
+    if (renderer) {
+      // 调用渲染器函数，传递 element, data, x, y, width, height, time
+      if (styleName === 'waterfall' || styleName === 'ripple') {
+        renderer(this, waveformData, rectX, rectY, width, height, time);
+      } else {
+        renderer(this, waveformData, rectX, rectY, width, height);
+      }
+    } else {
+      console.warn(`[OscilloscopeElement] 未找到渲染器: ${styleName}，使用默认 line 渲染器`);
+      const defaultRenderer = getRenderer('line');
+      if (defaultRenderer) {
+        defaultRenderer(this, waveformData, rectX, rectY, width, height);
+      }
     }
 
     return null;
-  }
-
-  /**
-   * 绘制线条波形
-   */
-  renderLine(data, x, y, width, height) {
-    const centerY = y + height / 2;
-    const stepX = width / data.length;
-    const amplitude = (height / 2) * this.sensitivity;
-
-    // 创建波形路径
-    const path = new paper.Path();
-    path.strokeColor = this.waveColor;
-    path.strokeWidth = this.lineWidth;
-
-    // 绘制上半部分
-    for (let i = 0; i < data.length; i++) {
-      const px = x + i * stepX;
-      const py = centerY - data[i] * amplitude;
-      if (i === 0) {
-        path.moveTo(new paper.Point(px, py));
-      } else {
-        path.lineTo(new paper.Point(px, py));
-      }
-    }
-
-    // 如果启用镜像，绘制下半部分
-    if (this.mirror) {
-      for (let i = data.length - 1; i >= 0; i--) {
-        const px = x + i * stepX;
-        const py = centerY + data[i] * amplitude;
-        path.lineTo(new paper.Point(px, py));
-      }
-      path.closePath();
-      path.fillColor = this.waveColor;
-      path.fillColor.alpha = 0.3;
-    }
-  }
-
-  /**
-   * 绘制柱状波形
-   */
-  renderBars(data, x, y, width, height) {
-    const centerY = y + height / 2;
-    const barCount = Math.floor(width / (this.barWidth + this.barGap));
-    const step = Math.max(1, Math.floor(data.length / barCount));
-    const amplitude = (height / 2) * this.sensitivity;
-
-    for (let i = 0; i < barCount; i++) {
-      const dataIndex = i * step;
-      if (dataIndex >= data.length) break;
-
-      // 计算该段的平均值
-      let sum = 0;
-      let count = 0;
-      for (let j = dataIndex; j < Math.min(dataIndex + step, data.length); j++) {
-        sum += Math.abs(data[j]);
-        count++;
-      }
-      const avg = count > 0 ? sum / count : 0;
-
-      const barX = x + i * (this.barWidth + this.barGap);
-      const barHeight = avg * amplitude * 2;
-
-      // 绘制柱状图
-      const bar = new paper.Path.Rectangle({
-        rectangle: new paper.Rectangle(
-          barX,
-          centerY - barHeight / 2,
-          this.barWidth,
-          barHeight
-        ),
-        fillColor: this.waveColor,
-      });
-
-      // 如果启用镜像，绘制下半部分
-      if (this.mirror) {
-        const barBottom = new paper.Path.Rectangle({
-          rectangle: new paper.Rectangle(
-            barX,
-            centerY,
-            this.barWidth,
-            barHeight / 2
-          ),
-          fillColor: this.waveColor,
-        });
-      }
-    }
-  }
-
-  /**
-   * 绘制圆形波形
-   */
-  renderCircle(data, x, y, width, height) {
-    const centerX = x + width / 2;
-    const centerY = y + height / 2;
-    const radius = Math.min(width, height) / 2 - 20;
-    const pointCount = Math.min(data.length, 360);
-
-    const path = new paper.Path();
-    path.strokeColor = this.waveColor;
-    path.strokeWidth = this.lineWidth;
-    path.closed = true;
-
-    for (let i = 0; i < pointCount; i++) {
-      const angle = (i / pointCount) * Math.PI * 2;
-      const dataIndex = Math.floor((i / pointCount) * data.length);
-      const amplitude = data[dataIndex] * radius * this.sensitivity;
-      const r = radius + amplitude;
-
-      const px = centerX + Math.cos(angle) * r;
-      const py = centerY + Math.sin(angle) * r;
-
-      if (i === 0) {
-        path.moveTo(new paper.Point(px, py));
-      } else {
-        path.lineTo(new paper.Point(px, py));
-      }
-    }
-
-    path.fillColor = this.waveColor;
-    path.fillColor.alpha = 0.2;
-  }
-
-  /**
-   * 绘制频谱波形（类似频谱分析仪）
-   */
-  renderSpectrum(data, x, y, width, height) {
-    const centerY = y + height / 2;
-    const barCount = 64; // 频谱条数
-    const step = Math.max(1, Math.floor(data.length / barCount));
-    const barWidth = (width / barCount) * 0.8;
-    const barGap = (width / barCount) * 0.2;
-    const amplitude = (height / 2) * this.sensitivity;
-
-    for (let i = 0; i < barCount; i++) {
-      const dataIndex = i * step;
-      if (dataIndex >= data.length) break;
-
-      // 计算该段的 RMS（均方根）
-      let sumSquares = 0;
-      let count = 0;
-      for (let j = dataIndex; j < Math.min(dataIndex + step, data.length); j++) {
-        sumSquares += data[j] * data[j];
-        count++;
-      }
-      const rms = count > 0 ? Math.sqrt(sumSquares / count) : 0;
-
-      const barX = x + i * (barWidth + barGap);
-      const barHeight = rms * amplitude * 2;
-
-      // 绘制频谱条（从中心向上）
-      const bar = new paper.Path.Rectangle({
-        rectangle: new paper.Rectangle(
-          barX,
-          centerY - barHeight,
-          barWidth,
-          barHeight
-        ),
-        fillColor: this.waveColor,
-      });
-
-      // 如果启用镜像，绘制下半部分
-      if (this.mirror) {
-        const barBottom = new paper.Path.Rectangle({
-          rectangle: new paper.Rectangle(
-            barX,
-            centerY,
-            barWidth,
-            barHeight
-          ),
-          fillColor: this.waveColor,
-        });
-      }
-    }
-  }
-
-  /**
-   * 绘制粒子/圆点波形（多彩圆点随音律跳动）
-   */
-  renderParticles(data, x, y, width, height) {
-    const centerX = x + width / 2;
-    const centerY = y + height / 2;
-    const maxRadius = Math.min(width, height) / 2 - 10;
-    
-    // 计算每个圆点对应的数据索引
-    const step = Math.max(1, Math.floor(data.length / this.particleCount));
-    const colorStep = this.particleColors.length / this.particleCount;
-    
-    // 存储上一帧的位置（用于拖尾效果）
-    if (!this.lastParticlePositions) {
-      this.lastParticlePositions = [];
-    }
-    
-    for (let i = 0; i < this.particleCount; i++) {
-      const dataIndex = Math.min(i * step, data.length - 1);
-      const amplitude = Math.abs(data[dataIndex]) * this.sensitivity;
-      
-      // 计算圆点大小（根据振幅）
-      const sizeRange = this.particleMaxSize - this.particleMinSize;
-      const particleSize = this.particleMinSize + amplitude * sizeRange;
-      
-      // 计算圆点位置（圆形分布）
-      const angle = (i / this.particleCount) * Math.PI * 2;
-      const baseRadius = maxRadius * 0.6; // 基础半径
-      const radiusOffset = amplitude * maxRadius * 0.4; // 根据振幅偏移
-      const radius = baseRadius + radiusOffset;
-      
-      const px = centerX + Math.cos(angle) * radius;
-      const py = centerY + Math.sin(angle) * radius;
-      
-      // 选择颜色（根据索引从渐变色数组中选取）
-      const colorIndex = Math.floor(i * colorStep) % this.particleColors.length;
-      const color = this.particleColors[colorIndex];
-      
-      // 绘制拖尾效果
-      if (this.particleTrail && this.lastParticlePositions[i]) {
-        const lastPos = this.lastParticlePositions[i];
-        const trailPath = new paper.Path();
-        trailPath.strokeColor = color;
-        trailPath.strokeWidth = particleSize * 0.3;
-        trailPath.strokeColor.alpha = 0.3;
-        
-        // 绘制从上一帧到当前帧的线条
-        trailPath.moveTo(new paper.Point(lastPos.x, lastPos.y));
-        trailPath.lineTo(new paper.Point(px, py));
-      }
-      
-      // 绘制圆点
-      const circle = new paper.Path.Circle({
-        center: new paper.Point(px, py),
-        radius: particleSize / 2,
-      });
-      
-      // 使用渐变色填充
-      circle.fillColor = color;
-      
-      // 添加发光效果（外圈）
-      if (amplitude > 0.3) {
-        const glowCircle = new paper.Path.Circle({
-          center: new paper.Point(px, py),
-          radius: particleSize / 2 + 2,
-        });
-        glowCircle.fillColor = color;
-        glowCircle.fillColor.alpha = 0.2;
-        glowCircle.sendToBack();
-      }
-      
-      // 保存当前位置用于下一帧
-      this.lastParticlePositions[i] = { x: px, y: py };
-    }
-    
-    // 如果启用镜像，在中心绘制对称的圆点
-    if (this.mirror) {
-      for (let i = 0; i < this.particleCount; i++) {
-        const dataIndex = Math.min(i * step, data.length - 1);
-        const amplitude = Math.abs(data[dataIndex]) * this.sensitivity;
-        
-        const sizeRange = this.particleMaxSize - this.particleMinSize;
-        const particleSize = this.particleMinSize + amplitude * sizeRange;
-        
-        const angle = (i / this.particleCount) * Math.PI * 2;
-        const baseRadius = maxRadius * 0.3; // 内圈基础半径
-        const radiusOffset = amplitude * maxRadius * 0.2;
-        const radius = baseRadius + radiusOffset;
-        
-        const px = centerX + Math.cos(angle) * radius;
-        const py = centerY + Math.sin(angle) * radius;
-        
-        const colorIndex = Math.floor(i * colorStep) % this.particleColors.length;
-        const color = this.particleColors[colorIndex];
-        
-        const circle = new paper.Path.Circle({
-          center: new paper.Point(px, py),
-          radius: particleSize / 3, // 内圈圆点稍小
-        });
-        circle.fillColor = color;
-        circle.fillColor.alpha = 0.6;
-      }
-    }
-  }
-
-  /**
-   * 绘制瀑布图波形（频谱瀑布图效果）
-   */
-  renderWaterfall(data, x, y, width, height, time) {
-    const centerY = y + height / 2;
-    const barCount = this.waterfallBands;
-    const step = Math.max(1, Math.floor(data.length / barCount));
-    const barWidth = width / barCount;
-    const amplitude = (height / 2) * this.sensitivity;
-    
-    // 存储历史数据用于瀑布效果
-    if (!this.waterfallHistory) {
-      this.waterfallHistory = [];
-    }
-    
-    // 计算当前帧的频谱数据
-    const currentSpectrum = [];
-    for (let i = 0; i < barCount; i++) {
-      const dataIndex = i * step;
-      if (dataIndex >= data.length) break;
-      
-      let sumSquares = 0;
-      let count = 0;
-      for (let j = dataIndex; j < Math.min(dataIndex + step, data.length); j++) {
-        sumSquares += data[j] * data[j];
-        count++;
-      }
-      const rms = count > 0 ? Math.sqrt(sumSquares / count) : 0;
-      currentSpectrum.push(rms);
-    }
-    
-    // 添加到历史记录
-    this.waterfallHistory.unshift(currentSpectrum);
-    if (this.waterfallHistory.length > Math.floor(height / 2)) {
-      this.waterfallHistory.pop();
-    }
-    
-    // 绘制瀑布图（从下往上，从新到旧）
-    for (let row = 0; row < this.waterfallHistory.length; row++) {
-      const spectrum = this.waterfallHistory[row];
-      const rowY = centerY - row;
-      const alpha = 1 - (row / this.waterfallHistory.length) * 0.8;
-      
-      for (let i = 0; i < spectrum.length; i++) {
-        const barHeight = spectrum[i] * amplitude;
-        const barX = x + i * barWidth;
-        
-        // 根据强度选择颜色（从蓝到红）
-        const intensity = spectrum[i];
-        let color;
-        if (intensity < 0.33) {
-          color = new paper.Color(0, intensity * 3, 1);
-        } else if (intensity < 0.66) {
-          color = new paper.Color((intensity - 0.33) * 3, 1, 1 - (intensity - 0.33) * 3);
-        } else {
-          color = new paper.Color(1, 1 - (intensity - 0.66) * 3, 0);
-        }
-        
-        const bar = new paper.Path.Rectangle({
-          rectangle: new paper.Rectangle(barX, rowY, barWidth - 1, barHeight),
-          fillColor: color,
-        });
-        bar.fillColor.alpha = alpha;
-      }
-    }
-  }
-
-  /**
-   * 绘制螺旋波形
-   */
-  renderSpiral(data, x, y, width, height) {
-    const centerX = x + width / 2;
-    const centerY = y + height / 2;
-    const maxRadius = Math.min(width, height) / 2 - 20;
-    const pointCount = Math.min(data.length, 500);
-    
-    const path = new paper.Path();
-    path.strokeColor = this.waveColor;
-    path.strokeWidth = this.lineWidth;
-    
-    for (let i = 0; i < pointCount; i++) {
-      const progress = i / pointCount;
-      const angle = progress * Math.PI * 2 * this.spiralTurns;
-      const radius = maxRadius * progress * 0.8;
-      
-      const dataIndex = Math.floor(progress * data.length);
-      const amplitude = Math.abs(data[dataIndex]) * this.sensitivity;
-      const r = radius + amplitude * maxRadius * 0.2;
-      
-      const px = centerX + Math.cos(angle) * r;
-      const py = centerY + Math.sin(angle) * r;
-      
-      if (i === 0) {
-        path.moveTo(new paper.Point(px, py));
-      } else {
-        path.lineTo(new paper.Point(px, py));
-      }
-    }
-    
-    // 使用颜色数组的第一个颜色作为线条颜色
-    if (this.particleColors && this.particleColors.length > 0) {
-      path.strokeColor = this.particleColors[0];
-    }
-  }
-
-  /**
-   * 绘制涟漪波形（水波纹效果）
-   */
-  renderRipple(data, x, y, width, height, time) {
-    const centerX = x + width / 2;
-    const centerY = y + height / 2;
-    const maxRadius = Math.min(width, height) / 2;
-    
-    // 计算平均振幅
-    let avgAmplitude = 0;
-    for (let i = 0; i < data.length; i++) {
-      avgAmplitude += Math.abs(data[i]);
-    }
-    avgAmplitude = (avgAmplitude / data.length) * this.sensitivity;
-    
-    // 绘制多个涟漪圈
-    for (let i = 0; i < this.rippleCount; i++) {
-      const rippleProgress = (time * this.rippleSpeed + i / this.rippleCount) % 1;
-      const radius = maxRadius * rippleProgress;
-      const alpha = 1 - rippleProgress;
-      
-      if (alpha > 0) {
-        const circle = new paper.Path.Circle({
-          center: new paper.Point(centerX, centerY),
-          radius: radius + avgAmplitude * maxRadius * 0.3,
-        });
-        
-        circle.strokeColor = this.waveColor;
-        circle.strokeWidth = 3;
-        circle.strokeColor.alpha = alpha * 0.8;
-        circle.fillColor = 'transparent';
-      }
-    }
-    
-    // 中心点
-    const centerCircle = new paper.Path.Circle({
-      center: new paper.Point(centerX, centerY),
-      radius: 5 + avgAmplitude * 20,
-    });
-    centerCircle.fillColor = this.waveColor;
-    centerCircle.fillColor.alpha = 0.8;
-  }
-
-  /**
-   * 绘制网格波形
-   */
-  renderGrid(data, x, y, width, height) {
-    const cellWidth = width / this.gridCols;
-    const cellHeight = height / this.gridRows;
-    const step = Math.max(1, Math.floor(data.length / (this.gridRows * this.gridCols)));
-    
-    let dataIndex = 0;
-    for (let row = 0; row < this.gridRows; row++) {
-      for (let col = 0; col < this.gridCols; col++) {
-        if (dataIndex >= data.length) break;
-        
-        const amplitude = Math.abs(data[dataIndex]) * this.sensitivity;
-        const cellX = x + col * cellWidth;
-        const cellY = y + row * cellHeight;
-        
-        // 根据振幅调整单元格大小和颜色
-        const scale = 0.5 + amplitude * 0.5;
-        const cellRect = new paper.Path.Rectangle({
-          rectangle: new paper.Rectangle(
-            cellX + cellWidth * (1 - scale) / 2,
-            cellY + cellHeight * (1 - scale) / 2,
-            cellWidth * scale,
-            cellHeight * scale
-          ),
-          fillColor: this.waveColor,
-        });
-        cellRect.fillColor.alpha = 0.3 + amplitude * 0.7;
-        
-        dataIndex += step;
-      }
-    }
-  }
-
-  /**
-   * 绘制爆炸波形（粒子从中心爆炸）
-   */
-  renderExplosion(data, x, y, width, height) {
-    const centerX = x + width / 2;
-    const centerY = y + height / 2;
-    const maxRadius = Math.min(width, height) / 2;
-    const particleCount = this.explosionParticles;
-    const step = Math.max(1, Math.floor(data.length / particleCount));
-    const colorStep = this.particleColors.length / particleCount;
-    
-    for (let i = 0; i < particleCount; i++) {
-      const dataIndex = Math.min(i * step, data.length - 1);
-      const amplitude = Math.abs(data[dataIndex]) * this.sensitivity;
-      
-      // 计算粒子位置（从中心向外）
-      const angle = (i / particleCount) * Math.PI * 2;
-      const baseRadius = maxRadius * 0.3;
-      const radiusOffset = amplitude * maxRadius * 0.7;
-      const radius = baseRadius + radiusOffset;
-      
-      const px = centerX + Math.cos(angle) * radius;
-      const py = centerY + Math.sin(angle) * radius;
-      
-      // 粒子大小
-      const particleSize = 3 + amplitude * 12;
-      
-      // 选择颜色
-      const colorIndex = Math.floor(i * colorStep) % this.particleColors.length;
-      const color = this.particleColors[colorIndex];
-      
-      // 绘制粒子
-      const circle = new paper.Path.Circle({
-        center: new paper.Point(px, py),
-        radius: particleSize / 2,
-      });
-      circle.fillColor = color;
-      
-      // 添加拖尾（从中心到粒子）
-      if (amplitude > 0.2) {
-        const trail = new paper.Path();
-        trail.strokeColor = color;
-        trail.strokeWidth = particleSize * 0.2;
-        trail.strokeColor.alpha = 0.4;
-        trail.moveTo(new paper.Point(centerX, centerY));
-        trail.lineTo(new paper.Point(px, py));
-      }
-    }
   }
 
   /**

@@ -7,7 +7,7 @@ output/
 dist/
 build/
 *.log
-
+assets/
 # 输出文件
 output/
 *.mp4

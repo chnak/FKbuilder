@@ -60,22 +60,25 @@ export class Track {
 
   /**
    * 计算轨道总时长
+   * 总时长 = 最后一个场景的结束时间 = max(scene.startTime + scene.duration)
+   * 注意：转场时长不应该单独加，因为转场是重叠在场景之间的
    * @returns {number} 总时长（秒）
    */
   getTotalDuration() {
     if (this.scenes.length === 0) return 0;
     
-    let totalDuration = 0;
+    // 计算所有场景的结束时间，取最大值
+    // 场景的结束时间 = startTime + duration
+    let maxEndTime = 0;
     for (const scene of this.scenes) {
-      totalDuration += scene.duration;
+      const sceneStartTime = scene.startTime !== undefined ? scene.startTime : 0;
+      const sceneEndTime = sceneStartTime + scene.duration;
+      if (sceneEndTime > maxEndTime) {
+        maxEndTime = sceneEndTime;
+      }
     }
     
-    // 加上转场时长
-    for (const transition of this.transitions) {
-      totalDuration += transition.duration || 0;
-    }
-    
-    return totalDuration;
+    return maxEndTime;
   }
 
   /**

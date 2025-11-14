@@ -11,6 +11,7 @@ export class Transition {
     this.track = config.track;
     this.name = config.name || config.type || 'fade'; // gl-transitions 名称
     this.duration = config.duration || 0.5; // 转场时长（秒）
+    this.startTime = config.startTime; // 转场开始时间（转场结束的时间点）
     this.fromScene = config.fromScene;
     this.toScene = config.toScene;
     this.fromSceneIndex = config.fromSceneIndex;

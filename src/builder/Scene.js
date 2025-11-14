@@ -33,18 +33,48 @@ export class Scene {
    * @returns {Scene} 返回自身以支持链式调用
    */
   addBackground(config = {}) {
+    // 预设颜色列表（参考 FKVideo）
+    const presetColors = [
+      "#4ecdc4", // 青色
+      "#45b7d1", // 蓝色
+      "#f39c12", // 橙色
+      "#e74c3c", // 深红色
+      "#9b59b6", // 紫色
+      "#1abc9c", // 青绿色
+      "#2ecc71", // 绿色
+      "#f1c40f", // 黄色
+      "#34495e", // 深灰色
+      "#16a085", // 深青绿色
+      "#27ae60", // 深绿色
+      "#2980b9", // 深蓝色
+      "#8e44ad", // 深紫色
+      "#c0392b", // 深红色
+      "#d35400", // 深橙色
+      "#e67e22", // 橙色
+      "#3498db", // 天蓝色
+      "#95a5a6", // 浅灰色
+    ];
+    
+    // 如果没有指定颜色，随机选择一个预设颜色
+    let backgroundColor = config.color || config.backgroundColor;
+    if (!backgroundColor) {
+      const randomIndex = Math.floor(Math.random() * presetColors.length);
+      backgroundColor = presetColors[randomIndex];
+    }
+    
     // 如果已经有背景图层，更新它
     if (!this.backgroundLayer) {
       this.backgroundLayer = {
         type: 'background',
         config: {
-          backgroundColor: config.color || config.backgroundColor || '#000000',
+          backgroundColor: backgroundColor,
           ...config,
         },
       };
     } else {
       this.backgroundLayer.config = {
         ...this.backgroundLayer.config,
+        backgroundColor: backgroundColor,
         ...config,
       };
     }

@@ -20,6 +20,7 @@ export const EasingType = {
 export const ElementType = {
   TEXT: 'text',
   IMAGE: 'image',
+  VIDEO: 'video',
   RECT: 'rect',
   CIRCLE: 'circle',
   SPRITE: 'sprite',

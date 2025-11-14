@@ -287,6 +287,26 @@ export class BaseElement {
   }
 
   /**
+   * 获取元素在指定时间的进度（0-1）
+   * @param {number} time - 时间（秒）
+   * @returns {number} 进度值，范围 0-1
+   */
+  getProgressAtTime(time) {
+    if (!this.isActiveAtTime(time)) {
+      return 0;
+    }
+    
+    const elapsed = time - this.startTime;
+    const duration = this.duration || (this.endTime - this.startTime);
+    
+    if (duration <= 0) {
+      return 0;
+    }
+    
+    return Math.max(0, Math.min(1, elapsed / duration));
+  }
+
+  /**
    * 设置时间范围
    * @param {number} startTime - 开始时间（秒）
    * @param {number} endTime - 结束时间（秒），如果未指定则使用duration计算

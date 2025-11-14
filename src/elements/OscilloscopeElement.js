@@ -147,6 +147,8 @@ export class OscilloscopeElement extends BaseElement {
         }
         
         ffmpegArgs.push(
+          '-hide_banner', // 隐藏版本信息横幅
+          '-loglevel', 'error', // 只显示错误信息
           '-f', 's16le', // 16位小端 PCM
           '-acodec', 'pcm_s16le',
           '-ac', '1', // 单声道

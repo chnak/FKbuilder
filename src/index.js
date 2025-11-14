@@ -23,6 +23,7 @@ export { BaseElement } from './elements/BaseElement.js';
 export { TextElement } from './elements/TextElement.js';
 export { SubtitleElement } from './elements/SubtitleElement.js';
 export { ImageElement } from './elements/ImageElement.js';
+export { VideoElement } from './elements/VideoElement.js';
 export { RectElement } from './elements/RectElement.js';
 export { CircleElement } from './elements/CircleElement.js';
 export { SpriteElement } from './elements/SpriteElement.js';

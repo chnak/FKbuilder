@@ -3,6 +3,7 @@
  */
 import { TextElement } from '../elements/TextElement.js';
 import { ImageElement } from '../elements/ImageElement.js';
+import { VideoElement } from '../elements/VideoElement.js';
 import { RectElement } from '../elements/RectElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
 import { AudioElement } from '../elements/AudioElement.js';
@@ -111,6 +112,26 @@ export class Scene {
     this.elements.push({
       type: 'image',
       element: imageElement,
+    });
+    return this;
+  }
+
+  /**
+   * 添加视频元素
+   * @param {Object} config - 视频配置
+   * @returns {Scene} 返回自身以支持链式调用
+   */
+  addVideo(config = {}) {
+    const videoElement = new VideoElement(config);
+    // 如果提供了src，异步初始化视频
+    if (config.src || config.source || config.videoPath) {
+      videoElement.initialize().catch(err => {
+        console.warn('视频初始化失败:', config.src || config.source || config.videoPath, err);
+      });
+    }
+    this.elements.push({
+      type: 'video',
+      element: videoElement,
     });
     return this;
   }

@@ -323,6 +323,8 @@ export class VideoExporter {
       const { execa } = await import('execa');
       await execa('ffmpeg', [
         '-y',
+        '-hide_banner', // 隐藏版本信息横幅
+        '-loglevel', 'error', // 只显示错误信息
         '-i', tempVideoPath,
         '-vf', 'fps=10,scale=320:-1:flags=lanczos',
         outputPath,

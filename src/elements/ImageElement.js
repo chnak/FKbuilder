@@ -2,7 +2,7 @@ import { BaseElement } from './BaseElement.js';
 import { DEFAULT_IMAGE_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
-import { imageLoader } from '../utils/image-loader.js';
+import { Image } from 'canvas';
 import { toPixels } from '../utils/unit-converter.js';
 import paper from 'paper-jsdom-canvas';
 
@@ -20,18 +20,40 @@ export class ImageElement extends BaseElement {
   }
 
   /**
-   * 加载图片
+   * 初始化方法 - 使用 canvas 库的 Image 类加载图片
    */
-  async load() {
-    if (this.config.src) {
+  async initialize() {
+    if (this.config.src && !this.loaded) {
       try {
-        this.imageData = await imageLoader.load(this.config.src);
-        this.loaded = true;
+        // 使用 canvas 库的 Image 类加载图片
+        const image = new Image();
+        
+        // 使用 Promise 包装 Image 的加载过程
+        await new Promise((resolve, reject) => {
+          image.onload = () => {
+            this.imageData = image;
+            this.loaded = true;
+            resolve();
+          };
+          image.onerror = (error) => {
+            this.loaded = false;
+            reject(new Error(`Failed to load image: ${this.config.src}`));
+          };
+          // 设置图片源，触发加载
+          image.src = this.config.src;
+        });
       } catch (error) {
         console.error(`Failed to load image: ${this.config.src}`, error);
         this.loaded = false;
       }
     }
+  }
+
+  /**
+   * 加载图片（向后兼容，内部调用 initialize）
+   */
+  async load() {
+    await this.initialize();
   }
 
   /**

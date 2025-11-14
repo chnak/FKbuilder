@@ -44,6 +44,8 @@ export class FFmpegUtil {
 
     const args = [
       '-y', // 覆盖输出文件
+      '-hide_banner', // 隐藏版本信息横幅
+      '-loglevel', 'error', // 只显示错误信息
       '-framerate', fps.toString(),
       '-i', inputPattern,
       '-c:v', codec,
@@ -84,6 +86,8 @@ export class FFmpegUtil {
 
     const args = [
       '-y',
+      '-hide_banner', // 隐藏版本信息横幅
+      '-loglevel', 'error', // 只显示错误信息
       '-i', videoPath,
       '-i', audioPath,
       '-c:v', 'copy', // 复制视频流，不重新编码
@@ -122,6 +126,8 @@ export class FFmpegUtil {
 
     const args = [
       '-y',
+      '-hide_banner', // 隐藏版本信息横幅
+      '-loglevel', 'error', // 只显示错误信息
       '-f', 'concat',
       '-safe', '0',
       '-i', listFile,
@@ -148,7 +154,8 @@ export class FFmpegUtil {
 
     const args = [
       '-i', videoPath,
-      '-hide_banner',
+      '-hide_banner', // 隐藏版本信息横幅
+      '-loglevel', 'error', // 只显示错误信息
     ];
 
     try {
@@ -220,7 +227,12 @@ export class FFmpegUtil {
         }
 
         const processedPath = path.join(tempDir, `processed_${i}.wav`);
-        const args = ['-y', '-i', audio.path];
+        const args = [
+          '-y',
+          '-hide_banner', // 隐藏版本信息横幅
+          '-loglevel', 'error', // 只显示错误信息
+          '-i', audio.path
+        ];
 
         // 音频裁剪：从原始音频文件中裁剪指定时间段
         // 支持 cutFrom/cutTo（新方式）和 audioStartTime/audioEndTime（旧方式）
@@ -326,6 +338,8 @@ export class FFmpegUtil {
 
       const args = [
         '-y',
+        '-hide_banner', // 隐藏版本信息横幅
+        '-loglevel', 'error', // 只显示错误信息
         ...filterInputs,
         '-filter_complex', filterComplex.join(';'),
         '-map', '[out]',

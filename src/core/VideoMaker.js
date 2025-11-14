@@ -235,6 +235,18 @@ export class VideoMaker {
             }
           }
           
+          // 如果元素是 VideoElement，收集其音频（如果不禁音）
+          if (element && element.type === 'video') {
+            // 确保视频已初始化（如果还未初始化，getAudioConfig 会返回 null，但会在导出时初始化）
+            // 这里先尝试获取配置，如果 audioPath 存在则收集
+            if (element.audioPath || (!element.mute && element.videoPath)) {
+              const audioConfig = element.getAudioConfig();
+              if (audioConfig && audioConfig.path) {
+                audioConfigs.push(audioConfig);
+              }
+            }
+          }
+          
           // 如果元素是 CompositionElement，递归收集其内部的音频元素
           if (element && element.type === 'composition') {
             // 方法1：从 CompositionElement 的配置中收集音频元素（如果还未初始化）
@@ -264,6 +276,20 @@ export class VideoMaker {
               for (const audio of nestedAudios) {
                 audio.startTime = (element.startTime || 0) + (audio.startTime || 0);
                 audioConfigs.push(audio);
+              }
+            }
+            
+            // 方法3：从 CompositionElement 的 elements 中收集 VideoElement 的音频（如果已初始化）
+            if (element.elements) {
+              for (const childElement of element.elements) {
+                if (childElement && childElement.type === 'video') {
+                  const audioConfig = childElement.getAudioConfig();
+                  if (audioConfig && audioConfig.path) {
+                    // 调整音频的开始时间（加上 CompositionElement 的开始时间）
+                    audioConfig.startTime = (element.startTime || 0) + (audioConfig.startTime || 0);
+                    audioConfigs.push(audioConfig);
+                  }
+                }
               }
             }
           }

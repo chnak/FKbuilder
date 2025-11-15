@@ -119,7 +119,7 @@ export class OscilloscopeElement extends BaseElement {
       const cutInfo = this.cutFrom > 0 || this.cutTo !== undefined 
         ? ` (截取: ${this.cutFrom}s${this.cutTo !== undefined ? ` - ${this.cutTo}s` : ' - 结束'})`
         : '';
-      console.log(`[OscilloscopeElement] 开始解析音频文件: ${this.audioPath}${cutInfo}`);
+    //   console.log(`[OscilloscopeElement] 开始解析音频文件: ${this.audioPath}${cutInfo}`);
       
       // 使用 FFmpeg 提取音频波形数据
       // 将音频转换为单声道 PCM 16位数据
@@ -167,7 +167,7 @@ export class OscilloscopeElement extends BaseElement {
         this.sampleRate = 44100;
         this.channels = 1;
         
-        console.log(`[OscilloscopeElement] 音频解析完成，采样点数: ${this.audioData.length}`);
+        // console.log(`[OscilloscopeElement] 音频解析完成，采样点数: ${this.audioData.length}`);
         
         // 清理临时文件
         await fs.remove(tempPcmPath).catch(() => {});

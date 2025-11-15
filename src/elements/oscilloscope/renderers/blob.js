@@ -10,6 +10,8 @@ export const defaultConfig = {
     '#ffff00', '#80ff00', '#00ff80', '#00ffff',
     '#0080ff', '#8000ff', '#ff00ff', '#ff0080',
   ],
+  minRadiusRatio: 0.4, // 最小半径比例（相对于基础半径）
+  maxRadiusRatio: 2.0, // 最大半径比例（相对于基础半径）
 };
 
 /**
@@ -53,6 +55,10 @@ export default function renderBlob(element, data, x, y, width, height, time, con
     element.blobBalls = [];
     const baseRadius = maxRadius * 0.15; // 减小基础半径
     
+    // 获取半径范围配置
+    const minRadiusRatio = cfg.minRadiusRatio || 0.4;
+    const maxRadiusRatio = cfg.maxRadiusRatio || 2.0;
+    
     for (let i = 0; i < numBalls; i++) {
       // 随机位置（在显示区域内）
       const randomX = x + Math.random() * width;
@@ -66,8 +72,11 @@ export default function renderBlob(element, data, x, y, width, height, time, con
         length: 0.3 + Math.random() * 0.4 // 随机速度
       });
       
-      // 随机半径（在基础半径范围内）
-      const radius = baseRadius * (0.8 + Math.random() * 0.4);
+      // 随机半径（在配置的范围内，生成大小不一的球体）
+      // 使用指数分布让大小分布更自然（更多小球，少量大球）
+      const randomValue = Math.random();
+      const radiusRatio = minRadiusRatio + (maxRadiusRatio - minRadiusRatio) * Math.pow(randomValue, 0.7);
+      const radius = baseRadius * radiusRatio;
       
       // 只保存状态，不创建路径（路径每一帧都会重新创建）
       element.blobBalls.push({
@@ -103,17 +112,25 @@ export default function renderBlob(element, data, x, y, width, height, time, con
     
     // 根据音频振幅调整目标半径，变化幅度与 sensitivity 挂钩
     const baseRadius = maxRadius * 0.15; // 与初始化时保持一致
+    // 获取初始半径比例（相对于基础半径）
+    const initialRadiusRatio = ball.initialRadiusRatio || (ball.radius / baseRadius);
+    if (!ball.initialRadiusRatio) {
+      ball.initialRadiusRatio = initialRadiusRatio; // 保存初始比例
+    }
+    
     // sensitivity 控制大小变化幅度：sensitivity 越大，变化幅度越大
-    const sizeVariation = baseRadius * 0.6 * element.sensitivity; // 基础变化幅度 * sensitivity
-    const targetRadius = baseRadius + amplitude * sizeVariation;
+    // 变化幅度基于初始半径，保持大小比例关系
+    const sizeVariation = baseRadius * initialRadiusRatio * 0.6 * element.sensitivity;
+    const targetRadius = baseRadius * initialRadiusRatio + amplitude * sizeVariation;
     
     // 平滑过渡到目标半径（增加平滑度）
     ball.targetRadius = targetRadius;
     ball.radius += (targetRadius - ball.radius) * 0.05; // 减小变化速度，从 0.1 到 0.05
     
-    // 保持最小半径，避免球体过小或消失
-    const minRadius = baseRadius * 0.7;
-    ball.radius = Math.max(minRadius, ball.radius); // 确保 radius 本身也被限制
+    // 保持最小半径，避免球体过小或消失（基于初始半径比例）
+    const minRadius = baseRadius * initialRadiusRatio * 0.5;
+    const maxRadiusLimit = baseRadius * (cfg.maxRadiusRatio || 2.0) * 1.5; // 允许在音频影响下稍微超过初始最大值
+    ball.radius = Math.max(minRadius, Math.min(maxRadiusLimit, ball.radius));
     
     // 更新边界偏移
     for (let j = 0; j < ball.numSegment; j++) {

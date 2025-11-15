@@ -345,18 +345,34 @@ export class OscilloscopeElement extends BaseElement {
       waveformData = this.smoothData(waveformData, this.smoothing);
     }
 
-    // 绘制背景
+    // 创建一个 Group 来包含示波器的背景和波形
+    // 这样可以确保背景和波形在同一层级，背景不会被场景背景覆盖
+    const oscilloscopeGroup = new paper.Group();
+    if (layer) {
+      layer.addChild(oscilloscopeGroup);
+    } else if (paper.project && paper.project.activeLayer) {
+      paper.project.activeLayer.addChild(oscilloscopeGroup);
+    }
+    
+    // 绘制背景（在渲染波形之前）
+    // 注意：背景必须在渲染波形之前绘制，并且要确保在 group 的最底层
     if (this.backgroundColor && this.backgroundColor !== 'transparent') {
       const bgRect = new paper.Path.Rectangle({
         rectangle: new paper.Rectangle(rectX, rectY, width, height),
         fillColor: this.backgroundColor,
+        parent: oscilloscopeGroup, // 添加到 group 中
       });
+      // 确保背景在 group 的最底层
       bgRect.sendToBack();
     }
 
     // 确保渲染器已加载（通常已经在初始化时加载完成）
     // 如果还没加载完成，这里会等待，但通常不会阻塞
     await ensureRenderersLoaded();
+    
+    // 获取当前 activeLayer 的子元素数量，用于在渲染后识别新创建的路径
+    const activeLayer = paper.project && paper.project.activeLayer;
+    const childrenBeforeRender = activeLayer ? [...activeLayer.children] : [];
     
     // 根据样式绘制波形 - 使用动态加载的渲染器
     const styleName = (this.style === 'dots') ? 'particles' : this.style;
@@ -374,6 +390,17 @@ export class OscilloscopeElement extends BaseElement {
       const defaultRenderer = getRenderer('line');
       if (defaultRenderer) {
         defaultRenderer(this, waveformData, rectX, rectY, width, height, time, {});
+      }
+    }
+    
+    // 将渲染器创建的新路径移动到 group 中
+    if (activeLayer) {
+      const childrenAfterRender = [...activeLayer.children];
+      // 找出新创建的子元素（在渲染后添加的）
+      const newChildren = childrenAfterRender.filter(child => !childrenBeforeRender.includes(child));
+      // 将新创建的子元素移动到 group 中
+      for (const child of newChildren) {
+        child.parent = oscilloscopeGroup;
       }
     }
 

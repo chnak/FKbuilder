@@ -72,7 +72,20 @@ const scene2 = mainTrack.createScene({ duration: 2, startTime: 2 })
 // - GridFlip: 网格翻转
 // - Mosaic: 马赛克
 // - PolkaDotsCurtain: 圆点窗帘
-const transitionName = process.argv[2] || 'CrossZoom'; // 可以通过命令行参数指定转场效果
+
+// 获取命令行参数（跳过 node 和脚本路径）
+const args = process.argv.slice(2);
+// 查找转场名称参数（排除常见的命令如 cd, && 等）
+const transitionNameArg = args.find(arg => 
+  !arg.startsWith('-') && 
+  !arg.includes('&&') && 
+  !arg.includes('cd') &&
+  arg.length > 1
+);
+const transitionName = transitionNameArg || 'CrossZoom'; // 可以通过命令行参数指定转场效果
+
+console.log(`使用转场效果: ${transitionName}`);
+
 mainTrack.addTransition({
   name: transitionName,
   duration: 1, // 转场时长 1 秒

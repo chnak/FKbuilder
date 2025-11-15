@@ -64,9 +64,9 @@ async function testBlobOscilloscope() {
   // 计算音频截取参数
   const cutTo = AUDIO_START_TIME + AUDIO_DURATION;
   
-  // 添加 Blob 示波器
+  // 添加 Blob 示波器（不需要 await，addOscilloscope 是同步方法）
   console.log('添加 Blob 球体碰撞示波器...');
-  await scene.addOscilloscope({
+  scene.addOscilloscope({
     audioPath: audioFile,
     cutFrom: AUDIO_START_TIME,
     cutTo: cutTo,
@@ -74,10 +74,11 @@ async function testBlobOscilloscope() {
     y: '50%',
     width: '50%',
     height: '50%',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: '#E4EBE0',
     style: 'blob',
     sensitivity: 5,
     blobBallCount: 20, // 增加球体数量
+    directionChangeIntensity: 0.5, // 方向变化强度（0-1），值越大方向变化越明显
     particleColors: [
       '#ff0080', '#ff4080', '#ff8000', '#ffc000',
       '#ffff00', '#80ff00', '#00ff80', '#00ffff',

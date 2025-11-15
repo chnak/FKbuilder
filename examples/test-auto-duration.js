@@ -6,12 +6,20 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// 配色方案
+const colors = {
+  charcoal: '#63747a',      // 深灰蓝 - 用于背景和深色元素
+  slate: '#c0c2c9',         // 浅灰蓝 - 用于次要文本和装饰
+  royalBlue: '#123175',     // 深蓝色 - 用于强调和主要元素
+  aquamarine: '#5298c1',    // 青蓝色 - 用于高亮和交互元素
+};
+
 /**
  * 测试自动检测音频时长功能
- * 使用多轨道构建器实现
+ * 使用多轨道构建器实现，采用新的配色方案
  */
 async function testAutoDuration() {
-  console.log('🧪 测试自动检测音频时长功能...\n');
+  console.log('🧪 测试自动检测音频时长功能（新配色方案）...\n');
 
   const name = "彩云追月";
   const audioFile = path.join(__dirname, `../assets/${name}.mp3`);
@@ -50,52 +58,170 @@ async function testAutoDuration() {
 
   // 创建场景，使用音频时长作为场景时长
   const scene = mainTrack.createScene({ duration: audioDurationNum })
-    .addBackground({ color: "#251F36" })
-    .addText({
-      text: name,
-      color: "#FFFFFF",
-      fontSize: 60,
-      x: "50%",
-      y: "18%",
-      textAlign: "center",
-      anchor: [0.5, 0.5], // 明确设置 anchor
+    // 背景使用深灰蓝色
+    .addBackground({ color: colors.charcoal })
+    
+    // 添加装饰性圆形背景（左上角）
+    .addCircle({
+      x: '10%',
+      y: '10%',
+      radius: 120,
+      fillColor: colors.royalBlue,
+      opacity: 0.2,
       duration: audioDurationNum,
       startTime: 0,
-      zIndex: 10, // 提高 zIndex，确保文本在示波器上方
-      split: 'letter',
-      splitDelay: 0.05, // 字母出现延迟
-      splitDuration: 0.3, // 字母动画时长
+      zIndex: 1,
       animations: [
-        { type: 'fade', fromOpacity: 0, toOpacity: 1, duration: 0.3 },
-        { type: 'fade', fromOpacity: 1, toOpacity: 0, duration: 0.3, delay: audioDurationNum - 0.3 },
+        { type: 'transform', fromScaleX: 0.5, fromScaleY: 0.5, toScaleX: 1.2, toScaleY: 1.2, duration: audioDurationNum, easing: 'easeInOut' },
+        { type: 'fade', fromOpacity: 0.2, toOpacity: 0.4, duration: audioDurationNum / 2 },
+        { type: 'fade', fromOpacity: 0.4, toOpacity: 0.2, duration: audioDurationNum / 2, delay: audioDurationNum / 2 },
+      ],
+    })
+    
+    // 添加装饰性圆形背景（右下角）
+    .addCircle({
+      x: '90%',
+      y: '90%',
+      radius: 150,
+      fillColor: colors.aquamarine,
+      opacity: 0.15,
+      duration: audioDurationNum,
+      startTime: 0,
+      zIndex: 1,
+      animations: [
+        { type: 'transform', fromScaleX: 0.8, fromScaleY: 0.8, toScaleX: 1.3, toScaleY: 1.3, duration: audioDurationNum, easing: 'easeInOut' },
+        { type: 'fade', fromOpacity: 0.15, toOpacity: 0.3, duration: audioDurationNum / 2 },
+        { type: 'fade', fromOpacity: 0.3, toOpacity: 0.15, duration: audioDurationNum / 2, delay: audioDurationNum / 2 },
+      ],
+    })
+    
+    // 添加装饰性矩形（顶部装饰条）
+    .addRect({
+      x: '50%',
+      y: '5%',
+      width: '80%',
+      height: 4,
+      fillColor: colors.aquamarine,
+      opacity: 0.6,
+      duration: audioDurationNum,
+      startTime: 0,
+      zIndex: 2,
+      animations: [
+        { type: 'fade', fromOpacity: 0, toOpacity: 0.6, duration: 0.5 },
+        { type: 'fade', fromOpacity: 0.6, toOpacity: 0.3, duration: audioDurationNum - 1, delay: 0.5 },
+        { type: 'fade', fromOpacity: 0.3, toOpacity: 0, duration: 0.5, delay: audioDurationNum - 0.5 },
+      ],
+    })
+    
+    // 主标题 - 使用青蓝色，带渐变和阴影
+    .addText({
+      text: name,
+      color: colors.aquamarine,
+      fontSize: 72,
+      x: "50%",
+      y: "15%",
+      textAlign: "center",
+      anchor: [0.5, 0.5],
+      duration: audioDurationNum,
+      startTime: 0,
+      zIndex: 10,
+      fontFamily: 'MicrosoftYaHei',
+      fontWeight: 'bold',
+      split: 'letter',
+      splitDelay: 0.08,
+      splitDuration: 0.4,
+      gradient: true,
+      gradientColors: [colors.aquamarine, colors.royalBlue],
+      gradientDirection: 'horizontal',
+      textShadow: true,
+      textShadowColor: colors.royalBlue,
+      textShadowBlur: 20,
+      textShadowOffsetX: 0,
+      textShadowOffsetY: 4,
+      stroke: true,
+      strokeColor: colors.royalBlue,
+      strokeWidth: 2,
+      animations: [
+        { type: 'fade', fromOpacity: 0, toOpacity: 1, duration: 0.5 },
+        { type: 'fade', fromOpacity: 1, toOpacity: 0, duration: 0.5, delay: audioDurationNum - 0.5 },
+      ],
+    })
+    
+    // 副标题 - 使用浅灰蓝色
+    .addText({
+      text: 'AUTOMATIC DURATION',
+      color: colors.slate,
+      fontSize: 24,
+      x: "50%",
+      y: "22%",
+      textAlign: "center",
+      anchor: [0.5, 0.5],
+      duration: audioDurationNum,
+      startTime: 0.5,
+      zIndex: 9,
+      fontFamily: 'Arial',
+      fontWeight: 'normal',
+      opacity: 0.8,
+      animations: [
+        { type: 'fade', fromOpacity: 0, toOpacity: 0.8, duration: 0.5 },
+        { type: 'fade', fromOpacity: 0.8, toOpacity: 0, duration: 0.5, delay: audioDurationNum - 1 },
       ],
     });
 
-  // 添加示波器（音频可视化器）- 多彩圆点粒子样式
-  await scene.addOscilloscope({
+  // 添加示波器（音频可视化器）- 使用配色方案
+  scene.addOscilloscope({
     audioPath: audioFile,
     x: "50%",
     y: "50%",
-    width: 600,
-    height: 600,
-    anchor: [0.5, 0.5], // 明确设置 anchor，确保位置正确
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    width: 650,
+    height: 650,
+    anchor: [0.5, 0.5],
+    backgroundColor: `${colors.royalBlue}40`, // 深蓝色半透明背景
     style: 'particles',
     mirror: true,
-    sensitivity: 1.5,
-    particleCount: 80,
-    particleMinSize: 5,
-    particleMaxSize: 25,
+    sensitivity: 1.8,
+    particleCount: 100,
+    particleMinSize: 4,
+    particleMaxSize: 30,
     particleColors: [
-      '#ff0080', '#ff4080', '#ff8000', '#ffc000',
-      '#ffff00', '#80ff00', '#00ff80', '#00ffff',
-      '#0080ff', '#8000ff', '#ff00ff', '#ff0080',
+      colors.aquamarine,
+      colors.royalBlue,
+      colors.slate,
+      '#7ab8d1', // 浅青蓝色变体
+      '#2a5a8a', // 深蓝色变体
+      '#8fa5b8', // 灰蓝色变体
     ],
     particleTrail: true,
-    windowSize: 0.1, // 显示窗口 0.1 秒
+    windowSize: 0.1,
     duration: audioDurationNum,
-    startTime: 0,
-    zIndex: 0, // 降低 zIndex，确保在文本下方
+    startTime: 0.3,
+    zIndex: 5,
+    animations: [
+      { type: 'fade', fromOpacity: 0, toOpacity: 1, duration: 0.8 },
+      { type: 'fade', fromOpacity: 1, toOpacity: 0, duration: 0.8, delay: audioDurationNum - 0.8 },
+    ],
+  });
+
+  // 添加装饰性矩形边框（围绕示波器）
+  scene.addRect({
+    x: '50%',
+    y: '50%',
+    width: 680,
+    height: 680,
+    anchor: [0.5, 0.5],
+    fillColor: 'transparent',
+    strokeColor: colors.aquamarine,
+    strokeWidth: 2,
+    opacity: 0.5,
+    duration: audioDurationNum,
+    startTime: 0.5,
+    zIndex: 6,
+    borderRadius: 20,
+    animations: [
+      { type: 'fade', fromOpacity: 0, toOpacity: 0.5, duration: 0.5 },
+      { type: 'fade', fromOpacity: 0.5, toOpacity: 0.3, duration: audioDurationNum - 1, delay: 0.5 },
+      { type: 'fade', fromOpacity: 0.3, toOpacity: 0, duration: 0.5, delay: audioDurationNum - 0.5 },
+    ],
   });
 
   // 添加音频
@@ -106,20 +232,144 @@ async function testAutoDuration() {
     startTime: 0,
   });
 
-  // 添加 LRC 歌词
+  // 添加 LRC 歌词 - 使用配色方案
   await scene.addLRC(lrcFile, {
-    textColor: '#ffffff',
-    fontSize: 38,
+    textColor: colors.slate,
+    fontSize: 42,
     x: '50%',
-    y: '80%',
+    y: '82%',
     textAlign: 'center',
+    anchor: [0.5, 0.5],
     split: 'letter',
     minDuration: 1,
     maxDuration: 5,
+    fontFamily: 'MicrosoftYaHei',
+    fontWeight: 'normal',
     gradient: true,
-    gradientColors: ['#FF6B6B', '#4ECDC4', '#45B7D1'],
+    gradientColors: [colors.aquamarine, colors.royalBlue, colors.slate],
     gradientDirection: 'horizontal',
+    textShadow: true,
+    textShadowColor: colors.royalBlue,
+    textShadowBlur: 15,
+    textShadowOffsetX: 0,
+    textShadowOffsetY: 2,
+    stroke: true,
+    strokeColor: colors.charcoal,
+    strokeWidth: 1,
     animations: ['bigIn'],
+  });
+  
+  // 添加底部装饰条
+  scene.addRect({
+    x: '50%',
+    y: '95%',
+    width: '70%',
+    height: 3,
+    fillColor: colors.aquamarine,
+    opacity: 0.5,
+    duration: audioDurationNum,
+    startTime: 0,
+    zIndex: 2,
+    animations: [
+      { type: 'fade', fromOpacity: 0, toOpacity: 0.5, duration: 0.5 },
+      { type: 'fade', fromOpacity: 0.5, toOpacity: 0.3, duration: audioDurationNum - 1, delay: 0.5 },
+      { type: 'fade', fromOpacity: 0.3, toOpacity: 0, duration: 0.5, delay: audioDurationNum - 0.5 },
+    ],
+  });
+  
+  // 添加装饰性路径（波浪线）- 使用配色方案
+  scene.addPath({
+    points: [
+      { x: 50, y: 200 },
+      { x: 150, y: 180 },
+      { x: 250, y: 200 },
+      { x: 350, y: 180 },
+      { x: 450, y: 200 },
+      { x: 550, y: 180 },
+      { x: 650, y: 200 },
+    ],
+    closed: false,
+    smooth: true,
+    strokeColor: colors.aquamarine,
+    strokeWidth: 3,
+    fillColor: null,
+    opacity: 0.6,
+    duration: audioDurationNum,
+    startTime: 0,
+    zIndex: 3,
+    x: 0,
+    y: 0,
+    animations: [
+      { type: 'fade', fromOpacity: 0, toOpacity: 0.6, duration: 0.8 },
+      { type: 'fade', fromOpacity: 0.6, toOpacity: 0.3, duration: audioDurationNum - 1.6, delay: 0.8 },
+      { type: 'fade', fromOpacity: 0.3, toOpacity: 0, duration: 0.8, delay: audioDurationNum - 0.8 },
+    ],
+  });
+  
+  // 添加装饰性路径（星形）- 使用配色方案
+  const starPoints = [];
+  const centerX = 360; // 画布中心 X
+  const centerY = 200; // 顶部区域
+  const outerRadius = 40;
+  const innerRadius = 20;
+  const numPoints = 5;
+  
+  for (let i = 0; i < numPoints * 2; i++) {
+    const angle = (i * Math.PI) / numPoints;
+    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+    starPoints.push({
+      x: centerX + Math.cos(angle) * radius,
+      y: centerY + Math.sin(angle) * radius,
+    });
+  }
+  
+  scene.addPath({
+    points: starPoints,
+    closed: true,
+    smooth: false,
+    fillColor: colors.royalBlue,
+    strokeColor: colors.aquamarine,
+    strokeWidth: 2,
+    opacity: 0.4,
+    duration: audioDurationNum,
+    startTime: 0,
+    zIndex: 4,
+    x: 0,
+    y: 0,
+    animations: [
+      { type: 'fade', fromOpacity: 0, toOpacity: 0.4, duration: 0.5 },
+      { type: 'transform', fromRotation: 0, toRotation: 360, duration: audioDurationNum, easing: 'linear' },
+      { type: 'fade', fromOpacity: 0.4, toOpacity: 0, duration: 0.5, delay: audioDurationNum - 0.5 },
+    ],
+  });
+  
+  // 添加装饰性路径（曲线）- 使用配色方案
+  scene.addPath({
+    points: [
+      { x: 100, y: 1100 },
+      { x: 200, y: 1080 },
+      { x: 300, y: 1120 },
+      { x: 400, y: 1070 },
+      { x: 500, y: 1110 },
+      { x: 600, y: 1085 },
+    ],
+    closed: false,
+    smooth: true,
+    strokeColor: colors.slate,
+    strokeWidth: 2,
+    fillColor: null,
+    opacity: 0.5,
+    duration: audioDurationNum,
+    startTime: 0,
+    zIndex: 3,
+    x: 0,
+    y: 0,
+    dashArray: [10, 5],
+    animations: [
+      { type: 'fade', fromOpacity: 0, toOpacity: 0.5, duration: 0.6 },
+      { type: 'fade', fromOpacity: 0.5, toOpacity: 0.2, duration: audioDurationNum - 1.2, delay: 0.6 },
+      { type: 'fade', fromOpacity: 0.2, toOpacity: 0, duration: 0.6, delay: audioDurationNum - 0.6 },
+    ],
   });
 
   const outputDir = path.join(__dirname, '../output');

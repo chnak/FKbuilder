@@ -12,6 +12,7 @@ export const defaultConfig = {
   ],
   minRadiusRatio: 0.4, // 最小半径比例（相对于基础半径）
   maxRadiusRatio: 2.0, // 最大半径比例（相对于基础半径）
+  directionChangeIntensity: 0.3, // 方向变化强度（0-1，0为不变化，1为完全随节奏变化）
 };
 
 /**
@@ -69,7 +70,7 @@ export default function renderBlob(element, data, x, y, width, height, time, con
       const randomAngle = Math.random() * 360;
       const vector = new paper.Point({
         angle: randomAngle,
-        length: 0.3 + Math.random() * 0.4 // 随机速度
+        length: 1.5 + Math.random() * 2.5 // 进一步增加初始速度：1.5 到 4.0
       });
       
       // 随机半径（在配置的范围内，生成大小不一的球体）
@@ -84,7 +85,7 @@ export default function renderBlob(element, data, x, y, width, height, time, con
         targetRadius: radius,
         point: position,
         vector: vector,
-        maxVec: 6, // 减小最大速度
+        maxVec: 20, // 进一步增加最大速度限制：从 12 增加到 20
         numSegment: Math.floor(radius / 3 + 2),
         boundOffset: [],
         boundOffsetBuff: [],
@@ -120,7 +121,7 @@ export default function renderBlob(element, data, x, y, width, height, time, con
     
     // sensitivity 控制大小变化幅度：sensitivity 越大，变化幅度越大
     // 变化幅度基于初始半径，保持大小比例关系
-    const sizeVariation = baseRadius * initialRadiusRatio * 0.6 * element.sensitivity;
+    const sizeVariation = baseRadius * initialRadiusRatio * element.sensitivity;
     const targetRadius = baseRadius * initialRadiusRatio + amplitude * sizeVariation;
     
     // 平滑过渡到目标半径（增加平滑度）
@@ -139,9 +140,41 @@ export default function renderBlob(element, data, x, y, width, height, time, con
     }
     
     // 根据音频调整速度（速度也受 sensitivity 影响）
-    const speed = 0.3 + amplitude * 0.5 * element.sensitivity;
+    // 进一步增加基础速度和变化幅度，让球体移动更快
+    const baseSpeed = 1.5; // 进一步增加基础速度：从 0.8 到 1.5
+    const speedVariation = 2.5; // 进一步增加速度变化幅度：从 1.5 到 2.5
+    const speed = baseSpeed + amplitude * speedVariation * element.sensitivity;
     if (ball.vector.length > 0) {
       ball.vector.length = speed;
+    }
+    
+    // 根据音频节奏调整移动方向
+    // 使用 directionChangeIntensity 控制方向变化的强度
+    const directionIntensity = cfg.directionChangeIntensity !== undefined 
+      ? cfg.directionChangeIntensity 
+      : 0.3;
+    
+    if (directionIntensity > 0 && ball.vector.length > 0) {
+      // 使用振幅来影响方向变化，让球体随节奏改变方向
+      // 不同球体使用不同的频段，产生不同的方向变化模式
+      const directionChange = amplitude * directionIntensity * element.sensitivity * 40; // 最大40度变化
+      
+      // 根据球体索引创建不同的相位，让每个球体有不同的响应模式
+      const phase = (i / numBalls) * Math.PI * 2; // 每个球体有不同的相位
+      
+      // 使用时间相位让方向变化更平滑，同时结合振幅让节奏感更强
+      const timePhase = time * 1.5; // 时间相位（可以调整速度）
+      const rhythmFactor = amplitude * 2; // 节奏因子，振幅越大变化越快
+      const angleOffset = Math.sin(phase + timePhase + rhythmFactor) * directionChange;
+      
+      // 应用方向变化（平滑过渡）
+      const currentAngle = ball.vector.angle;
+      const targetAngle = currentAngle + angleOffset;
+      
+      // 平滑过渡到目标角度（使用更大的过渡系数让响应更快）
+      const angleDiff = ((targetAngle - currentAngle + 180) % 360) - 180; // 处理角度环绕
+      const transitionSpeed = 0.15 + amplitude * 0.1; // 根据振幅调整过渡速度，节奏强时变化更快
+      ball.vector.angle = currentAngle + angleDiff * transitionSpeed;
     }
   }
   
@@ -197,6 +230,7 @@ function drawBlobBall(ball, element, cfg) {
   }
   
   // 创建路径（每一帧都重新创建）
+  // 注意：路径会自动添加到当前激活的 layer，不需要手动添加
   const path = new paper.Path({
     fillColor: fillColor,
     blendMode: 'normal', // 改为 normal，避免 lighter 模式导致的闪烁

@@ -69,7 +69,7 @@ async function testOscilloscopeBlob() {
       y: '50%',
       width: 1600,
       height: 800,
-      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+      backgroundColor: '#E4EBE0',
       style: 'blob',
       blobBallCount: 15,
       sensitivity: 1.5,

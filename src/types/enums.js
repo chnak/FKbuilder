@@ -23,6 +23,7 @@ export const ElementType = {
   VIDEO: 'video',
   RECT: 'rect',
   CIRCLE: 'circle',
+  PATH: 'path',
   SPRITE: 'sprite',
   COMPOSITION: 'composition',
   TRANSITION: 'transition',

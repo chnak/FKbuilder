@@ -6,6 +6,7 @@ import { ImageElement } from '../elements/ImageElement.js';
 import { VideoElement } from '../elements/VideoElement.js';
 import { RectElement } from '../elements/RectElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
+import { PathElement } from '../elements/PathElement.js';
 import { AudioElement } from '../elements/AudioElement.js';
 import { SubtitleElement } from '../elements/SubtitleElement.js';
 import { OscilloscopeElement } from '../elements/OscilloscopeElement.js';
@@ -158,6 +159,19 @@ export class Scene {
     this.elements.push({
       type: 'circle',
       element: new CircleElement(config),
+    });
+    return this;
+  }
+
+  /**
+   * 添加路径元素
+   * @param {Object} config - 路径配置
+   * @returns {Scene} 返回自身以支持链式调用
+   */
+  addPath(config = {}) {
+    this.elements.push({
+      type: 'path',
+      element: new PathElement(config),
     });
     return this;
   }

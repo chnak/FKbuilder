@@ -1,4 +1,4 @@
-# FKNew - 程序化视频生成库
+# FKbuilder - 程序化视频生成库
 
 基于 Node.js + Paper.js 的纯 JavaScript 视频制作库，提供简洁的 API 和强大的功能。
 
@@ -6,12 +6,13 @@
 
 - 🎬 **多轨道多场景** - 灵活的轨道和场景管理系统
 - 🎨 **丰富的元素类型** - 文本、图片、视频、形状、音频、字幕、示波器等
-- ✨ **强大的动画系统** - 预设动画、关键帧动画、变换动画等
+- ✨ **强大的动画系统** - 预设动画、关键帧动画、变换动画、onFrame 持续动画
 - 🎯 **精确的时间控制** - 灵活的时间线管理和元素时间控制
 - 🚀 **高性能渲染** - 基于 Paper.js 的 2D 渲染引擎
 - 🎭 **丰富的转场效果** - 支持 gl-transitions 转场库
 - 📝 **文本特效** - 渐变、阴影、发光、描边、文字拆分动画
 - 📹 **视频导出** - 支持 MP4 格式导出
+- ⚡ **持续动画支持** - 通过 onFrame 回调实现每帧更新的持续动画效果
 
 ## 📦 安装
 
@@ -453,7 +454,7 @@ createVideo().catch(console.error);
 
 ```javascript
 scene.addText({
-  text: 'FKNew',
+  text: 'FKbuilder',
   x: '50%',
   y: '50%',
   fontSize: 120,
@@ -470,6 +471,76 @@ scene.addText({
   strokeWidth: 2,
 });
 ```
+
+### onFrame 持续动画示例
+
+`onFrame` 回调函数可以在每一帧更新元素，实现持续动画效果（如旋转、脉冲、闪烁等）：
+
+```javascript
+// 持续旋转的圆形
+scene.addCircle({
+  x: '50%',
+  y: '50%',
+  radius: 100,
+  fillColor: '#4ECDC4',
+  duration: 10,
+  startTime: 0,
+  onFrame: (element, event, paperItem) => {
+    if (!paperItem) return;
+    // 持续旋转：每秒旋转180度
+    const rotationSpeed = 180; // 度/秒
+    const rotation = (event.time * rotationSpeed) % 360;
+    const pivot = paperItem.position || paperItem.center;
+    if (pivot) {
+      const currentRotation = paperItem.rotation || 0;
+      paperItem.rotate(rotation - currentRotation, pivot);
+    }
+  },
+});
+
+// 闪烁的星星
+scene.addPath({
+  points: starPoints, // 星形路径点
+  closed: true,
+  fillColor: '#5298c1',
+  duration: 10,
+  startTime: 0,
+  onFrame: (element, event, paperItem) => {
+    if (!paperItem) return;
+    // 闪烁效果：透明度在0.2到1.0之间变化
+    const twinkleSpeed = 2; // 闪烁速度（周期/秒）
+    const twinklePhase = event.time * twinkleSpeed * 2 * Math.PI;
+    const twinkleValue = (Math.sin(twinklePhase) + 1) / 2; // 0到1之间
+    const opacity = 0.2 + twinkleValue * 0.8;
+    paperItem.opacity = opacity;
+  },
+});
+
+// 呼吸动画（脉冲缩放）
+scene.addText({
+  text: 'Breathing Text',
+  x: '50%',
+  y: '50%',
+  fontSize: 72,
+  color: '#ffffff',
+  duration: 10,
+  startTime: 0,
+  onFrame: (element, event, paperItem) => {
+    if (!paperItem) return;
+    const pivot = paperItem.position || paperItem.center;
+    if (pivot) {
+      // 呼吸效果：在0.98到1.02之间轻微缩放
+      const breathSpeed = 1.5; // 呼吸速度（周期/秒）
+      const breathPhase = event.time * breathSpeed * 2 * Math.PI;
+      const breathScale = 1 + Math.sin(breathPhase) * 0.02;
+      const currentScale = paperItem.scaling ? paperItem.scaling.x : 1;
+      paperItem.scale(breathScale / currentScale, pivot);
+    }
+  },
+});
+```
+
+更多关于 `onFrame` 的详细信息，请查看 [onFrame 参数说明](./docs/onFrame-params.md) 和 [onFrame vs onRender](./docs/onFrame-vs-onRender.md)。
 
 ### 文本效果示例
 
@@ -549,7 +620,7 @@ scene.addText({
 ## 📁 项目结构
 
 ```
-FKNew/
+FKbuilder/
 ├── src/
 │   ├── core/              # 核心类（VideoMaker, Renderer, VideoExporter）
 │   ├── elements/          # 元素类（Text, Image, Video, Shape 等）
@@ -572,7 +643,7 @@ FKNew/
 - `test-transitions.js` - 各种转场效果示例
 - `project-intro-video.js` - 项目简介视频示例
 - `demo-awesome-video.js` - 完整功能演示
-- `test-auto-duration.js` - 自动时长计算示例
+- `test-auto-duration.js` - 自动时长计算示例（包含 onFrame 持续动画演示）
 - `test-gradient-glow.js` - 渐变和发光效果示例
 - `test-stroke-shadow-styles.js` - 描边和阴影样式示例
 

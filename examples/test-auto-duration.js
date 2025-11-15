@@ -429,6 +429,71 @@ async function testAutoDuration() {
     },
   });
   
+  // 添加闪烁的星星 - 分布在背景上
+  const starPositions = [
+    { x: 80, y: 150, size: 8 },   // 左上区域
+    { x: 150, y: 100, size: 6 },
+    { x: 250, y: 120, size: 10 },
+    { x: 500, y: 80, size: 7 },   // 右上区域
+    { x: 600, y: 150, size: 9 },
+    { x: 650, y: 100, size: 5 },
+    { x: 100, y: 1050, size: 8 }, // 左下区域
+    { x: 200, y: 1100, size: 6 },
+    { x: 550, y: 1080, size: 7 }, // 右下区域
+    { x: 620, y: 1120, size: 9 },
+  ];
+
+  starPositions.forEach((star, index) => {
+    // 创建星形路径
+    const starPoints = [];
+    const outerRadius = star.size;
+    const innerRadius = star.size * 0.4;
+    const numPoints = 5;
+    
+    for (let i = 0; i < numPoints * 2; i++) {
+      const angle = (i * Math.PI) / numPoints;
+      const radius = i % 2 === 0 ? outerRadius : innerRadius;
+      starPoints.push({
+        x: star.x + Math.cos(angle) * radius,
+        y: star.y + Math.sin(angle) * radius,
+      });
+    }
+    
+    // 每个星星有不同的闪烁频率和初始相位
+    const twinkleSpeed = 0.8 + (index % 3) * 0.4; // 0.8到2.0之间
+    const initialPhase = (index * 0.5) % (Math.PI * 2); // 不同的初始相位
+    
+    scene.addPath({
+      points: starPoints,
+      closed: true,
+      smooth: false,
+      fillColor: colors.aquamarine,
+      strokeColor: colors.royalBlue,
+      strokeWidth: 1,
+      opacity: 0.6,
+      duration: audioDurationNum,
+      startTime: 0,
+      zIndex: 2,
+      x: 0,
+      y: 0,
+      animations: [
+        { type: 'fade', fromOpacity: 0, toOpacity: 0.6, duration: 0.5 },
+      ],
+      // 闪烁效果：在onFrame中实现
+      onFrame: (element, event, paperItem) => {
+        if (!paperItem) return;
+        // 使用正弦波实现闪烁效果
+        // 透明度在0.2到1.0之间变化
+        const twinklePhase = event.time * twinkleSpeed * 2 * Math.PI + initialPhase;
+        // 使用正弦波的绝对值，让闪烁更明显
+        const twinkleValue = (Math.sin(twinklePhase) + 1) / 2; // 0到1之间
+        // 映射到0.2到1.0的透明度范围
+        const opacity = 0.2 + twinkleValue * 0.8;
+        paperItem.opacity = opacity;
+      },
+    });
+  });
+
   // 添加装饰性路径（曲线）- 使用配色方案 - 优化：添加从下往上滑入
   scene.addPath({
     points: [

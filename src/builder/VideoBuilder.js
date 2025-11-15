@@ -3,6 +3,8 @@
  */
 import { VideoMaker } from '../core/VideoMaker.js';
 import { Track } from './Track.js';
+import path from 'path';
+import fs from 'fs-extra';
 
 /**
  * 视频构建器主类
@@ -188,6 +190,31 @@ export class VideoBuilder {
     } finally {
       composition.destroy();
       // 导出完成后自动销毁 builder
+      this.destroy();
+    }
+  }
+
+  /**
+   * 渲染视频（自动 build 和 export）
+   * @param {string} outputPath - 输出路径（可选，默认：'output/fkbuilder-video.mp4'）
+   * @param {Object} options - 导出选项
+   * @returns {Promise<string>} 输出路径
+   */
+  async render(outputPath, options = {}) {
+    // 如果没有提供 outputPath，使用默认路径
+    if (!outputPath) {
+      const defaultOutputDir = path.join(process.cwd(), 'output');
+      await fs.ensureDir(defaultOutputDir);
+      outputPath = path.join(defaultOutputDir, 'fkbuilder-video.mp4');
+    }
+
+    const composition = this.build();
+    try {
+      const result = await composition.export(outputPath, options);
+      return result || outputPath;
+    } finally {
+      composition.destroy();
+      // 渲染完成后自动销毁 builder
       this.destroy();
     }
   }

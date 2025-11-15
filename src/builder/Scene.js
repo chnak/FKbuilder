@@ -190,12 +190,8 @@ export class Scene {
    */
   addSVG(config = {}) {
     const svgElement = new SVGElement(config);
-    // 如果提供了 src，异步加载 SVG
-    if (config.src) {
-      svgElement.load().catch(err => {
-        console.warn('SVG 加载失败:', config.src, err);
-      });
-    }
+    // SVG 会在 build 时或渲染时自动加载，不需要在这里立即加载
+    // 这样可以支持链式调用
     this.elements.push({
       type: 'svg',
       element: svgElement,
@@ -300,6 +296,39 @@ export class Scene {
    */
   getElements() {
     return this.elements.map(e => e.element);
+  }
+
+  /**
+   * 初始化场景（预加载需要异步加载的元素）
+   * @returns {Promise<void>}
+   */
+  async initialize() {
+    // 预加载所有需要异步加载的元素，使用统一的 initialize 方法
+    for (const { element } of this.elements) {
+      if (element && typeof element.initialize === 'function') {
+        try {
+          const initResult = element.initialize();
+          // 如果返回 Promise，等待完成
+          if (initResult && typeof initResult.then === 'function') {
+            await initResult;
+          }
+          // 检查初始化状态
+          if (typeof element.isInitialized === 'function') {
+            const isInit = element.isInitialized();
+            if (!isInit && element.type === 'svg') {
+              console.warn(`[Scene] SVG 元素初始化后仍未就绪:`, {
+                loaded: element.loaded,
+                hasContent: !!element.svgContent,
+                svgString: !!element.svgString,
+                src: element.src
+              });
+            }
+          }
+        } catch (err) {
+          console.warn(`[Scene] 元素 ${element.type} 初始化失败:`, err);
+        }
+      }
+    }
   }
 
   /**

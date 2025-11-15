@@ -82,6 +82,19 @@ export class Track {
   }
 
   /**
+   * 初始化轨道（预加载需要异步加载的元素）
+   * @returns {Promise<void>}
+   */
+  async initialize() {
+    // 初始化所有场景
+    for (const scene of this.scenes) {
+      if (scene.initialize) {
+        await scene.initialize();
+      }
+    }
+  }
+
+  /**
    * 构建轨道（直接创建 Layer 并添加元素到 VideoMaker）
    * @param {VideoMaker} videoMaker - VideoMaker 实例
    * @returns {ElementLayer} 创建的 Layer

@@ -58,6 +58,19 @@ export class VideoBuilder {
   }
 
   /**
+   * 初始化构建器（预加载需要异步加载的元素）
+   * @returns {Promise<void>}
+   */
+  async initialize() {
+    // 初始化所有轨道
+    for (const track of this.tracks) {
+      if (track.initialize) {
+        await track.initialize();
+      }
+    }
+  }
+
+  /**
    * 构建最终的 VideoMaker（直接使用 Layer，不使用 CompositionElement 嵌套）
    * @returns {VideoMaker}
    */
@@ -184,6 +197,9 @@ export class VideoBuilder {
    * @returns {Promise<void>}
    */
   async export(outputPath, options = {}) {
+    // 先初始化，预加载所有需要异步加载的元素（如 SVG）
+    await this.initialize();
+    
     const composition = this.build();
     try {
       await composition.export(outputPath, options);

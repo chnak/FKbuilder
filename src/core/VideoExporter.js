@@ -5,6 +5,7 @@ import { Renderer } from './Renderer.js';
 import { TransitionElement } from '../elements/TransitionElement.js';
 import { TransitionRenderer } from '../utils/transition-renderer.js';
 import { createCanvas } from 'canvas';
+import { ElementLayer } from '../layers/ElementLayer.js';
 
 /**
  * 视频导出器
@@ -327,15 +328,27 @@ export class VideoExporter {
     const transitions = composition.transitions || [];
     const transitionRenderers = new Map();
     
+    // 预先渲染并保存所有转场的帧
+    const transitionFrames = new Map();
+    if (transitions.length > 0) {
+      console.log(`检测到 ${transitions.length} 个转场，预先渲染转场帧...`);
+      for (const transition of transitions) {
+        const transitionKey = `${transition.startTime}_${transition.endTime}_${transition.name}`;
+        const frames = await this.preRenderTransitionFrames(composition, transition, backgroundColor);
+        transitionFrames.set(transitionKey, frames);
+      }
+      console.log('转场帧预渲染完成');
+    }
+    
     // 调试信息：打印转场信息
     if (transitions.length > 0) {
-      console.log(`检测到 ${transitions.length} 个转场:`);
+      console.log(`转场信息:`);
       transitions.forEach((t, i) => {
         // 确保 startTime 和 endTime 存在且正确
-        const startTime = t.startTime !== undefined ? t.startTime : 0;
-        const endTime = t.endTime !== undefined ? t.endTime : (startTime + (t.duration || 0));
+        const tStartTime = t.startTime !== undefined ? t.startTime : 0;
+        const tEndTime = t.endTime !== undefined ? t.endTime : (tStartTime + (t.duration || 0));
         const duration = t.duration || 0;
-        console.log(`  转场 ${i + 1}: ${t.name}, 时间范围: ${startTime.toFixed(3)}s - ${endTime.toFixed(3)}s, 时长: ${duration.toFixed(3)}s`);
+        console.log(`  转场 ${i + 1}: ${t.name}, 时间范围: ${tStartTime.toFixed(3)}s - ${tEndTime.toFixed(3)}s, 时长: ${duration.toFixed(3)}s`);
       });
     } else {
       console.log('未检测到转场');
@@ -353,14 +366,28 @@ export class VideoExporter {
        
           let buffer;
           if (activeTransition) {
-            // 有转场，渲染转场效果
-            buffer = await this.renderFrameWithTransition(
-              composition, 
-              time, 
-              activeTransition, 
-              backgroundColor,
-              transitionRenderers
-            );
+            // 有转场，使用预渲染的帧进行转场混合
+            const transitionKey = `${activeTransition.startTime}_${activeTransition.endTime}_${activeTransition.name}`;
+            const frames = transitionFrames.get(transitionKey);
+            if (frames) {
+              buffer = await this.renderFrameWithTransition(
+                composition, 
+                time, 
+                activeTransition, 
+                backgroundColor,
+                transitionRenderers,
+                frames
+              );
+            } else {
+              // 如果没有预渲染的帧，回退到原来的方法
+              buffer = await this.renderFrameWithTransition(
+                composition, 
+                time, 
+                activeTransition, 
+                backgroundColor,
+                transitionRenderers
+              );
+            }
           } else {
             // 正常渲染帧（转场期间或转场结束后）
             await this.renderer.renderFrame(composition.timeline.getLayers(), time, backgroundColor);
@@ -401,24 +428,47 @@ export class VideoExporter {
   }
 
   /**
+   * 预先渲染转场的 fromFrame 和 toFrame
+   * @param {VideoMaker} composition - 合成对象
+   * @param {Object} transition - 转场配置
+   * @param {string} backgroundColor - 背景色
+   * @returns {Promise<{fromFrame: Buffer, toFrame: Buffer}>} 预渲染的帧
+   */
+  async preRenderTransitionFrames(composition, transition, backgroundColor) {
+    // 在转场开始时间渲染一帧，作为 fromFrame（此时 fromScene 还在显示）
+    await this.renderer.renderFrame(composition.timeline.getLayers(), transition.startTime, backgroundColor);
+    const fromCanvas = this.renderer.canvas;
+    const fromCtx = fromCanvas.getContext('2d');
+    const fromImageData = fromCtx.getImageData(0, 0, fromCanvas.width, fromCanvas.height);
+    const fromBuffer = Buffer.from(fromImageData.data);
+    
+    // 在转场结束时间渲染一帧，作为 toFrame（此时 toScene 已经完全显示）
+    await this.renderer.renderFrame(composition.timeline.getLayers(), transition.endTime, backgroundColor);
+    const toCanvas = this.renderer.canvas;
+    const toCtx = toCanvas.getContext('2d');
+    const toImageData = toCtx.getImageData(0, 0, toCanvas.width, toCanvas.height);
+    const toBuffer = Buffer.from(toImageData.data);
+    
+    return {
+      fromFrame: fromBuffer,
+      toFrame: toBuffer,
+    };
+  }
+
+  /**
    * 渲染带转场效果的帧
    * @param {VideoMaker} composition - 合成对象
    * @param {number} time - 当前时间
    * @param {Object} transition - 转场配置
    * @param {string} backgroundColor - 背景色
    * @param {Map} transitionRenderers - 转场渲染器缓存
+   * @param {Object} preRenderedFrames - 预渲染的帧 {fromFrame, toFrame}（可选）
    * @returns {Promise<Buffer>} PNG buffer
    */
-  async renderFrameWithTransition(composition, time, transition, backgroundColor, transitionRenderers) {
-    // 方案三：使用主 renderer 渲染转场场景，避免创建新的 Renderer 实例
-    // 这样可以避免 Paper.js 全局状态被切换，影响主 renderer 的后续渲染
-    
+  async renderFrameWithTransition(composition, time, transition, backgroundColor, transitionRenderers, preRenderedFrames = null) {
     // 计算转场进度（0-1）
-    // 转场时间范围：transition.startTime 到 transition.endTime
-    // 转场实际时长：transition.endTime - transition.startTime
     const actualDuration = transition.endTime - transition.startTime;
     const progress = Math.max(0, Math.min(1, (time - transition.startTime) / actualDuration));
-    
     
     // 获取或创建转场渲染器
     const rendererKey = `${transition.name}_${transition.easing || 'linear'}`;
@@ -439,32 +489,33 @@ export class VideoExporter {
       channels: 4,
     });
     
-    // 渲染 from 场景的最后一帧
-    // 使用主 renderer，传入 from 场景结束时的绝对时间
-    const fromScene = transition.fromScene;
-    const fromBackgroundColor = fromScene.backgroundLayer?.config?.backgroundColor || backgroundColor;
-    const fromSceneEndTime = transition.startTime; // from 场景结束时间就是转场开始时间
-    
-    // 使用主 renderer 渲染 from 场景的最后一帧
-    await this.renderer.renderFrame(composition.timeline.getLayers(), fromSceneEndTime, fromBackgroundColor);
-    const fromCanvas = this.renderer.canvas;
-    const fromCtx = fromCanvas.getContext('2d');
-    const fromImageData = fromCtx.getImageData(0, 0, fromCanvas.width, fromCanvas.height);
-    const fromBuffer = Buffer.from(fromImageData.data);
-    
-    // 渲染 to 场景的第一帧
-    // 使用主 renderer，传入 to 场景开始时的绝对时间（转场开始时间）
-    // 转场期间，to 场景从转场开始时间就开始显示，只是混合度从 0 到 1
-    const toScene = transition.toScene;
-    const toBackgroundColor = toScene.backgroundLayer?.config?.backgroundColor || backgroundColor;
-    const toSceneStartTime = transition.startTime; // to 场景开始时间就是转场开始时间
-    
-    // 使用主 renderer 渲染 to 场景的第一帧
-    await this.renderer.renderFrame(composition.timeline.getLayers(), toSceneStartTime, toBackgroundColor);
-    const toCanvas = this.renderer.canvas;
-    const toCtx = toCanvas.getContext('2d');
-    const toImageData = toCtx.getImageData(0, 0, toCanvas.width, toCanvas.height);
-    const toBuffer = Buffer.from(toImageData.data);
+    // 使用预渲染的帧（如果提供），否则实时渲染
+    let fromBuffer, toBuffer;
+    if (preRenderedFrames) {
+      fromBuffer = preRenderedFrames.fromFrame;
+      toBuffer = preRenderedFrames.toFrame;
+    } else {
+      // 回退到原来的实时渲染方法
+      const fromScene = transition.fromScene;
+      const fromBackgroundColor = fromScene.backgroundLayer?.config?.backgroundColor || backgroundColor;
+      const fromSceneEndTime = transition.startTime;
+      
+      await this.renderer.renderFrame(composition.timeline.getLayers(), fromSceneEndTime, fromBackgroundColor);
+      const fromCanvas = this.renderer.canvas;
+      const fromCtx = fromCanvas.getContext('2d');
+      const fromImageData = fromCtx.getImageData(0, 0, fromCanvas.width, fromCanvas.height);
+      fromBuffer = Buffer.from(fromImageData.data);
+      
+      const toScene = transition.toScene;
+      const toBackgroundColor = toScene.backgroundLayer?.config?.backgroundColor || backgroundColor;
+      const toSceneStartTime = transition.startTime;
+      
+      await this.renderer.renderFrame(composition.timeline.getLayers(), toSceneStartTime, toBackgroundColor);
+      const toCanvas = this.renderer.canvas;
+      const toCtx = toCanvas.getContext('2d');
+      const toImageData = toCtx.getImageData(0, 0, toCanvas.width, toCanvas.height);
+      toBuffer = Buffer.from(toImageData.data);
+    }
     
     // 使用转场函数混合两个场景
     const resultBuffer = transitionFunction({
@@ -485,6 +536,108 @@ export class VideoExporter {
   }
 
   /**
+   * 创建只包含指定场景元素的临时图层
+   * @param {VideoMaker} composition - 合成对象
+   * @param {Object} scene - 场景对象
+   * @param {number} time - 当前时间
+   * @param {boolean} isTransition - 是否在转场期间（如果是，会调整元素时间让它们在转场开始时间就可见）
+   * @returns {Array<ElementLayer>} 场景图层数组
+   */
+  _createSceneLayers(composition, scene, time, isTransition = false) {
+    // 获取场景的开始时间（绝对时间）
+    const sceneStartTime = scene.startTime !== undefined ? scene.startTime : 0;
+    const sceneEndTime = sceneStartTime + (scene.duration || 0);
+    
+    // 方法：从 composition.timeline 的所有图层中，筛选出属于指定场景的元素
+    // 这样可以避免重复构建场景，并且使用已经构建好的元素（时间已经是绝对时间）
+    const allLayers = composition.timeline.getLayers();
+    const sceneLayers = [];
+    
+    // 遍历所有图层，筛选出属于该场景的元素
+    for (const layer of allLayers) {
+      if (layer.elements && layer.elements.length > 0) {
+        // 筛选出属于该场景的元素
+        // 元素的时间已经是绝对时间（在 Track.build 中转换的）
+        const sceneElements = layer.elements.filter(element => {
+          if (!element) return false;
+          
+          // 检查元素的时间范围是否与场景重叠
+          const elementStartTime = element.startTime !== undefined ? element.startTime : 0;
+          const elementEndTime = element.endTime !== undefined ? element.endTime : Infinity;
+          
+          // 元素属于场景，如果：
+          // 1. 元素在场景时间范围内开始
+          // 2. 或者元素在场景时间范围内结束
+          // 3. 或者元素完全包含场景时间范围
+          // 4. 或者元素在场景时间范围内（即使开始时间在场景之前，结束时间在场景之后）
+          const elementStartsInScene = elementStartTime >= sceneStartTime && elementStartTime < sceneEndTime;
+          const elementEndsInScene = elementEndTime > sceneStartTime && elementEndTime <= sceneEndTime;
+          const elementContainsScene = elementStartTime <= sceneStartTime && elementEndTime >= sceneEndTime;
+          const elementActiveInScene = elementStartTime < sceneEndTime && elementEndTime > sceneStartTime;
+          
+          return elementStartsInScene || elementEndsInScene || elementContainsScene || elementActiveInScene;
+        });
+        
+        // 如果有属于该场景的元素，创建临时图层
+        if (sceneElements.length > 0) {
+          const sceneLayer = new ElementLayer({
+            zIndex: layer.zIndex,
+            startTime: sceneStartTime,
+            endTime: sceneEndTime,
+          });
+          
+          // 添加元素到临时图层（元素的时间已经是绝对时间，不需要转换）
+          for (const element of sceneElements) {
+            // 确保元素的 canvas 尺寸正确
+            element.canvasWidth = composition.width;
+            element.canvasHeight = composition.height;
+            
+            // 如果是转场期间，且元素在转场开始时间还没有开始，需要调整元素的时间
+            if (isTransition && element.startTime !== undefined && element.startTime > time) {
+              // 计算时间偏移
+              const timeOffset = element.startTime - time;
+              // 临时调整元素的时间，让它在转场开始时间就开始显示
+              const originalStartTime = element.startTime;
+              const originalEndTime = element.endTime;
+              element.startTime = time;
+              if (element.endTime !== undefined && element.endTime !== Infinity) {
+                element.endTime = element.endTime - timeOffset;
+              }
+              
+              // 如果是分割文本，也需要调整子元素的时间
+              if (element.type === 'text' && element.segments && element.segments.length > 0) {
+                for (const segment of element.segments) {
+                  if (segment.startTime !== undefined && segment.startTime > time) {
+                    const segmentTimeOffset = segment.startTime - time;
+                    segment.startTime = time;
+                    if (segment.endTime !== undefined && segment.endTime !== Infinity) {
+                      segment.endTime = segment.endTime - segmentTimeOffset;
+                    }
+                  }
+                }
+              }
+            }
+            
+            // 如果是分割文本，也需要设置子元素的 canvas 尺寸
+            if (element.type === 'text' && element.segments && element.segments.length > 0) {
+              for (const segment of element.segments) {
+                segment.canvasWidth = composition.width;
+                segment.canvasHeight = composition.height;
+              }
+            }
+            
+            sceneLayer.addElement(element);
+          }
+          
+          sceneLayers.push(sceneLayer);
+        }
+      }
+    }
+    
+    return sceneLayers;
+  }
+
+  /**
    * 串行渲染所有帧（保存到文件）
    * @param {string|null} tempDir - 临时目录，如果为 null 则不保存文件（仅渲染）
    */
@@ -493,9 +646,21 @@ export class VideoExporter {
     const transitions = composition.transitions || [];
     const transitionRenderers = new Map();
     
+    // 预先渲染并保存所有转场的帧
+    const transitionFrames = new Map();
+    if (transitions.length > 0) {
+      console.log(`检测到 ${transitions.length} 个转场，预先渲染转场帧...`);
+      for (const transition of transitions) {
+        const transitionKey = `${transition.startTime}_${transition.endTime}_${transition.name}`;
+        const frames = await this.preRenderTransitionFrames(composition, transition, backgroundColor);
+        transitionFrames.set(transitionKey, frames);
+      }
+      console.log('转场帧预渲染完成');
+    }
+    
     // 调试信息：打印转场信息
     if (transitions.length > 0) {
-      console.log(`检测到 ${transitions.length} 个转场:`);
+      console.log(`转场信息:`);
       transitions.forEach((t, i) => {
         // 确保 startTime 和 endTime 存在且正确
         const tStartTime = t.startTime !== undefined ? t.startTime : 0;
@@ -517,14 +682,28 @@ export class VideoExporter {
         
         let buffer;
         if (activeTransition) {
-          // 有转场，渲染转场效果
-          buffer = await this.renderFrameWithTransition(
-            composition, 
-            time, 
-            activeTransition, 
-            backgroundColor,
-            transitionRenderers
-          );
+          // 有转场，使用预渲染的帧进行转场混合
+          const transitionKey = `${activeTransition.startTime}_${activeTransition.endTime}_${activeTransition.name}`;
+          const frames = transitionFrames.get(transitionKey);
+          if (frames) {
+            buffer = await this.renderFrameWithTransition(
+              composition, 
+              time, 
+              activeTransition, 
+              backgroundColor,
+              transitionRenderers,
+              frames
+            );
+          } else {
+            // 如果没有预渲染的帧，回退到原来的方法
+            buffer = await this.renderFrameWithTransition(
+              composition, 
+              time, 
+              activeTransition, 
+              backgroundColor,
+              transitionRenderers
+            );
+          }
         } else {
           // 正常渲染帧（转场期间或转场结束后）
           await this.renderer.renderFrame(composition.timeline.getLayers(), time, backgroundColor);

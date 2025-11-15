@@ -236,6 +236,9 @@ export class PathElement extends BaseElement {
     // 添加到 layer
     layer.addChild(path);
     
+    // 调用 onRender 回调
+    this._callOnRender(time);
+    
     return path;
   }
 }

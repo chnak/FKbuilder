@@ -218,6 +218,9 @@ export class VideoElement extends BaseElement {
       }
 
       this.initialized = true;
+      
+      // 调用 onLoaded 回调
+      this._callOnLoaded(this.startTime || 0);
     } catch (error) {
       console.error(`Failed to initialize video: ${this.videoPath}`, error);
       this.initialized = false;
@@ -541,6 +544,10 @@ export class VideoElement extends BaseElement {
 
     // 添加到 layer
     layer.addChild(finalItem);
+    
+    // 调用 onRender 回调
+    this._callOnRender(time);
+    
     return finalItem;
   }
 

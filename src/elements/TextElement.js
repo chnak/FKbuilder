@@ -509,6 +509,9 @@ export class TextElement extends BaseElement {
     // 添加到 layer
     layer.addChild(pointText);
     
+    // 调用 onRender 回调
+    this._callOnRender(time);
+    
     return pointText;
   }
 

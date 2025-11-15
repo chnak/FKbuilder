@@ -129,6 +129,9 @@ export class Renderer {
     // 按 zIndex 排序图层
     const sortedLayers = [...layers].sort((a, b) => a.zIndex - b.zIndex);
     
+    // 收集所有已渲染的元素
+    const renderedElements = [];
+    
     // 渲染所有图层到 Paper.js
     for (const layer of sortedLayers) {
       if (layer.isActiveAtTime(time)) {
@@ -138,6 +141,36 @@ export class Renderer {
         if (result && typeof result.then === 'function') {
           await result;
         }
+        
+        // 收集图层中已渲染的元素
+        if (layer.getRenderedElements && typeof layer.getRenderedElements === 'function') {
+          const elements = layer.getRenderedElements();
+          renderedElements.push(...elements);
+        }
+      }
+    }
+    
+    // 创建 onFrame 事件对象
+    const frameEvent = {
+      count: Math.floor(time * this.fps), // 帧计数
+      time: time, // 当前时间（秒）
+      delta: 1 / this.fps, // 帧间隔（秒）
+    };
+    
+    // 触发元素的 onFrame 回调
+    for (const element of renderedElements) {
+      if (element.onFrame) {
+        // 使用元素保存的 _paperItem 引用
+        element._callOnFrame(frameEvent, element._paperItem);
+      }
+    }
+    
+    // 触发全局的 Paper.js onFrame 事件（如果已注册，用于向后兼容）
+    if (this.project.view && typeof this.project.view.onFrame === 'function') {
+      try {
+        this.project.view.onFrame(frameEvent);
+      } catch (e) {
+        console.warn('[Renderer] 全局 onFrame 事件触发失败:', e);
       }
     }
     

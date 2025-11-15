@@ -33,6 +33,8 @@ export class ImageElement extends BaseElement {
           image.onload = () => {
             this.imageData = image;
             this.loaded = true;
+            // 调用 onLoaded 回调
+            this._callOnLoaded(this.startTime || 0);
             resolve();
           };
           image.onerror = (error) => {
@@ -309,6 +311,10 @@ export class ImageElement extends BaseElement {
 
     // 添加到 layer
     layer.addChild(finalItem);
+    
+    // 调用 onRender 回调
+    this._callOnRender(time);
+    
     return finalItem;
   }
 

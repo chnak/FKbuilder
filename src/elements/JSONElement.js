@@ -69,6 +69,9 @@ export class JSONElement extends BaseElement {
 
       this.loaded = true;
       this.loading = false;
+      
+      // 调用 onLoaded 回调
+      this._callOnLoaded(this.startTime || 0);
     } catch (error) {
       this.loading = false;
       console.error('[JSONElement] 加载 JSON 失败:', error);
@@ -271,6 +274,9 @@ export class JSONElement extends BaseElement {
 
       // 保存引用以便后续清理
       this.jsonItem = jsonItem;
+
+      // 调用 onRender 回调
+      this._callOnRender(time);
 
       return jsonItem;
     } catch (error) {

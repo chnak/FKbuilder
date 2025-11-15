@@ -146,6 +146,10 @@ export class RectElement extends BaseElement {
 
     // 添加到 layer
     layer.addChild(rect);
+    
+    // 调用 onRender 回调
+    this._callOnRender(time);
+    
     return rect;
   }
 

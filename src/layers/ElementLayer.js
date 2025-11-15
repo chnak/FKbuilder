@@ -16,6 +16,9 @@ export class ElementLayer extends BaseLayer {
   async render(layer, time) {
     if (!this.isActiveAtTime(time)) return;
 
+    // 重置已渲染元素列表
+    this.renderedElements = [];
+
     // 按 zIndex 排序元素（zIndex 小的先渲染，大的后渲染，显示在上层）
     const sortedElements = [...this.elements].sort((a, b) => {
       const zIndexA = a.zIndex !== undefined ? a.zIndex : 0;
@@ -45,6 +48,9 @@ export class ElementLayer extends BaseLayer {
             if (result && typeof result.then === 'function') {
               await result;
             }
+            
+            // 记录已渲染的元素（用于 onFrame 回调）
+            this.renderedElements.push(element);
           } else {
             console.warn(`元素 ${element.type || 'unknown'} 没有 render 方法`);
           }
@@ -54,6 +60,14 @@ export class ElementLayer extends BaseLayer {
         }
       }
     }
+  }
+
+  /**
+   * 获取已渲染的元素列表
+   * @returns {Array} 已渲染的元素数组
+   */
+  getRenderedElements() {
+    return this.renderedElements || [];
   }
 
 }

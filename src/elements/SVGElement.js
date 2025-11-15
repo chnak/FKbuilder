@@ -41,8 +41,8 @@ export class SVGElement extends BaseElement {
     this.cachedElements = new Map(); // selector -> element reference
     
     // 回调函数
-    this.onLoaded = config.loaded || null; // (svgItem) => void
-    this.onRender = config.render || null; // (svgItem, time) => void
+    this.onLoaded = config.onLoaded || config.loaded || null; // (svgElement, time) => void
+    this.onRender = config.onRender || config.render || null; // (svgElement, time) => void
   }
 
   /**
@@ -174,15 +174,16 @@ export class SVGElement extends BaseElement {
         // 保存引用
         this.svgItem = svgItem;
         
-        // 如果是第一次渲染，调用 loaded 回调
-        if (this.onLoaded && !this._loadedCallbackCalled) {
-          try {
-            this.onLoaded(svgItem, this);
-            this._loadedCallbackCalled = true;
-          } catch (e) {
-            console.warn('[SVGElement] loaded 回调执行失败:', e);
-          }
+      // 如果是第一次渲染，调用 loaded 回调
+      if (this.onLoaded && !this._loadedCallbackCalled) {
+        try {
+          // loaded 回调：第一个参数是 svgElement，第二个参数是 time
+          this.onLoaded(this, time);
+          this._loadedCallbackCalled = true;
+        } catch (e) {
+          console.warn('[SVGElement] loaded 回调执行失败:', e);
         }
+      }
         
         // 缓存 SVG 内部元素（如果已配置动画）
         if (this.elementAnimations.size > 0) {
@@ -250,7 +251,8 @@ export class SVGElement extends BaseElement {
       // 调用 render 回调
       if (this.onRender) {
         try {
-          this.onRender(svgItem, time, this);
+          // render 回调：第一个参数是 svgElement，第二个参数是 time
+          this.onRender(this, time);
         } catch (e) {
           console.warn('[SVGElement] render 回调执行失败:', e);
         }

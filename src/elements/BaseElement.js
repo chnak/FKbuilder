@@ -180,6 +180,13 @@ export class BaseElement {
         }
       }
     }
+
+    // 回调函数支持
+    this.onLoaded = config.onLoaded || null; // (element, time) => void
+    this.onRender = config.onRender || null; // (element, time) => void
+    this.onFrame = config.onFrame || null; // (element, event, paperItem) => void
+    this._loadedCallbackCalled = false; // 标记 onLoaded 是否已调用
+    this._paperItem = null; // Paper.js 项目引用（用于 onFrame）
   }
 
   /**
@@ -601,11 +608,70 @@ export class BaseElement {
 
 
   /**
+   * 调用 onLoaded 回调（如果存在且未调用过）
+   * @param {number} time - 当前时间（秒）
+   */
+  _callOnLoaded(time) {
+    if (this.onLoaded && !this._loadedCallbackCalled) {
+      try {
+        this.onLoaded(this, time);
+        this._loadedCallbackCalled = true;
+      } catch (e) {
+        console.warn(`[${this.type}] onLoaded 回调执行失败:`, e);
+      }
+    }
+  }
+
+  /**
+   * 调用 onRender 回调（如果存在）
+   * @param {number} time - 当前时间（秒）
+   * @param {paper.Item} paperItem - Paper.js 项目（如果已创建）
+   */
+  _callOnRender(time, paperItem = null) {
+    // 如果元素有 _paperItem 属性，更新它（用于 onFrame 中访问）
+    if (paperItem && this._paperItem !== paperItem) {
+      this._paperItem = paperItem;
+    }
+    
+    if (this.onRender) {
+      try {
+        this.onRender(this, time);
+      } catch (e) {
+        console.warn(`[${this.type}] onRender 回调执行失败:`, e);
+      }
+    }
+  }
+
+  /**
+   * 调用 onFrame 回调（如果存在）
+   * @param {Object} event - Paper.js onFrame 事件对象 { count, time, delta }
+   * @param {paper.Item} paperItem - Paper.js 项目（如果已创建）
+   */
+  _callOnFrame(event, paperItem = null) {
+    // 更新 Paper.js 项目引用
+    if (paperItem && this._paperItem !== paperItem) {
+      this._paperItem = paperItem;
+    }
+    
+    if (this.onFrame) {
+      try {
+        this.onFrame(this, event, this._paperItem || paperItem);
+      } catch (e) {
+        console.warn(`[${this.type}] onFrame 回调执行失败:`, e);
+      }
+    }
+  }
+
+  /**
    * 销毁元素
    */
   destroy() {
     this.animations = [];
+    this.config = {};
     this.parent = null;
+    this.onLoaded = null;
+    this.onRender = null;
+    this._loadedCallbackCalled = false;
   }
 }
 

@@ -173,6 +173,9 @@ export class OscilloscopeElement extends BaseElement {
         await fs.remove(tempPcmPath).catch(() => {});
         
         this.loaded = true;
+        
+        // 调用 onLoaded 回调
+        this._callOnLoaded(this.startTime || 0);
       } catch (error) {
         console.error(`[OscilloscopeElement] 解析音频失败:`, error.message);
         await fs.remove(tempPcmPath).catch(() => {});
@@ -403,6 +406,9 @@ export class OscilloscopeElement extends BaseElement {
         child.parent = oscilloscopeGroup;
       }
     }
+
+    // 调用 onRender 回调
+    this._callOnRender(time);
 
     return null;
   }

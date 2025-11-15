@@ -182,8 +182,9 @@ export class Scene {
    * 添加 SVG 元素
    * @param {Object} config - SVG 配置 { 
    *   src, svgString, width, height, fit, ...,
-   *   loaded: (svgItem, svgElement) => void,  // SVG 加载完成后的回调
-   *   render: (svgItem, time, svgElement) => void  // 每次渲染时的回调
+   *   onLoaded: (svgElement, time) => void,  // SVG 加载完成后的回调
+   *   onRender: (svgElement, time) => void,  // 每次渲染时的回调
+   *   onFrame: (svgElement, event, paperItem) => void  // Paper.js onFrame 回调
    * }
    * @returns {Scene} 返回自身以支持链式调用
    */

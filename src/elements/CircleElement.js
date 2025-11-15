@@ -96,6 +96,10 @@ export class CircleElement extends BaseElement {
 
     // 添加到 layer
     layer.addChild(circle);
+    
+    // 调用 onRender 回调，传递 Paper.js 项目引用
+    this._callOnRender(time, circle);
+    
     return circle;
   }
 

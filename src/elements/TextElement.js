@@ -5,7 +5,7 @@ import { ElementType } from '../types/enums.js';
 import { toFontSizePixels, toPixels } from '../utils/unit-converter.js';
 import { getDefaultFontFamily, isFontRegistered } from '../utils/font-manager.js';
 import { TextSplitter } from '../utils/text-splitter.js';
-import { FadeAnimation } from '../animations/FadeAnimation.js';
+import { TransformAnimation } from '../animations/TransformAnimation.js';
 import { createCanvas, Image } from 'canvas';
 import paper from 'paper-jsdom-canvas';
 
@@ -153,9 +153,9 @@ export class TextElement extends BaseElement {
       
       if (!hasAnyAnimation) {
         // 创建默认淡入动画实例
-        const fadeAnimation = new FadeAnimation({
-          fromOpacity: 0,
-          toOpacity: 1,
+        const fadeAnimation = new TransformAnimation({
+          from: { opacity: 0 },
+          to: { opacity: 1 },
           duration: this.splitDuration || 0.3,
           startTime: 0,
           easing: 'easeOut',
@@ -267,6 +267,7 @@ export class TextElement extends BaseElement {
 
     // 处理分割后的片段位置计算（需要在转换单位之前处理）
     let x, y;
+    let segmentBaseline = null; // 用于标记分割片段应该使用的 baseline
     if (this.isSegment && this.config.segmentOffsetX !== undefined) {
       // 这是分割后的片段，需要计算最终位置
       const parentX = this.config.parentX || 0;
@@ -281,6 +282,7 @@ export class TextElement extends BaseElement {
       const parentYPixels = typeof parentY === 'string' ? toPixels(parentY, context, 'y') : parentY;
       
       // 计算文本基准位置（考虑 anchor 和 textAlign）
+      // 注意：segmentOffsetY 是相对于文本顶部的（segment.y = 0），所以需要根据 anchor 调整
       let baseX = parentXPixels;
       let baseY = parentYPixels;
       
@@ -301,12 +303,19 @@ export class TextElement extends BaseElement {
         }
       }
       
+      // 对于垂直方向，segmentOffsetY 是相对于文本顶部的
+      // 所以需要根据 anchor 调整 baseY，使其指向文本顶部
       if (anchor[1] === 0.5) {
-        // 垂直居中
+        // 垂直居中：baseY 应该指向文本顶部，所以减去 totalHeight / 2
         baseY = baseY - totalHeight / 2;
+        segmentBaseline = 'top'; // 使用 top baseline，因为位置已经计算好了
       } else if (anchor[1] === 1) {
-        // 底部对齐
+        // 底部对齐：baseY 应该指向文本顶部，所以减去 totalHeight
         baseY = baseY - totalHeight;
+        segmentBaseline = 'top'; // 使用 top baseline
+      } else {
+        // 顶部对齐：baseY 就是文本顶部
+        segmentBaseline = 'top'; // 使用 top baseline
       }
       
       // 最终位置 = 基准位置 + 片段偏移 + 动画偏移（如果有）
@@ -379,13 +388,19 @@ export class TextElement extends BaseElement {
     }
 
     // 处理 anchor（Paper.js 使用 justification 和 baseline）
-    const anchor = state.anchor || [0.5, 0.5];
-    if (anchor[1] === 0.5) {
-      pointText.baseline = 'middle';
-    } else if (anchor[1] === 1) {
-      pointText.baseline = 'bottom';
+    // 对于分割文本片段，使用 segmentBaseline（因为位置已经手动计算好了）
+    // 对于普通文本，根据 anchor 设置 baseline
+    if (segmentBaseline !== null) {
+      pointText.baseline = segmentBaseline;
     } else {
-      pointText.baseline = 'top';
+      const anchor = state.anchor || [0.5, 0.5];
+      if (anchor[1] === 0.5) {
+        pointText.baseline = 'middle';
+      } else if (anchor[1] === 1) {
+        pointText.baseline = 'bottom';
+      } else {
+        pointText.baseline = 'top';
+      }
     }
     
     // 应用渐变或普通颜色

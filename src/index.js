@@ -34,8 +34,6 @@ export { OscilloscopeElement } from './elements/OscilloscopeElement.js';
 export { Animation } from './animations/Animation.js';
 export { KeyframeAnimation } from './animations/KeyframeAnimation.js';
 export { TransformAnimation } from './animations/TransformAnimation.js';
-export { FadeAnimation } from './animations/FadeAnimation.js';
-export { MoveAnimation } from './animations/MoveAnimation.js';
 export { PRESET_ANIMATIONS, getPresetAnimation, getPresetAnimationNames } from './animations/preset-animations.js';
 
 // 工具类

@@ -327,6 +327,8 @@ export class VideoExporter {
     // 初始化转场渲染器（如果有转场）
     const transitions = composition.transitions || [];
     const transitionRenderers = new Map();
+    const transitionFunctions = new Map(); // 缓存转场函数
+    const transitionCanvasCache = {}; // 缓存转场 Canvas
     
     // 预先渲染并保存所有转场的帧
     const transitionFrames = new Map();
@@ -376,7 +378,9 @@ export class VideoExporter {
                 activeTransition, 
                 backgroundColor,
                 transitionRenderers,
-                frames
+                frames,
+                transitionFunctions,
+                transitionCanvasCache
               );
             } else {
               // 如果没有预渲染的帧，回退到原来的方法
@@ -385,7 +389,10 @@ export class VideoExporter {
                 time, 
                 activeTransition, 
                 backgroundColor,
-                transitionRenderers
+                transitionRenderers,
+                null,
+                transitionFunctions,
+                transitionCanvasCache
               );
             }
           } else {
@@ -463,9 +470,11 @@ export class VideoExporter {
    * @param {string} backgroundColor - 背景色
    * @param {Map} transitionRenderers - 转场渲染器缓存
    * @param {Object} preRenderedFrames - 预渲染的帧 {fromFrame, toFrame}（可选）
+   * @param {Map} transitionFunctions - 转场函数缓存（可选）
+   * @param {Object} transitionCanvasCache - 转场 Canvas 缓存（可选）
    * @returns {Promise<Buffer>} PNG buffer
    */
-  async renderFrameWithTransition(composition, time, transition, backgroundColor, transitionRenderers, preRenderedFrames = null) {
+  async renderFrameWithTransition(composition, time, transition, backgroundColor, transitionRenderers, preRenderedFrames = null, transitionFunctions = null, transitionCanvasCache = null) {
     // 计算转场进度（0-1）
     const actualDuration = transition.endTime - transition.startTime;
     const progress = Math.max(0, Math.min(1, (time - transition.startTime) / actualDuration));
@@ -482,12 +491,22 @@ export class VideoExporter {
       transitionRenderers.set(rendererKey, transitionRenderer);
     }
     
-    // 创建转场函数
-    const transitionFunction = transitionRenderer.create({
-      width: composition.width,
-      height: composition.height,
-      channels: 4,
-    });
+    // 缓存转场函数（基于 transition name + width + height + channels）
+    // 避免每次调用都创建新的 GL 上下文和资源
+    const functionKey = `${rendererKey}_${composition.width}_${composition.height}_4`;
+    let transitionFunction;
+    if (transitionFunctions && transitionFunctions.has(functionKey)) {
+      transitionFunction = transitionFunctions.get(functionKey);
+    } else {
+      transitionFunction = transitionRenderer.create({
+        width: composition.width,
+        height: composition.height,
+        channels: 4,
+      });
+      if (transitionFunctions) {
+        transitionFunctions.set(functionKey, transitionFunction);
+      }
+    }
     
     // 使用预渲染的帧（如果提供），否则实时渲染
     let fromBuffer, toBuffer;
@@ -524,8 +543,17 @@ export class VideoExporter {
       progress: progress,
     });
     
-    // 将 Buffer 转换为 Canvas，然后转换为 PNG buffer
-    const resultCanvas = createCanvas(composition.width, composition.height);
+    // 复用 Canvas（避免每次创建新的 Canvas）
+    let resultCanvas;
+    if (transitionCanvasCache && transitionCanvasCache.canvas) {
+      resultCanvas = transitionCanvasCache.canvas;
+    } else {
+      resultCanvas = createCanvas(composition.width, composition.height);
+      if (transitionCanvasCache) {
+        transitionCanvasCache.canvas = resultCanvas;
+      }
+    }
+    
     const ctx = resultCanvas.getContext('2d');
     const imageData = ctx.createImageData(composition.width, composition.height);
     imageData.data.set(resultBuffer);
@@ -645,6 +673,8 @@ export class VideoExporter {
     // 初始化转场渲染器（如果有转场）
     const transitions = composition.transitions || [];
     const transitionRenderers = new Map();
+    const transitionFunctions = new Map(); // 缓存转场函数
+    const transitionCanvasCache = {}; // 缓存转场 Canvas
     
     // 预先渲染并保存所有转场的帧
     const transitionFrames = new Map();
@@ -692,7 +722,9 @@ export class VideoExporter {
               activeTransition, 
               backgroundColor,
               transitionRenderers,
-              frames
+              frames,
+              transitionFunctions,
+              transitionCanvasCache
             );
           } else {
             // 如果没有预渲染的帧，回退到原来的方法
@@ -701,7 +733,10 @@ export class VideoExporter {
               time, 
               activeTransition, 
               backgroundColor,
-              transitionRenderers
+              transitionRenderers,
+              null,
+              transitionFunctions,
+              transitionCanvasCache
             );
           }
         } else {

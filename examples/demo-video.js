@@ -21,6 +21,26 @@ const colors = {
   black: '#000000',         // 黑色 - 用于阴影
 };
 
+// 可用的进入动画列表
+const enterAnimations = [
+  'fadeIn',
+  'zoomIn',
+  'bounceIn',
+  'slideInTop',
+  'slideInBottom',
+  'slideInLeft',
+  'slideInRight',
+  'fadeInUp',
+  'fadeInDown',
+  'rotateIn',
+  'bigIn',
+];
+
+// 随机选择动画
+function getRandomAnimation() {
+  return [enterAnimations[Math.floor(Math.random() * enterAnimations.length)]];
+}
+
 // 注册字体
 const fontPath = 'D:/code/foliko-trade/public/fonts/MicrosoftYaHei-Bold-01.ttf';
 try {
@@ -77,7 +97,8 @@ async function createDemoVideo() {
       textGlow: true,
       textGlowColor: colors.blue,
       textGlowBlur: 40,
-      animations: ['fadeIn', 'zoomIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '程序化视频生成库',
@@ -86,10 +107,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '50%',
       textAlign: 'center',
-      duration: 3.5,
+      duration: sceneDuration-1,
       startTime: 1,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeInUp'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '基于 Node.js + Paper.js',
@@ -98,10 +120,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '60%',
       textAlign: 'center',
-      duration: 3,
+      duration: sceneDuration-1.5,
       startTime: 1.5,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '强大 · 灵活 · 易用',
@@ -110,10 +133,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '70%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration-2,
       startTime: 2,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: 'github.com/chnak/FKbuilder',
@@ -122,10 +146,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '85%',
       textAlign: 'center',
-      duration: 3,
+      duration: sceneDuration-2.5,
       startTime: 2.5,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   currentTime += sceneDuration - transitionDuration;
@@ -157,7 +182,8 @@ async function createDemoVideo() {
       fontFamily: 'MicrosoftYaHei',
       fontWeight: 'bold',
       textShadow: true,
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '淡入淡出',
@@ -166,10 +192,11 @@ async function createDemoVideo() {
       x: '25%',
       y: '35%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 0.5,
       startTime: 0.5,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '缩放进入',
@@ -178,10 +205,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '35%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration,
       startTime: 0.8,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['zoomIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '弹跳效果',
@@ -190,10 +218,11 @@ async function createDemoVideo() {
       x: '75%',
       y: '35%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 1.1,
       startTime: 1.1,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['bounceIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '文字拆分动画',
@@ -202,13 +231,13 @@ async function createDemoVideo() {
       x: '50%',
       y: '60%',
       textAlign: 'center',
-      duration: 3,
+      duration: sceneDuration - 1.5,
       startTime: 1.5,
       fontFamily: 'MicrosoftYaHei',
       split: 'letter',
       splitDelay: 0.08,
       splitDuration: 0.3,
-      animations: ['fadeIn'],
+      animations: getRandomAnimation(),
       textShadow: true,
     })
     .addText({
@@ -218,7 +247,7 @@ async function createDemoVideo() {
       x: '50%',
       y: '75%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 2.5,
       startTime: 2.5,
       fontFamily: 'MicrosoftYaHei',
       gradient: true,
@@ -229,7 +258,8 @@ async function createDemoVideo() {
       textGlow: true,
       textGlowColor: colors.white,
       textGlowBlur: 30,
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   currentTime += sceneDuration - transitionDuration;
@@ -259,7 +289,8 @@ async function createDemoVideo() {
       startTime: 0,
       fontFamily: 'MicrosoftYaHei',
       fontWeight: 'bold',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addRect({
       x: '25%',
@@ -269,7 +300,7 @@ async function createDemoVideo() {
       bgcolor: colors.champagne,
       borderRadius: 20,
       anchor: [0.5, 0.5],
-      duration: 3,
+      duration: sceneDuration - 0.5,
       startTime: 0.5,
       animations: ['fadeIn', 'zoomIn'],
       shadowBlur: 30,
@@ -281,7 +312,7 @@ async function createDemoVideo() {
       radius: 100,
       bgcolor: colors.blue,
       anchor: [0.5, 0.5],
-      duration: 3,
+      duration: sceneDuration - 0.8,
       startTime: 0.8,
       animations: ['bounceIn'],
       shadowBlur: 30,
@@ -293,7 +324,7 @@ async function createDemoVideo() {
       radius: 100,
       bgcolor: colors.champagne,
       anchor: [0.5, 0.5],
-      duration: 3,
+      duration: sceneDuration - 1.1,
       startTime: 1.1,
       animations: ['rotateIn'],
       shadowBlur: 30,
@@ -306,10 +337,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '70%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 2,
       startTime: 2,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   currentTime += sceneDuration - transitionDuration;
@@ -335,11 +367,12 @@ async function createDemoVideo() {
       x: '50%',
       y: '30%',
       textAlign: 'center',
-      duration: sceneDuration,
+      duration: sceneDuration - 0,
       startTime: 0,
       fontFamily: 'MicrosoftYaHei',
       fontWeight: 'bold',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '淡入淡出 · 交叉缩放 · 圆形裁剪',
@@ -348,10 +381,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '45%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 1,
       startTime: 1,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '漩涡 · 方向擦除 · 弹跳',
@@ -360,10 +394,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '55%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 1.5,
       startTime: 1.5,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '支持 gl-transitions 所有效果',
@@ -372,10 +407,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '70%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 2,
       startTime: 2,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   currentTime += sceneDuration - transitionDuration;
@@ -405,7 +441,8 @@ async function createDemoVideo() {
       startTime: 0,
       fontFamily: 'MicrosoftYaHei',
       fontWeight: 'bold',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '灵活的轨道管理',
@@ -414,10 +451,11 @@ async function createDemoVideo() {
       x: '25%',
       y: '50%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 1,
       startTime: 1,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['slideInLeft'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '精确的时间控制',
@@ -426,10 +464,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '50%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 1.3,
       startTime: 1.3,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn', 'zoomIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '场景叠加组合',
@@ -438,10 +477,11 @@ async function createDemoVideo() {
       x: '75%',
       y: '50%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 1.6,
       startTime: 1.6,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['slideInRight'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   // 添加叠加轨道
@@ -457,12 +497,13 @@ async function createDemoVideo() {
       x: '50%',
       y: '75%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 2,
       startTime: 2,
       fontFamily: 'MicrosoftYaHei',
       fontWeight: 'bold',
       textShadow: true,
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   currentTime += sceneDuration - transitionDuration;
@@ -488,11 +529,12 @@ async function createDemoVideo() {
       x: '50%',
       y: '20%',
       textAlign: 'center',
-      duration: sceneDuration,
+      duration: sceneDuration - 0,
       startTime: 0,
       fontFamily: 'MicrosoftYaHei',
       fontWeight: 'bold',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     // 旋转的圆形
     .addCircle({
@@ -501,7 +543,7 @@ async function createDemoVideo() {
       radius: 60,
       bgcolor: colors.blue,
       anchor: [0.5, 0.5],
-      duration: sceneDuration,
+      duration: sceneDuration - 0.5,
       startTime: 0.5,
       onFrame: (element, event, paperItem) => {
         if (!paperItem) return;
@@ -519,7 +561,7 @@ async function createDemoVideo() {
       radius: 60,
       bgcolor: colors.champagne,
       anchor: [0.5, 0.5],
-      duration: sceneDuration,
+      duration: sceneDuration - 0.8,
       startTime: 0.8,
       onFrame: (element, event, paperItem) => {
         if (!paperItem) return;
@@ -543,7 +585,7 @@ async function createDemoVideo() {
       radius: 60,
       bgcolor: colors.champagne,
       anchor: [0.5, 0.5],
-      duration: sceneDuration,
+      duration: sceneDuration - 1.1,
       startTime: 1.1,
       onFrame: (element, event, paperItem) => {
         if (!paperItem) return;
@@ -564,7 +606,7 @@ async function createDemoVideo() {
       radius: 50,
       bgcolor: colors.blue,
       anchor: [0.5, 0.5],
-      duration: sceneDuration,
+      duration: sceneDuration - 1.4,
       startTime: 1.4,
       onFrame: (element, event, paperItem) => {
         if (!paperItem) return;
@@ -585,10 +627,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '80%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 2.5,
       startTime: 2.5,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   currentTime += sceneDuration - transitionDuration;
@@ -614,11 +657,12 @@ async function createDemoVideo() {
       x: '50%',
       y: '15%',
       textAlign: 'center',
-      duration: sceneDuration,
+      duration: sceneDuration - 0,
       startTime: 0,
       fontFamily: 'MicrosoftYaHei',
       fontWeight: 'bold',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   // 星形 SVG
@@ -693,10 +737,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '75%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 2.5,
       startTime: 2.5,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   currentTime += sceneDuration - transitionDuration;
@@ -726,7 +771,8 @@ async function createDemoVideo() {
       startTime: 0,
       fontFamily: 'MicrosoftYaHei',
       fontWeight: 'bold',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   // 检查并添加图片（如果存在）
@@ -770,10 +816,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '50%',
       textAlign: 'center',
-      duration: sceneDuration,
+      duration: sceneDuration - 1,
       startTime: 1,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
   }
 
@@ -784,10 +831,11 @@ async function createDemoVideo() {
     x: '50%',
     y: '85%',
     textAlign: 'center',
-    duration: 2.5,
+    duration: sceneDuration - 2.5,
     startTime: 2.5,
     fontFamily: 'MicrosoftYaHei',
-    animations: ['fadeIn'],
+    split: 'letter',
+    animations: getRandomAnimation(),
   });
 
   currentTime += sceneDuration - transitionDuration;
@@ -813,11 +861,12 @@ async function createDemoVideo() {
       x: '50%',
       y: '10%',
       textAlign: 'center',
-      duration: sceneDuration,
+      duration: sceneDuration - 0,
       startTime: 0,
       fontFamily: 'MicrosoftYaHei',
       fontWeight: 'bold',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   // 检查并添加视频（如果存在）
@@ -831,7 +880,7 @@ async function createDemoVideo() {
       height: '60%',
       anchor: [0.5, 0.5],
       fit: 'cover',
-      duration: sceneDuration,
+      duration: sceneDuration - 0.5,
       startTime: 0.5,
       animations: ['fadeIn', 'zoomIn'],
       mute: true, // 静音，避免与背景音乐冲突
@@ -847,10 +896,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '50%',
       textAlign: 'center',
-      duration: sceneDuration,
+      duration: sceneDuration - 1,
       startTime: 1,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
   }
 
@@ -861,10 +911,11 @@ async function createDemoVideo() {
     x: '50%',
     y: '85%',
     textAlign: 'center',
-    duration: 2.5,
+    duration: sceneDuration - 2.5,
     startTime: 2.5,
     fontFamily: 'MicrosoftYaHei',
-    animations: ['fadeIn'],
+    split: 'letter',
+    animations: getRandomAnimation(),
   });
 
   currentTime += sceneDuration - transitionDuration;
@@ -890,11 +941,12 @@ async function createDemoVideo() {
       x: '50%',
       y: '15%',
       textAlign: 'center',
-      duration: sceneDuration,
+      duration: sceneDuration - 0,
       startTime: 0,
       fontFamily: 'MicrosoftYaHei',
       fontWeight: 'bold',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     // 波浪路径
     .addPath({
@@ -914,7 +966,7 @@ async function createDemoVideo() {
       strokeColor: colors.blue,
       strokeWidth: 4,
       fillColor: null,
-      duration: sceneDuration,
+      duration: sceneDuration - 0.5,
       startTime: 0.5,
       onFrame: (element, event, paperItem) => {
         if (!paperItem) return;
@@ -974,10 +1026,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '80%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration - 2.5,
       startTime: 2.5,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   currentTime += sceneDuration - transitionDuration;
@@ -1007,7 +1060,8 @@ async function createDemoVideo() {
       startTime: 0,
       fontFamily: 'MicrosoftYaHei',
       fontWeight: 'bold',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   // 添加示波器（如果有音频文件）
@@ -1099,10 +1153,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '50%',
       textAlign: 'center',
-      duration: sceneDuration,
+      duration: sceneDuration-1,
       startTime: 1,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
   }
 
@@ -1113,10 +1168,11 @@ async function createDemoVideo() {
     x: '50%',
     y: '85%',
     textAlign: 'center',
-    duration: 2.5,
+    duration: sceneDuration-2.5,
     startTime: 2.5,
     fontFamily: 'MicrosoftYaHei',
-    animations: ['fadeIn'],
+    split: 'letter',
+    animations: getRandomAnimation(),
   });
 
   currentTime += sceneDuration - transitionDuration;
@@ -1149,7 +1205,8 @@ async function createDemoVideo() {
       textGlow: true,
       textGlowColor: colors.blue,
       textGlowBlur: 40,
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '🎬 多轨道多场景',
@@ -1158,10 +1215,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '40%',
       textAlign: 'center',
-      duration: 2,
+      duration: sceneDuration-0.8,
       startTime: 0.8,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['slideInLeft'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '🎨 丰富的元素类型',
@@ -1170,10 +1228,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '48%',
       textAlign: 'center',
-      duration: 2,
+      duration: sceneDuration-1.2,
       startTime: 1.2,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['slideInLeft'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '✨ 强大的动画系统',
@@ -1182,10 +1241,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '56%',
       textAlign: 'center',
-      duration: 2,
+      duration: sceneDuration-1.6,
       startTime: 1.6,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['slideInLeft'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '🎭 丰富的转场效果',
@@ -1194,10 +1254,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '64%',
       textAlign: 'center',
-      duration: 2,
+      duration: sceneDuration-2,
       startTime: 2,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['slideInLeft'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '🚀 高性能渲染',
@@ -1206,10 +1267,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '72%',
       textAlign: 'center',
-      duration: 2,
+      duration: sceneDuration-2.4,
       startTime: 2.4,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['slideInLeft'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   currentTime += sceneDuration - transitionDuration;
@@ -1235,14 +1297,15 @@ async function createDemoVideo() {
       x: '50%',
       y: '40%',
       textAlign: 'center',
-      duration: sceneDuration,
+      duration: sceneDuration-0,
       startTime: 0,
       fontFamily: 'MicrosoftYaHei',
       fontWeight: 'bold',
       textGlow: true,
       textGlowColor: colors.blue,
       textGlowBlur: 50,
-      animations: ['fadeIn', 'zoomIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '开始你的视频创作之旅',
@@ -1251,13 +1314,14 @@ async function createDemoVideo() {
       x: '50%',
       y: '55%',
       textAlign: 'center',
-      duration: 3,
+      duration: sceneDuration-1.5,
       startTime: 1.5,
       fontFamily: 'MicrosoftYaHei',
       gradient: true,
       gradientColors: [colors.blue, colors.blue],
       gradientDirection: 'horizontal',
-      animations: ['fadeInUp'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: '基于 Node.js 的纯 JavaScript 视频制作库',
@@ -1266,10 +1330,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '70%',
       textAlign: 'center',
-      duration: 2.5,
+      duration: sceneDuration-2.5,
       startTime: 2.5,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     })
     .addText({
       text: 'https://github.com/chnak/FKbuilder',
@@ -1278,10 +1343,11 @@ async function createDemoVideo() {
       x: '50%',
       y: '85%',
       textAlign: 'center',
-      duration: 3,
+      duration: sceneDuration-3,
       startTime: 3,
       fontFamily: 'MicrosoftYaHei',
-      animations: ['fadeIn'],
+      split: 'letter',
+      animations: getRandomAnimation(),
     });
 
   // 添加背景音乐（如果有音频文件）

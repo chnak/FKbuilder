@@ -2,8 +2,6 @@ import { generateId } from '../utils/helpers.js';
 import { DEFAULT_ELEMENT_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { toPixels } from '../utils/unit-converter.js';
-import { FadeAnimation } from '../animations/FadeAnimation.js';
-import { MoveAnimation } from '../animations/MoveAnimation.js';
 import { TransformAnimation } from '../animations/TransformAnimation.js';
 import { KeyframeAnimation } from '../animations/KeyframeAnimation.js';
 import { AnimationType } from '../types/enums.js';
@@ -125,21 +123,43 @@ function createAnimationFromConfig(animConfig) {
   delete config.animationType;
 
   switch (type) {
-    case AnimationType.FADE:
-    case 'fade':
-      return new FadeAnimation(config);
-    case AnimationType.MOVE:
-    case 'move':
-      return new MoveAnimation(config);
     case AnimationType.TRANSFORM:
     case 'transform':
       return new TransformAnimation(config);
     case AnimationType.KEYFRAME:
     case 'keyframe':
       return new KeyframeAnimation(config);
+    case 'fade':
+      // 将 fade 类型转换为 transform 类型
+      return new TransformAnimation({
+        from: { opacity: config.fromOpacity !== undefined ? config.fromOpacity : 0 },
+        to: { opacity: config.toOpacity !== undefined ? config.toOpacity : 1 },
+        duration: config.duration,
+        delay: config.delay,
+        startTime: config.startTime,
+        easing: config.easing,
+      });
+    case 'move':
+      // 将 move 类型转换为 keyframe 类型
+      const fromX = config.fromX !== undefined ? config.fromX : 0;
+      const fromY = config.fromY !== undefined ? config.fromY : 0;
+      const toX = config.toX !== undefined ? config.toX : 0;
+      const toY = config.toY !== undefined ? config.toY : 0;
+      // 检查是否是相对偏移量模式（用于滑入滑出动画）
+      const isRelative = (toX === 0 && toY === 0) && (fromX !== 0 || fromY !== 0);
+      return new KeyframeAnimation({
+        keyframes: [
+          { time: 0, translateX: isRelative ? fromX : 0, translateY: isRelative ? fromY : 0, x: isRelative ? undefined : fromX, y: isRelative ? undefined : fromY },
+          { time: 1, translateX: isRelative ? toX : 0, translateY: isRelative ? toY : 0, x: isRelative ? undefined : toX, y: isRelative ? undefined : toY },
+        ],
+        duration: config.duration,
+        delay: config.delay,
+        startTime: config.startTime,
+        easing: config.easing,
+      });
     default:
       // 默认使用淡入动画预设
-      return createAnimationFromConfig({ type: 'fade', fromOpacity: 0, toOpacity: 1, ...config });
+      return createAnimationFromConfig({ type: 'transform', from: { opacity: 0 }, to: { opacity: 1 }, ...config });
   }
 }
 

@@ -49,8 +49,6 @@ export const LayerType = {
 export const AnimationType = {
   KEYFRAME: 'keyframe',
   TRANSFORM: 'transform',
-  FADE: 'fade',
-  MOVE: 'move',
 };
 
 /**

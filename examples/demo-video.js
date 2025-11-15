@@ -51,7 +51,7 @@ async function createDemoVideo() {
 
   const mainTrack = builder.createTrack({ zIndex: 1, name: '主轨道' });
   let currentTime = 0;
-  const sceneDuration = 5;
+  const sceneDuration = 10;
   const transitionDuration = 0.8;
 
   // ========== 场景1：项目介绍 ==========

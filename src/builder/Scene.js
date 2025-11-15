@@ -7,6 +7,8 @@ import { VideoElement } from '../elements/VideoElement.js';
 import { RectElement } from '../elements/RectElement.js';
 import { CircleElement } from '../elements/CircleElement.js';
 import { PathElement } from '../elements/PathElement.js';
+import { SVGElement } from '../elements/SVGElement.js';
+import { JSONElement } from '../elements/JSONElement.js';
 import { AudioElement } from '../elements/AudioElement.js';
 import { SubtitleElement } from '../elements/SubtitleElement.js';
 import { OscilloscopeElement } from '../elements/OscilloscopeElement.js';
@@ -172,6 +174,50 @@ export class Scene {
     this.elements.push({
       type: 'path',
       element: new PathElement(config),
+    });
+    return this;
+  }
+
+  /**
+   * 添加 SVG 元素
+   * @param {Object} config - SVG 配置 { 
+   *   src, svgString, width, height, fit, ...,
+   *   loaded: (svgItem, svgElement) => void,  // SVG 加载完成后的回调
+   *   render: (svgItem, time, svgElement) => void  // 每次渲染时的回调
+   * }
+   * @returns {Scene} 返回自身以支持链式调用
+   */
+  addSVG(config = {}) {
+    const svgElement = new SVGElement(config);
+    // 如果提供了 src，异步加载 SVG
+    if (config.src) {
+      svgElement.load().catch(err => {
+        console.warn('SVG 加载失败:', config.src, err);
+      });
+    }
+    this.elements.push({
+      type: 'svg',
+      element: svgElement,
+    });
+    return this; // 返回 this 以支持链式调用
+  }
+
+  /**
+   * 添加 JSON 元素（支持 Paper.js JSON 格式）
+   * @param {Object} config - JSON 配置 { src, jsonString, jsonData, width, height, fit, ... }
+   * @returns {Scene} 返回自身以支持链式调用
+   */
+  addJSON(config = {}) {
+    const jsonElement = new JSONElement(config);
+    // 如果提供了 src，异步加载 JSON
+    if (config.src) {
+      jsonElement.load().catch(err => {
+        console.warn('JSON 加载失败:', config.src, err);
+      });
+    }
+    this.elements.push({
+      type: 'json',
+      element: jsonElement,
     });
     return this;
   }

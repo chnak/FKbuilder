@@ -24,6 +24,8 @@ export const ElementType = {
   RECT: 'rect',
   CIRCLE: 'circle',
   PATH: 'path',
+  SVG: 'svg',
+  JSON: 'json',
   SPRITE: 'sprite',
   COMPOSITION: 'composition',
   TRANSITION: 'transition',

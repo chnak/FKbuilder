@@ -37,6 +37,10 @@ export class VideoElement extends BaseElement {
     this.videoInfo = null;
     this.initialized = false;
     
+    // 性能优化：复用 Canvas 和 Image 对象
+    this._frameCanvas = null;
+    this._frameImage = null;
+    
     // 音频相关
     this.audioStream = null;
     this.audioPath = null; // 提取的音频文件路径
@@ -274,18 +278,20 @@ export class VideoElement extends BaseElement {
         return null;
       }
 
-      // 将 RGBA Buffer 转换为 canvas Image
-      const canvas = createCanvas(this.finalWidth, this.finalHeight);
+      // 性能优化：复用 Canvas，避免每次创建
+      if (!this._frameCanvas) {
+        this._frameCanvas = createCanvas(this.finalWidth, this.finalHeight);
+      }
+      
+      const canvas = this._frameCanvas;
       const ctx = canvas.getContext('2d');
       const imageData = ctx.createImageData(this.finalWidth, this.finalHeight);
       imageData.data.set(rgba);
       ctx.putImageData(imageData, 0, 0);
 
-      // 创建 Image 对象
-      const image = new Image();
-      image.src = canvas.toDataURL();
-
-      return image;
+      // 性能优化：直接返回 Canvas，Paper.js 的 Raster 可以直接使用 Canvas
+      // 这样可以避免 toDataURL() 的 Base64 编码开销（这是最大的性能瓶颈）
+      return canvas;
     } catch (error) {
       console.error('Failed to get video frame:', error);
       return null;
@@ -481,8 +487,14 @@ export class VideoElement extends BaseElement {
         const tempCanvas = createCanvas(imgWidth, imgHeight);
         const tempCtx = tempCanvas.getContext('2d');
         
-        // 绘制原始帧
-        tempCtx.drawImage(frameImage, 0, 0, imgWidth, imgHeight);
+        // 绘制原始帧（frameImage 可能是 Canvas 或 Image）
+        if (frameImage instanceof HTMLCanvasElement || (frameImage && frameImage.getContext)) {
+          // 如果是 Canvas，直接绘制
+          tempCtx.drawImage(frameImage, 0, 0, imgWidth, imgHeight);
+        } else {
+          // 如果是 Image，也直接绘制
+          tempCtx.drawImage(frameImage, 0, 0, imgWidth, imgHeight);
+        }
         
         // 构建滤镜字符串
         let filterString = state.filter || '';

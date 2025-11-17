@@ -396,29 +396,55 @@ scene.addJSON({
 
 ```javascript
 // 添加转场效果
+// 注意：不需要指定 fromScene 和 toScene，系统会根据 startTime 自动找到对应的场景
 track.addTransition({
-  fromScene: scene1,
-  toScene: scene2,
-  type: 'CrossZoom',  // 转场效果类型
+  name: 'CrossZoom',  // 转场效果名称
   duration: 1,        // 转场时长（秒）
+  startTime: scene2StartTime, // 转场结束时间（目标场景开始的时间）
 });
 
-// 常用转场效果：
-// - fade: 淡入淡出
-// - CrossZoom: 交叉缩放
-// - CircleCrop: 圆形裁剪
-// - LinearBlur: 线性模糊
-// - Swirl: 漩涡
-// - Directional: 方向擦除
-// - Bounce: 弹跳
-// - Dreamy: 梦幻
-// - Radial: 径向
-// - GridFlip: 网格翻转
-// - Mosaic: 马赛克
-// - PolkaDotsCurtain: 圆点窗帘
-// - ZoomInCircles: 圆形缩放
-// - directional-left/right/up/down: 方向性转场（别名）
+// 使用示例：
+let currentTime = 0;
+const sceneDuration = 4;
+const transitionDuration = 1;
+
+// 场景1
+const scene1 = track.createScene({
+  duration: sceneDuration,
+  startTime: currentTime,
+});
+currentTime += sceneDuration;
+
+// 场景2（与场景1重叠，重叠部分用于转场）
+const scene2StartTime = currentTime - transitionDuration;
+const scene2 = track.createScene({
+  duration: sceneDuration,
+  startTime: scene2StartTime,
+});
+
+// 添加转场（从场景1转到场景2）
+track.addTransition({
+  name: 'CrossZoom',
+  duration: transitionDuration,
+  startTime: scene2StartTime, // 转场结束时间 = 场景2开始时间
+});
 ```
+
+**常用转场效果：**
+- `fade` - 淡入淡出
+- `CrossZoom` - 交叉缩放
+- `CircleCrop` - 圆形裁剪
+- `LinearBlur` - 线性模糊
+- `Swirl` - 漩涡
+- `Directional` - 方向擦除
+- `Bounce` - 弹跳
+- `Dreamy` - 梦幻
+- `Radial` - 径向
+- `GridFlip` - 网格翻转
+- `Mosaic` - 马赛克
+- `PolkaDotsCurtain` - 圆点窗帘
+- `ZoomInCircles` - 圆形缩放
+- `directional-left/right/up/down` - 方向性转场（别名）
 
 支持所有 [gl-transitions](https://gl-transitions.com/) 转场效果。
 
@@ -654,12 +680,11 @@ async function createVideo() {
       animations: ['fadeIn'],
     });
 
-  // 添加转场
+  // 添加转场（从场景1转到场景2）
   track1.addTransition({
-    fromScene: scene1,
-    toScene: scene2,
-    type: 'CrossZoom',
+    name: 'CrossZoom',
     duration: transitionDuration,
+    startTime: scene2StartTime, // 转场结束时间 = 场景2开始时间
   });
 
   // 轨道2：叠加层

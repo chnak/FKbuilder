@@ -1,8 +1,7 @@
-import { VideoBuilder, getAudioDuration } from '../src/index.js';
+import { VideoBuilder, getAudioDuration, withContext } from '../src/index.js';
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import paper from 'paper-jsdom-canvas';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,16 +84,19 @@ async function createBlackWhitePhotoVideo() {
         { type: 'fade', fromOpacity: 1, toOpacity: 0.7, duration: audioDurationNum - 1.5, delay: 1.5 },
       ],
       // 使用 onFrame 添加呼吸效果和闪烁
-      onFrame: function(element, event, paperItem) {
-        if (paperItem) {
-          // 轻微的呼吸效果
-          const breath = 1 + Math.sin(event.time * 0.5) * 0.02;
-          paperItem.scaling = new paper.Point(breath, breath);
-          // 添加轻微的闪烁效果
-          const flicker = 0.7 + Math.sin(event.time * 3) * 0.15; // 从 0.55 到 0.85 之间闪烁
-          paperItem.opacity = flicker;
+      onFrame: withContext((element, progress, time) => {
+        // 轻微的呼吸效果
+        const breath = 1 + Math.sin(time * 0.5) * 0.02;
+        if (element.config) {
+          element.config.scaleX = breath;
+          element.config.scaleY = breath;
         }
-      },
+        // 添加轻微的闪烁效果
+        const flicker = 0.7 + Math.sin(time * 3) * 0.15; // 从 0.55 到 0.85 之间闪烁
+        if (element.config) {
+          element.config.opacity = flicker;
+        }
+      }, {}),
     })
     
     // ========== 装饰元素：象征照片的相框 ==========
@@ -169,18 +171,15 @@ async function createBlackWhitePhotoVideo() {
         { type: 'transform', fromScaleX: 0.5, fromScaleY: 0.5, toScaleX: 1.2, toScaleY: 1.2, duration: audioDurationNum, easing: 'easeInOut' },
       ],
       // 使用 onFrame 添加旋转、颜色变化和闪烁
-      onFrame: function(element, event, paperItem) {
-        if (paperItem) {
-          // 缓慢旋转
-          paperItem.rotation = event.time * 10;
-          // 颜色变化
-          const hue = (event.time * 5) % 360;
-          paperItem.fillColor.hue = hue;
-          // 添加闪烁效果
-          const flicker = 0.2 + Math.sin(event.time * 3) * 0.15; // 从 0.05 到 0.35 之间闪烁
-          paperItem.opacity = flicker;
+      onFrame: withContext((element, progress, time) => {
+        // 缓慢旋转
+        element.rotation = time * 10;
+        // 添加闪烁效果
+        const flicker = 0.2 + Math.sin(time * 3) * 0.15; // 从 0.05 到 0.35 之间闪烁
+        if (element.config) {
+          element.config.opacity = flicker;
         }
-      },
+      }, {}),
     })
     
     // 右侧装饰圆形
@@ -198,18 +197,21 @@ async function createBlackWhitePhotoVideo() {
         { type: 'transform', fromScaleX: 0.5, fromScaleY: 0.5, toScaleX: 1.3, toScaleY: 1.3, duration: audioDurationNum, easing: 'easeInOut' },
       ],
       // 使用 onFrame 添加反向旋转、呼吸效果和闪烁
-      onFrame: function(element, event, paperItem) {
-        if (paperItem) {
-          // 反向旋转
-          paperItem.rotation = -event.time * 8;
-          // 呼吸效果
-          const breath = 1 + Math.sin(event.time * 0.8) * 0.1;
-          paperItem.scaling = new paper.Point(breath, breath);
-          // 添加闪烁效果
-          const flicker = 0.15 + Math.sin(event.time * 3.5) * 0.1; // 从 0.05 到 0.25 之间闪烁
-          paperItem.opacity = flicker;
+      onFrame: withContext((element, progress, time) => {
+        // 反向旋转
+        element.rotation = -time * 8;
+        // 呼吸效果
+        const breath = 1 + Math.sin(time * 0.8) * 0.1;
+        if (element.config) {
+          element.config.scaleX = breath;
+          element.config.scaleY = breath;
         }
-      },
+        // 添加闪烁效果
+        const flicker = 0.15 + Math.sin(time * 3.5) * 0.1; // 从 0.05 到 0.25 之间闪烁
+        if (element.config) {
+          element.config.opacity = flicker;
+        }
+      }, {}),
     })
     
     // ========== 装饰性路径：象征照片的边框线条 ==========
@@ -296,62 +298,64 @@ async function createBlackWhitePhotoVideo() {
         { type: 'fade', fromOpacity: 0, toOpacity: 0.4, duration: 3 },
       ],
       // 使用 onFrame 添加闪烁效果
-      onFrame: function(element, event, paperItem) {
-        if (paperItem) {
-          // 增强的闪烁效果：更快的频率和更大的变化范围
-          const flicker = 0.3 + Math.sin(event.time * 4) * 0.3; // 从 0.0 到 0.6 之间闪烁
-          paperItem.opacity = flicker;
+      onFrame: withContext((element, progress, time) => {
+        // 增强的闪烁效果：更快的频率和更大的变化范围
+        const flicker = 0.3 + Math.sin(time * 4) * 0.3; // 从 0.0 到 0.6 之间闪烁
+        if (element.config) {
+          element.config.opacity = flicker;
         }
-      },
+      }, {}),
     });
 
   // ========== 装饰性元素：象征回忆的碎片 ==========
   // 多个小圆形，象征照片中的光点或回忆
   const fragmentRadii = [10, 12, 8, 15, 9, 11, 13, 7]; // 预定义半径，避免随机数
   for (let i = 0; i < 8; i++) {
-    (function(index) {
-      const angle = (index / 8) * Math.PI * 2;
-      const radius = 250;
-      const centerX = 360; // 50% of 720
-      const centerY = 640; // 50% of 1280
-      const x = centerX + Math.cos(angle) * radius;
-      const y = centerY + Math.sin(angle) * radius;
-      
-      scene.addCircle({
-        x: x,
-        y: y,
-        radius: fragmentRadii[index],
-        bgcolor: colors.softPink,
-        opacity: 0.15,
-        duration: audioDurationNum,
-        startTime: 0,
-        zIndex: 2,
-        animations: [
-          { type: 'fade', fromOpacity: 0, toOpacity: 0.15, duration: 2 + index * 0.3 },
-          { type: 'fade', fromOpacity: 0.15, toOpacity: 0.05, duration: audioDurationNum - 2, delay: 2 },
-          { 
-            type: 'transform', 
-            fromScaleX: 0.3, 
-            fromScaleY: 0.3, 
-            toScaleX: 1.5, 
-            toScaleY: 1.5, 
-            duration: audioDurationNum, 
-            easing: 'easeInOut',
-            delay: index * 0.2,
-          },
-        ],
-        // 使用 onFrame 添加旋转和闪烁效果
-        onFrame: function(element, event, paperItem) {
-          if (paperItem) {
-            // 每个碎片以不同速度旋转
-            paperItem.rotation = event.time * (15 + index * 5);
-            // 增强的闪烁效果：不同频率和更大的变化范围
-            const flicker = 0.1 + Math.sin(event.time * (4 + index * 0.5) + index) * 0.15; // 从 0.0 到 0.25 之间闪烁
-            paperItem.opacity = flicker;
-          }
+    const index = i; // 保存 index 用于上下文
+    const angle = (index / 8) * Math.PI * 2;
+    const radius = 250;
+    const centerX = 360; // 50% of 720
+    const centerY = 640; // 50% of 1280
+    const x = centerX + Math.cos(angle) * radius;
+    const y = centerY + Math.sin(angle) * radius;
+    
+    // 使用 withContext 关联 index 上下文
+    const onFrameFragment = withContext((element, progress, time) => {
+      // 每个碎片以不同速度旋转
+      element.rotation = time * (15 + index * 5);
+      // 增强的闪烁效果：不同频率和更大的变化范围
+      const flicker = 0.1 + Math.sin(time * (4 + index * 0.5) + index) * 0.15; // 从 0.0 到 0.25 之间闪烁
+      if (element.config) {
+        element.config.opacity = flicker;
+      }
+    }, { index });
+    
+    scene.addCircle({
+      x: x,
+      y: y,
+      radius: fragmentRadii[index],
+      bgcolor: colors.softPink,
+      opacity: 0.15,
+      duration: audioDurationNum,
+      startTime: 0,
+      zIndex: 2,
+      animations: [
+        { type: 'fade', fromOpacity: 0, toOpacity: 0.15, duration: 2 + index * 0.3 },
+        { type: 'fade', fromOpacity: 0.15, toOpacity: 0.05, duration: audioDurationNum - 2, delay: 2 },
+        { 
+          type: 'transform', 
+          fromScaleX: 0.3, 
+          fromScaleY: 0.3, 
+          toScaleX: 1.5, 
+          toScaleY: 1.5, 
+          duration: audioDurationNum, 
+          easing: 'easeInOut',
+          delay: index * 0.2,
         },
-      });
-    })(i);
+      ],
+      // 使用 onFrame 添加旋转和闪烁效果
+      onFrame: onFrameFragment,
+    });
   }
 
   // ========== 歌词轨道：单独轨道显示歌词 ==========
@@ -402,9 +406,9 @@ async function createBlackWhitePhotoVideo() {
     console.log(`总帧数: ${Math.ceil(audioDurationNum * 30)} 帧\n`);
     
     await videoMaker.export(outputPath, {
-      quality: 'high',
-      bitrate: '10M',
+      parallel: true,
       usePipe: true,
+      maxWorkers: 4,
     });
     
     console.log(`\n✅ 视频导出成功: ${outputPath}`);

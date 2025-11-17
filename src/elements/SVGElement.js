@@ -3,6 +3,7 @@ import { DEFAULT_ELEMENT_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
 import { toPixels } from '../utils/unit-converter.js';
+import { parseSVGAnimations, convertSVGAnimationToFunction } from '../utils/svg-animation-parser.js';
 import fs from 'fs-extra';
 import path from 'path';
 import paper from 'paper-jsdom-canvas';
@@ -42,6 +43,10 @@ export class SVGElement extends BaseElement {
     this.elementAnimations = new Map(); // selector -> animation config
     this.cachedElements = new Map(); // selector -> element reference
     
+    // SVG 原生动画支持
+    this.enableSVGAnimations = config.enableSVGAnimations !== undefined ? config.enableSVGAnimations : true;
+    this.svgAnimations = []; // 解析出的 SVG 原生动画
+    
     // 回调函数
     this.onLoaded = config.onLoaded || config.loaded || null; // (svgElement, time) => void
     this.onRender = config.onRender || config.render || null; // (svgElement, time) => void
@@ -78,6 +83,16 @@ export class SVGElement extends BaseElement {
           }
         } else {
           throw new Error('SVG 元素需要提供 src 或 svgString');
+        }
+
+        // 如果启用了 SVG 原生动画支持，解析动画（但不立即应用，等待 onLoaded 回调）
+        if (this.enableSVGAnimations && this.svgContent) {
+          try {
+            this.svgAnimations = parseSVGAnimations(this.svgContent);
+            // 注意：动画将在 _callOnLoaded 中通过 animateElement 方法自动添加
+          } catch (error) {
+            console.warn('[SVGElement] 解析 SVG 动画失败:', error);
+          }
         }
 
         this.loaded = true;
@@ -348,12 +363,53 @@ export class SVGElement extends BaseElement {
    * @param {string} selector - 元素选择器
    * @param {Object|Function} animationConfig - 动画配置对象或函数
    *   如果是对象，格式：{ x, y, rotation, scaleX, scaleY, opacity, fillColor, strokeColor, ... }
-   *   如果是函数，格式：(time, element) => ({ x, y, ... })
+   *   如果是函数，格式：(relativeTime, element, svgElement, info) => ({ x, y, ... })
+   *   info 包含：{ absoluteTime, relativeTime, startTime, duration, progress }
    */
   animateElement(selector, animationConfig) {
-    this.elementAnimations.set(selector, animationConfig);
+    // 如果同一个选择器已有动画，合并它们
+    if (this.elementAnimations.has(selector)) {
+      const existingAnim = this.elementAnimations.get(selector);
+      // 合并动画属性
+      if (typeof animationConfig === 'function' && typeof existingAnim === 'function') {
+        const mergedAnim = (relativeTime, element, svgElement, context) => {
+          const props1 = existingAnim(relativeTime, element, svgElement, context);
+          const props2 = animationConfig(relativeTime, element, svgElement, context);
+          return { ...props1, ...props2 };
+        };
+        this.elementAnimations.set(selector, mergedAnim);
+      } else if (typeof animationConfig === 'object' && typeof existingAnim === 'object') {
+        this.elementAnimations.set(selector, { ...existingAnim, ...animationConfig });
+      } else {
+        // 如果类型不匹配，使用新的配置
+        this.elementAnimations.set(selector, animationConfig);
+      }
+    } else {
+      this.elementAnimations.set(selector, animationConfig);
+    }
     // 清除缓存，以便重新查找元素
     this.cachedElements.delete(selector);
+  }
+  
+  /**
+   * 重写 _callOnLoaded 方法，在调用用户回调之前自动应用 SVG 原生动画
+   * @param {number} time - 当前时间（秒）
+   * @param {paper.Item} paperItem - Paper.js 项目（如果已创建）
+   * @param {Object} paperInstance - Paper.js 实例 { project, paper }
+   */
+  _callOnLoaded(time, paperItem = null, paperInstance = null) {
+    // 如果启用了 SVG 原生动画支持，且已解析到动画，自动应用
+    if (this.enableSVGAnimations && this.svgAnimations && this.svgAnimations.length > 0) {
+      // 将 SVG 动画转换为 animateElement 调用
+      for (const svgAnim of this.svgAnimations) {
+        const animFunction = convertSVGAnimationToFunction(svgAnim);
+        // 使用 animateElement 方法添加动画
+        this.animateElement(svgAnim.selector, animFunction);
+      }
+    }
+    
+    // 调用父类的 _callOnLoaded 方法（会调用用户的 onLoaded 回调）
+    super._callOnLoaded(time, paperItem, paperInstance);
   }
 
   /**

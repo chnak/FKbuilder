@@ -129,14 +129,23 @@ export class VideoElement extends BaseElement {
       });
 
       // 启动 FFmpeg 进程
+      // 在 worker 环境中，不能使用 process.stderr，需要使用 'pipe' 或 'ignore'
       const ps = execa('ffmpeg', args, {
         encoding: 'buffer',
         buffer: false,
         stdin: 'ignore',
         stdout: 'pipe', // 使用 pipe，然后手动连接
-        stderr: process.stderr,
+        stderr: 'pipe', // 在 worker 环境中使用 pipe 而不是 process.stderr
         cancelSignal: controller.signal
       });
+      
+      // 如果有 stderr 输出，可以记录日志（可选）
+      if (ps.stderr) {
+        ps.stderr.on('data', (data) => {
+          // 可以选择性地记录错误信息
+          // console.error('[FFmpeg stderr]', data.toString());
+        });
+      }
 
       // 处理流的错误
       transform.on('error', (err) => {

@@ -64,9 +64,9 @@ async function testComponent() {
     .addBackground({ color: '#e6e9e6' })
     .addRect({
       x: '50%',
-      y: 50,
-      width: 350,
-      height: 200,
+      y: '50%',
+      width: '80%',
+      height: '40%',
       fillColor: '#cbe7e8',
       strokeColor: '#208ab7',
       strokeWidth: 3,

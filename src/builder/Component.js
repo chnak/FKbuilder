@@ -15,7 +15,7 @@ import { JSONElement } from '../elements/JSONElement.js';
 import { AudioElement } from '../elements/AudioElement.js';
 import { SubtitleElement } from '../elements/SubtitleElement.js';
 import { OscilloscopeElement } from '../elements/OscilloscopeElement.js';
-import { toPixels } from '../utils/unit-converter.js';
+import { toPixels, toFontSizePixels } from '../utils/unit-converter.js';
 
 /**
  * 组件类
@@ -307,9 +307,56 @@ export class Component {
             : (elementConfig.y || 0);
         }
         
-        // 计算元素的绝对位置（组件左上角 + 元素相对位置）
+        // 转换元素的尺寸属性（使用组件的尺寸作为单位上下文）
+        // width, height 等尺寸属性应该相对于组件的尺寸
+        let elementWidth = elementConfig.width;
+        let elementHeight = elementConfig.height;
+        
+        if (elementConfig.width !== undefined) {
+          elementWidth = typeof elementConfig.width === 'string'
+            ? toPixels(elementConfig.width, unitContext, 'width')
+            : elementConfig.width;
+          elementConfig.width = elementWidth;
+        }
+        if (elementConfig.height !== undefined) {
+          elementHeight = typeof elementConfig.height === 'string'
+            ? toPixels(elementConfig.height, unitContext, 'height')
+            : elementConfig.height;
+          elementConfig.height = elementHeight;
+        }
+        
+        // 获取元素的 anchor（默认 [0.5, 0.5]），保持不变
+        // 元素的位置（x, y）是 anchor 点的位置，不是左上角位置
+        // render 方法中的 calculatePosition 会根据 anchor 和元素尺寸计算出左上角位置
+        
+        // 计算元素的绝对位置（组件左上角 + 元素 anchor 点相对位置）
+        // elementRelativeX 和 elementRelativeY 是 anchor 点在组件中的位置
         elementConfig.x = componentLeft + elementRelativeX;
         elementConfig.y = componentTop + elementRelativeY;
+        
+        // 保持元素的 anchor 不变（默认 [0.5, 0.5]）
+        // render 时会根据 anchor 和元素尺寸自动计算左上角位置
+        
+        // 转换字体大小（使用组件的尺寸作为单位上下文）
+        if (elementConfig.fontSize !== undefined) {
+          elementConfig.fontSize = typeof elementConfig.fontSize === 'string'
+            ? toFontSizePixels(elementConfig.fontSize, unitContext)
+            : elementConfig.fontSize;
+        }
+        
+        // 转换圆形半径（使用组件的尺寸作为单位上下文）
+        if (elementConfig.radius !== undefined) {
+          elementConfig.radius = typeof elementConfig.radius === 'string'
+            ? toPixels(elementConfig.radius, unitContext, 'width') // 半径通常基于宽度
+            : elementConfig.radius;
+        }
+        
+        // 转换描边宽度（使用组件的尺寸作为单位上下文）
+        if (elementConfig.strokeWidth !== undefined) {
+          elementConfig.strokeWidth = typeof elementConfig.strokeWidth === 'string'
+            ? toPixels(elementConfig.strokeWidth, unitContext, 'width')
+            : elementConfig.strokeWidth;
+        }
         
         // 转换元素的时间（从相对时间转换为绝对时间）
         // 元素的时间是相对于组件的，需要转换为绝对时间

@@ -1375,10 +1375,19 @@ export class VideoExporter {
       // 处理函数
       if (typeof obj === 'function') {
         // 将函数转换为字符串，标记为特殊类型
-        return {
+        // 如果函数有 __context 属性（用户提供的上下文），也一起序列化
+        const funcData = {
           __isFunction: true,
           __functionCode: obj.toString(),
         };
+        
+        // 检查函数是否有关联的上下文
+        if (obj.__context && typeof obj.__context === 'object') {
+          // 序列化上下文对象（递归处理，但避免循环引用）
+          funcData.__context = serializeFunctions(obj.__context, `${path}.__context`, new WeakSet());
+        }
+        
+        return funcData;
       }
       
       // 处理循环引用
@@ -1569,30 +1578,43 @@ export class VideoExporter {
           const callbacks = {};
           if (element.onFrame) {
             try {
-              callbacks.onFrame = {
+              const onFrameData = {
                 __isFunction: true,
                 __functionCode: element.onFrame.toString(),
               };
+              // 如果 onFrame 有关联的上下文，也一起序列化
+              if (element.onFrame.__context && typeof element.onFrame.__context === 'object') {
+                onFrameData.__context = serializeFunctions(element.onFrame.__context, 'element.onFrame.__context', new WeakSet());
+              }
+              callbacks.onFrame = onFrameData;
             } catch (e) {
               console.warn(`[序列化] onFrame 序列化失败:`, e.message);
             }
           }
           if (element.onRender) {
             try {
-              callbacks.onRender = {
+              const onRenderData = {
                 __isFunction: true,
                 __functionCode: element.onRender.toString(),
               };
+              if (element.onRender.__context && typeof element.onRender.__context === 'object') {
+                onRenderData.__context = serializeFunctions(element.onRender.__context, 'element.onRender.__context', new WeakSet());
+              }
+              callbacks.onRender = onRenderData;
             } catch (e) {
               console.warn(`[序列化] onRender 序列化失败:`, e.message);
             }
           }
           if (element.onLoaded) {
             try {
-              callbacks.onLoaded = {
+              const onLoadedData = {
                 __isFunction: true,
                 __functionCode: element.onLoaded.toString(),
               };
+              if (element.onLoaded.__context && typeof element.onLoaded.__context === 'object') {
+                onLoadedData.__context = serializeFunctions(element.onLoaded.__context, 'element.onLoaded.__context', new WeakSet());
+              }
+              callbacks.onLoaded = onLoadedData;
             } catch (e) {
               console.warn(`[序列化] onLoaded 序列化失败:`, e.message);
             }

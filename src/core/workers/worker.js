@@ -62,8 +62,88 @@ async function renderSegment() {
         // 重建函数
         try {
           const funcCode = obj.__functionCode;
-          // 使用 eval 重建函数（在 Worker 环境中相对安全）
-          return eval(`(${funcCode})`);
+          let func;
+          
+          // 如果有上下文，需要将上下文注入到函数作用域中
+          if (obj.__context) {
+            // 重建上下文对象
+            const context = deserializeFunctions(obj.__context);
+            
+            // 创建一个包装函数，将上下文注入到作用域中
+            // 使用 Function 构造函数创建函数，将 context 的键作为参数
+            const contextKeys = Object.keys(context);
+            const contextValues = contextKeys.map(key => context[key]);
+            
+            // 将上下文变量作为参数传递给函数
+            // 例如：function(element, progress, time) { ... } 
+            // 变成：function(element, progress, time, ...contextKeys) { ... }
+            // 但这样会改变函数签名，不推荐
+            
+            // 更好的方法：创建一个包装函数，在函数内部注入上下文变量
+            // 使用 with 语句（不推荐，已废弃）或直接修改函数体
+            
+            // 解析函数代码，提取函数参数和函数体
+            // funcCode 可能是：function(element, progress, time) { ... } 或 (element, progress, time) => { ... }
+            let funcParams = '';
+            let funcBody = '';
+            
+            // 尝试匹配函数声明或函数表达式
+            const funcDeclMatch = funcCode.match(/^\s*function\s*\(([^)]*)\)\s*\{([\s\S]*)\}\s*$/);
+            const arrowMatch = funcCode.match(/^\s*\(([^)]*)\)\s*=>\s*\{([\s\S]*)\}\s*$/);
+            const arrowSingleMatch = funcCode.match(/^\s*\(([^)]*)\)\s*=>\s*([^{][\s\S]*)$/);
+            
+            if (funcDeclMatch) {
+              funcParams = funcDeclMatch[1].trim();
+              funcBody = funcDeclMatch[2];
+            } else if (arrowMatch) {
+              funcParams = arrowMatch[1].trim();
+              funcBody = arrowMatch[2];
+            } else if (arrowSingleMatch) {
+              funcParams = arrowSingleMatch[1].trim();
+              funcBody = `return ${arrowSingleMatch[2].trim()};`;
+            } else {
+              // 如果无法解析，尝试直接执行（可能已经是完整的函数表达式）
+              funcParams = 'element, progress, time';
+              funcBody = funcCode;
+            }
+            
+            // 创建上下文变量的声明语句
+            const contextVars = contextKeys.map(key => {
+              const value = context[key];
+              // 处理不同类型的值
+              if (typeof value === 'string') {
+                return `const ${key} = ${JSON.stringify(value)};`;
+              } else if (typeof value === 'number' || typeof value === 'boolean') {
+                return `const ${key} = ${value};`;
+              } else if (value === null) {
+                return `const ${key} = null;`;
+              } else if (Array.isArray(value)) {
+                return `const ${key} = ${JSON.stringify(value)};`;
+              } else if (typeof value === 'object') {
+                return `const ${key} = ${JSON.stringify(value)};`;
+              } else {
+                return `const ${key} = undefined;`;
+              }
+            }).join('\n    ');
+            
+            // 创建包装函数，将上下文变量注入到函数作用域
+            const wrappedCode = `
+              (function() {
+                ${contextVars}
+                return function(${funcParams}) {
+                  ${funcBody}
+                };
+              })()
+            `;
+            
+            func = eval(wrappedCode);
+            func.__context = context;
+          } else {
+            // 没有上下文，直接重建函数
+            func = eval(`(${funcCode})`);
+          }
+          
+          return func;
         } catch (e) {
           console.warn(`[Worker ${segmentIndex}] 无法重建函数:`, e.message);
           return undefined;

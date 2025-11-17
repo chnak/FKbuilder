@@ -8,6 +8,7 @@ import { VideoMaker } from '../VideoMaker.js';
 import { ElementLayer } from '../../layers/ElementLayer.js';
 import { BackgroundLayer } from '../../layers/BackgroundLayer.js';
 import { registerFontFile } from '../../utils/font-manager.js';
+import paper from 'paper-jsdom-canvas';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -127,20 +128,33 @@ async function renderSegment() {
             }).join('\n    ');
             
             // 创建包装函数，将上下文变量注入到函数作用域
+            // 同时注入 paper 对象，以便在函数中使用 paper.Point 等
             const wrappedCode = `
               (function() {
+                const paper = arguments[0];
                 ${contextVars}
                 return function(${funcParams}) {
                   ${funcBody}
                 };
-              })()
+              })(paper)
             `;
             
             func = eval(wrappedCode);
             func.__context = context;
           } else {
-            // 没有上下文，直接重建函数
-            func = eval(`(${funcCode})`);
+            // 没有上下文，但需要注入 paper 对象
+            // 检查函数代码中是否使用了 paper
+            if (funcCode.includes('paper.') || funcCode.includes('new paper')) {
+              const wrappedCode = `
+                (function() {
+                  const paper = arguments[0];
+                  return (${funcCode});
+                })(paper)
+              `;
+              func = eval(wrappedCode);
+            } else {
+              func = eval(`(${funcCode})`);
+            }
           }
           
           return func;

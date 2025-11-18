@@ -392,164 +392,56 @@ export class VideoElement extends BaseElement {
     return group.children.length > 1 ? group : raster;
   }
 
-  /**
-   * 渲染视频元素（使用 Paper.js）
-   * @param {paper.Layer} layer - Paper.js 图层
-   * @param {number} time - 当前时间（秒）
-   * @param {Object} paperInstance - Paper.js 实例 { project, paper }
-   */
   async render(layer, time, paperInstance = null) {
-    if (!this.visible) {
-      return null;
-    }
-
-    // 检查时间范围
-    if (!this.isActiveAtTime(time)) {
-      return null;
-    }
-
-    if (!this.initialized) {
-      await this.initialize();
-    }
-
-    if (!this.initialized) {
-      return null;
-    }
-
-    // 计算进度
-    const progress = this.getProgressAtTime(time);
-
-    // 获取当前帧
-    const frameImage = await this.getFrameAtProgress(progress);
-    if (!frameImage) {
-      return null;
-    }
-
+    if (!this.visible) return null;
+    if (!this.isActiveAtTime(time)) return null;
+    if (!this.initialized) await this.initialize();
+    if (!this.initialized) return null;
+    
     // 获取 Paper.js 实例
     const { paper: p, project } = this.getPaperInstance(paperInstance);
-
-    // 获取场景尺寸用于单位转换
-    const viewSize = project && project.view && project.view.viewSize 
-      ? project.view.viewSize 
-      : { width: 1920, height: 1080 };
-    const context = { 
-      width: this.canvasWidth || viewSize.width, 
-      height: this.canvasHeight || viewSize.height 
-    };
     
+    // 计算视图尺寸
+    const viewSize = project?.view?.viewSize || { width: 1920, height: 1080 };
+    const context = { width: viewSize.width, height: viewSize.height };
+    
+    // 获取当前状态
     const state = this.getStateAtTime(time, context);
-
-    // 转换位置和尺寸单位
-    // 使用 BaseElement 的通用方法转换尺寸
-    let width = state.width;
-    let height = state.height;
-    const size = this.convertSize(width, height, context);
-    width = size.width;
-    height = size.height;
     
-    // state.x 和 state.y 已经在 getStateAtTime 中转换了单位
-    const x = state.x || 0;
-    const y = state.y || 0;
-
-    // 使用 BaseElement 的通用方法计算位置（包括 anchor 对齐）
-    const { x: rectX, y: rectY } = this.calculatePosition(state, context, {
-      elementWidth: width,
-      elementHeight: height,
-    });
-
-    // 应用滤镜效果（在创建 Raster 之前）
-    let imageData = frameImage;
-    const hasFilter = state.filter || 
-      (state.brightness !== 1 || state.contrast !== 1 || state.saturation !== 1 || 
-       state.hue !== 0 || state.grayscale > 0);
-    const hasGlassEffect = state.glassEffect;
+    // 计算进度
+    const progress = this.getProgressAtTime(time);
     
-    if (hasFilter || hasGlassEffect) {
-      try {
-        // 创建临时 canvas 应用滤镜
-        const imgWidth = this.finalWidth || width;
-        const imgHeight = this.finalHeight || height;
-        const tempCanvas = createCanvas(imgWidth, imgHeight);
-        const tempCtx = tempCanvas.getContext('2d');
-        
-        // 绘制原始帧
-        tempCtx.drawImage(frameImage, 0, 0, imgWidth, imgHeight);
-        
-        // 构建滤镜字符串
-        let filterString = state.filter || '';
-        if (!state.filter) {
-          const filters = [];
-          if (state.brightness !== 1) {
-            filters.push(`brightness(${state.brightness})`);
-          }
-          if (state.contrast !== 1) {
-            filters.push(`contrast(${state.contrast})`);
-          }
-          if (state.saturation !== 1) {
-            filters.push(`saturate(${state.saturation})`);
-          }
-          if (state.hue !== 0) {
-            filters.push(`hue-rotate(${state.hue}deg)`);
-          }
-          if (state.grayscale > 0) {
-            filters.push(`grayscale(${state.grayscale})`);
-          }
-          // 毛玻璃效果：添加模糊
-          if (hasGlassEffect && state.glassBlur > 0) {
-            filters.push(`blur(${state.glassBlur}px)`);
-          }
-          filterString = filters.join(' ');
-        } else if (hasGlassEffect && state.glassBlur > 0) {
-          // 如果已有 filter 字符串，追加 blur
-          filterString += ` blur(${state.glassBlur}px)`;
-        }
-        
-        // 应用滤镜
-        if (filterString) {
-          tempCtx.filter = filterString;
-          const originalData = tempCtx.getImageData(0, 0, imgWidth, imgHeight);
-          tempCtx.clearRect(0, 0, imgWidth, imgHeight);
-          tempCtx.putImageData(originalData, 0, 0);
-          
-          // 毛玻璃效果：添加半透明色调层
-          if (hasGlassEffect) {
-            tempCtx.globalAlpha = state.glassOpacity !== undefined ? state.glassOpacity : 0.7;
-            tempCtx.fillStyle = state.glassTint || '#ffffff';
-            tempCtx.fillRect(0, 0, imgWidth, imgHeight);
-            tempCtx.globalAlpha = 1.0;
-          }
-          
-          // 创建新的 Image 对象
-          const filteredImage = new Image();
-          filteredImage.src = tempCanvas.toDataURL();
-          imageData = filteredImage;
-        }
-      } catch (error) {
-        console.warn('应用滤镜失败:', error.message);
-        // 如果滤镜失败，使用原始帧
-        imageData = frameImage;
-      }
-    }
-
-    // 使用 Paper.js 的 Raster 渲染视频帧
-    const raster = new p.Raster(imageData);
+    // 获取当前帧
+    const frameImage = await this.getFrameAtProgress(progress);
+    if (!frameImage) return null;
+    
+    // 计算位置和尺寸
+    const { width, height } = this.convertSize(state.width, state.height, context);
+    const { x, y } = this.calculatePosition(state, context, { width, height });
+    
+    // 创建 Canvas 并绘制视频帧
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(frameImage, 0, 0, width, height);
+    
+    // 创建 Paper.js Raster
+    const raster = new p.Raster(canvas);
     raster.position = new p.Point(x, y);
     raster.size = new p.Size(width, height);
-
-    // 使用统一的变换方法应用动画
-    this.applyTransform(raster, state, {
-      applyPosition: false, // 位置已经通过 raster.position 设置了
-      paperInstance: paperInstance,
-    });
-
-    // 应用视觉效果（边框、阴影、翻转、混合模式）
-    const finalItem = this.applyVisualEffects(raster, state, width, height, paperInstance);
-
-    // 添加到 layer
-    layer.addChild(finalItem);
     
-    // 调用 onRender 回调（传递 paperItem 和 paperInstance）
-    this._callOnRender(time, finalItem, paperInstance);
+    // 应用变换
+    this.applyTransform(raster, state, {
+      applyPosition: false,
+      paperInstance: p
+    });
+    
+    // 应用视觉效果
+    const finalItem = this.applyVisualEffects(raster, state, width, height, p);
+    
+    // 添加到图层
+    if (layer) {
+      layer.addChild(finalItem);
+    }
     
     return finalItem;
   }

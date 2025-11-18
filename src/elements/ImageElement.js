@@ -192,130 +192,45 @@ export class ImageElement extends BaseElement {
    * @param {number} time - 当前时间（秒）
    * @param {Object} paperInstance - Paper.js 实例 { project, paper }
    */
-  render(layer, time, paperInstance = null) {
-    if (!this.visible || !this.loaded || !this.imageData) return null;
+  async render(layer, time, paperInstance = null) {
+    if (!this.visible) return null;
+    if (!this.isActiveAtTime(time)) return null;
+    if (!this.loaded) await this.initialize();
+    if (!this.loaded || !this.imageData) return null;
 
-    // 获取 Paper.js 实例
     const { paper: p, project } = this.getPaperInstance(paperInstance);
-
-    const viewSize = project && project.view && project.view.viewSize 
-      ? project.view.viewSize 
-      : { width: 1920, height: 1080 };
+    const viewSize = project?.view?.viewSize || { width: 1920, height: 1080 };
     const context = { width: viewSize.width, height: viewSize.height };
     const state = this.getStateAtTime(time, context);
 
-    // 使用 BaseElement 的通用方法转换尺寸
-    // state.x 和 state.y 已经在 getStateAtTime 中转换了单位
+    // 计算位置和尺寸
     const { width, height } = this.convertSize(state.width, state.height, context);
-    const x = state.x || 0;
-    const y = state.y || 0;
+    const { x, y } = this.calculatePosition(state, context, { width, height });
 
-    // 使用 BaseElement 的通用方法计算位置（包括 anchor 对齐）
-    const { x: rectX, y: rectY } = this.calculatePosition(state, context, {
-      elementWidth: width,
-      elementHeight: height,
-    });
-
-    // 应用滤镜效果（在创建 Raster 之前）
-    let imageData = this.imageData;
-    const hasFilter = state.filter || 
-      (state.brightness !== 1 || state.contrast !== 1 || state.saturation !== 1 || 
-       state.hue !== 0 || state.grayscale > 0);
-    const hasGlassEffect = state.glassEffect;
+    // 创建 Canvas 并绘制图片
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(this.imageData, 0, 0, width, height);
     
-    if (hasFilter || hasGlassEffect) {
-      try {
-        // 创建临时 canvas 应用滤镜
-        const imgWidth = this.imageData.width || width;
-        const imgHeight = this.imageData.height || height;
-        const tempCanvas = createCanvas(imgWidth, imgHeight);
-        const tempCtx = tempCanvas.getContext('2d');
-        
-        // 绘制原始图片
-        tempCtx.drawImage(this.imageData, 0, 0, imgWidth, imgHeight);
-        
-        // 构建滤镜字符串
-        let filterString = state.filter || '';
-        if (!state.filter) {
-          const filters = [];
-          if (state.brightness !== 1) {
-            filters.push(`brightness(${state.brightness})`);
-          }
-          if (state.contrast !== 1) {
-            filters.push(`contrast(${state.contrast})`);
-          }
-          if (state.saturation !== 1) {
-            filters.push(`saturate(${state.saturation})`);
-          }
-          if (state.hue !== 0) {
-            filters.push(`hue-rotate(${state.hue}deg)`);
-          }
-          if (state.grayscale > 0) {
-            filters.push(`grayscale(${state.grayscale})`);
-          }
-          // 毛玻璃效果：添加模糊
-          if (hasGlassEffect && state.glassBlur > 0) {
-            filters.push(`blur(${state.glassBlur}px)`);
-          }
-          filterString = filters.join(' ');
-        } else if (hasGlassEffect && state.glassBlur > 0) {
-          // 如果已有 filter 字符串，追加 blur
-          filterString += ` blur(${state.glassBlur}px)`;
-        }
-        
-        // 应用滤镜
-        if (filterString) {
-          tempCtx.filter = filterString;
-          const originalData = tempCtx.getImageData(0, 0, imgWidth, imgHeight);
-          tempCtx.clearRect(0, 0, imgWidth, imgHeight);
-          tempCtx.putImageData(originalData, 0, 0);
-          
-          // 毛玻璃效果：添加半透明色调层
-          if (hasGlassEffect) {
-            tempCtx.globalAlpha = state.glassOpacity !== undefined ? state.glassOpacity : 0.7;
-            tempCtx.fillStyle = state.glassTint || '#ffffff';
-            tempCtx.fillRect(0, 0, imgWidth, imgHeight);
-            tempCtx.globalAlpha = 1.0;
-          }
-          
-          // 创建新的 Image 对象
-          const filteredImage = new Image();
-          filteredImage.src = tempCanvas.toDataURL();
-          imageData = filteredImage;
-        }
-      } catch (error) {
-        console.warn('应用滤镜失败:', error.message);
-        // 如果滤镜失败，使用原始图片
-        imageData = this.imageData;
-      }
-    }
-
-    // 使用 Paper.js 的 Raster 渲染图片
-    const raster = new p.Raster(imageData);
+    // 创建 Paper.js Raster
+    const raster = new p.Raster(canvas);
     raster.position = new p.Point(x, y);
     raster.size = new p.Size(width, height);
 
-    // 处理图片适配方式
-    if (state.fit === 'cover' || state.fit === 'contain') {
-      // Paper.js 的 Raster 需要手动处理适配
-      // 这里可以添加额外逻辑
-    }
-
-    // 使用统一的变换方法应用动画
+    // 应用变换
     this.applyTransform(raster, state, {
-      applyPosition: false, // 位置已经通过 raster.position 设置了
-      paperInstance: paperInstance,
+      applyPosition: false,
+      paperInstance: p
     });
 
     // 应用视觉效果
-    const finalItem = this.applyVisualEffects(raster, state, width, height, paperInstance);
+    const finalItem = this.applyVisualEffects(raster, state, width, height, p);
 
-    // 添加到 layer
-    layer.addChild(finalItem);
-    
-    // 调用 onRender 回调（传递 paperItem 和 paperInstance）
-    this._callOnRender(time, finalItem, paperInstance);
-    
+    // 添加到图层
+    if (layer) {
+      layer.addChild(finalItem);
+    }
+
     return finalItem;
   }
 

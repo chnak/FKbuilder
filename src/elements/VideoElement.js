@@ -128,13 +128,33 @@ export class VideoElement extends BaseElement {
         signal: controller.signal
       });
 
+      // 检测是否在 Worker 线程中
+      // Worker 线程中 process.stderr 是 WritableWorkerStdio，不能直接传递给 execa
+      // 检查 process.stderr 的类型来判断是否在 Worker 线程中
+      let isWorkerThread = false;
+      try {
+        // 尝试检查 process.stderr 的类型
+        // 在 Worker 线程中，process.stderr 是 WritableWorkerStdio 对象
+        // 在主线程中，process.stderr 是 WriteStream 对象
+        if (process.stderr && typeof process.stderr === 'object') {
+          // 检查是否有 _writableState 属性（WritableWorkerStdio 的特征）
+          isWorkerThread = process.stderr._writableState !== undefined && 
+                          process.stderr.constructor.name === 'WritableWorkerStdio';
+        }
+      } catch (e) {
+        // 如果检测失败，默认不在 Worker 线程中
+        isWorkerThread = false;
+      }
+      
+      const stderrOption = isWorkerThread ? 'pipe' : (process.stderr || 'pipe');
+      
       // 启动 FFmpeg 进程
       const ps = execa('ffmpeg', args, {
         encoding: 'buffer',
         buffer: false,
         stdin: 'ignore',
         stdout: 'pipe', // 使用 pipe，然后手动连接
-        stderr: process.stderr,
+        stderr: stderrOption, // Worker 线程中使用 'pipe'，主线程使用 process.stderr
         cancelSignal: controller.signal
       });
 
@@ -145,6 +165,17 @@ export class VideoElement extends BaseElement {
           controller.abort();
         }
       });
+
+      // 在 Worker 线程中，stderr 使用 pipe，需要手动处理
+      if (isWorkerThread && ps.stderr) {
+        ps.stderr.on('data', (data) => {
+          // Worker 线程中可以选择忽略 stderr 或记录到日志
+          // 这里选择忽略，避免输出过多信息
+        });
+        ps.stderr.on('error', (err) => {
+          // 忽略 stderr 错误
+        });
+      }
 
       ps.stdout.on('error', (err) => {
         console.error('FFmpeg stdout error:', err);

@@ -72,9 +72,11 @@ export class FFmpegUtil {
    * 通过管道将图片数据直接写入 FFmpeg（不保存中间文件）
    * @param {string} outputPath - 输出视频路径
    * @param {Object} options - 选项
-   * @returns {Object} 返回 { process, writeFrame } 对象
+   * @param {boolean} options.useRaw - 是否使用原始视频数据格式（默认 false，使用 PNG）
+   * @returns {Object} 返回 { process, writeFrame, addStream } 对象
    *   - process: FFmpeg 进程
-   *   - writeFrame: 函数，用于写入一帧 PNG buffer
+   *   - writeFrame: 函数，用于写入一帧 buffer（PNG 或 raw）
+   *   - addStream: 函数，用于添加 Stream 输入（用于流式渲染）
    *   - finish: Promise，等待编码完成
    */
   async imagesToVideoPipe(outputPath, options = {}) {
@@ -88,23 +90,45 @@ export class FFmpegUtil {
       preset = this.config.preset,
       crf = this.config.crf,
       pixelFormat = this.config.pixelFormat,
+      useRaw = false, // 是否使用原始视频数据格式
     } = options;
 
     const args = [
       '-y', // 覆盖输出文件
       '-hide_banner', // 隐藏版本信息横幅
       '-loglevel', 'error', // 只显示错误信息
-      '-f', 'image2pipe', // 从管道读取图片
-      '-vcodec', 'png', // 输入格式为 PNG
-      '-framerate', fps.toString(),
-      '-i', '-', // 从 stdin 读取
+    ];
+
+    if (useRaw) {
+      // 使用原始视频数据格式（RGBA）
+      // 注意：node-canvas 的 toBuffer('raw') 返回 RGBA 格式
+      const size = `${width}x${height}`;
+      args.push(
+        '-f', 'rawvideo', // 原始视频格式
+        '-vcodec', 'rawvideo', // 原始视频编码
+        '-pixel_format', 'rgba', // RGBA 像素格式
+        '-video_size', size, // 视频尺寸
+        '-framerate', fps.toString(),
+        '-i', '-' // 从 stdin 读取
+      );
+    } else {
+      // 使用 PNG 图片格式（向后兼容）
+      args.push(
+        '-f', 'image2pipe', // 从管道读取图片
+        '-vcodec', 'png', // 输入格式为 PNG
+        '-framerate', fps.toString(),
+        '-i', '-' // 从 stdin 读取
+      );
+    }
+
+    args.push(
       '-c:v', codec,
       '-preset', preset,
       '-crf', crf.toString(),
       '-pix_fmt', pixelFormat,
-    ];
+    );
 
-    if (width && height) {
+    if (width && height && !useRaw) {
       args.push('-s', `${width}x${height}`);
     }
 
@@ -135,11 +159,11 @@ export class FFmpegUtil {
     });
 
     // 写入帧的函数
-    const writeFrame = async (pngBuffer) => {
+    const writeFrame = async (buffer) => {
       if (process.stdin && !process.stdin.destroyed) {
         try {
           await new Promise((resolve, reject) => {
-            process.stdin.write(pngBuffer, (error) => {
+            process.stdin.write(buffer, (error) => {
               if (error) reject(error);
               else resolve();
             });
@@ -147,6 +171,15 @@ export class FFmpegUtil {
         } catch (error) {
           throw new Error(`Failed to write frame to FFmpeg: ${error.message}`);
         }
+      } else {
+        throw new Error('FFmpeg stdin is closed');
+      }
+    };
+
+    // 添加 Stream 输入（用于流式渲染）
+    const addStream = (stream) => {
+      if (process.stdin && !process.stdin.destroyed) {
+        stream.pipe(process.stdin);
       } else {
         throw new Error('FFmpeg stdin is closed');
       }
@@ -162,6 +195,7 @@ export class FFmpegUtil {
     return {
       process,
       writeFrame,
+      addStream,
       end,
       finish: finishPromise,
     };

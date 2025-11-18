@@ -39,18 +39,18 @@ async function testVideoSimple() {
 
   const mainTrack = builder.createTrack({ zIndex: 1 });
 
-  // 只测试一个短场景
-  const scene1 = mainTrack.createScene({ duration: 2, startTime: 0 })
+  // 只测试一个短场景（5秒，测试视频播放速度）
+  const scene1 = mainTrack.createScene({ duration: 5, startTime: 0 })
     .addBackground()
     .addText({
-      text: "视频测试",
+      text: "视频测试 - 5秒",
       color: "#FFFFFF",
       fontSize: 50,
       x: "50%",
       y: "10%",
       textAlign: "center",
       anchor: [0.5, 0.5],
-      duration: 2,
+      duration: 5,
     })
     .addVideo({
       src: videoPath,
@@ -59,8 +59,8 @@ async function testVideoSimple() {
       width: "80%",
       height: "60%",
       anchor: [0.5, 0.5],
-      duration: 2,
-      fit: 'cover',
+      duration: 5, // 元素duration为5秒，应该只提取5秒的帧
+      fit: 'contain',
       mute: false, // 启用视频音频
       volume: 1.0, // 音量 100%
     });
@@ -70,16 +70,24 @@ async function testVideoSimple() {
   const outputPath = path.join(outputDir, 'test-video-simple.mp4');
 
   try {
-    console.log('🎬 开始渲染（2秒视频）...');
+    console.log('🎬 开始渲染（5秒视频，测试视频播放速度和帧提取）...');
     const startTime = Date.now();
     const videoMaker = builder.build();
-    await videoMaker.export(outputPath);
+    await videoMaker.export(outputPath, {
+      usePipe: true,
+      parallel: true,
+      maxWorkers: 2,
+    });
     const endTime = Date.now();
     
     console.log('');
     console.log('✅ 视频测试完成！');
     console.log(`📁 输出文件: ${outputPath}`);
     console.log(`⏱️  耗时: ${((endTime - startTime) / 1000).toFixed(2)} 秒`);
+    
+    // 检查输出文件大小
+    const stats = await fs.stat(outputPath);
+    console.log(`📊 文件大小: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
     
     videoMaker.destroy();
     builder.destroy();
@@ -88,6 +96,7 @@ async function testVideoSimple() {
     if (error.stack) {
       console.error('详细错误:', error.stack);
     }
+    process.exit(1);
   }
 }
 

@@ -94,20 +94,24 @@ export class TransitionRenderer {
       return ndarray(buf, [width, height, channels], [channels, width * channels, 1]);
     }
 
+    // 预先创建并缓存可重用的资源（避免每帧都创建和销毁）
+    const buffer = createBuffer(gl, [-1, -1, -1, 4, 4, -1], gl.ARRAY_BUFFER, gl.STATIC_DRAW);
+    let transition;
+    
+    if (this.source) {
+      transition = createTransition(gl, this.source, { resizeMode });
+    }
+
     return ({ fromFrame, toFrame, progress }) => {
       if (!this.source) {
         // No transition found, just switch frames half way through the transition.
         return this.easingFunction(progress) > 0.5 ? toFrame : fromFrame;
       }
 
-      const buffer = createBuffer(gl, [-1, -1, -1, 4, 4, -1], gl.ARRAY_BUFFER, gl.STATIC_DRAW);
-      let transition;
-
       try {
-        transition = createTransition(gl, this.source, { resizeMode });
-
         gl.clear(gl.COLOR_BUFFER_BIT);
 
+        // 创建纹理（每帧都需要新的纹理，因为输入不同）
         const fromFrameNdArray = convertFrame(fromFrame);
         const textureFrom = createTexture(gl, fromFrameNdArray);
         textureFrom.minFilter = gl.LINEAR;
@@ -118,6 +122,7 @@ export class TransitionRenderer {
         textureTo.minFilter = gl.LINEAR;
         textureTo.magFilter = gl.LINEAR;
 
+        // 重用预创建的 buffer 和 transition
         buffer.bind();
         transition.draw(
           this.easingFunction(progress),
@@ -128,16 +133,19 @@ export class TransitionRenderer {
           this.params
         );
 
+        // 立即释放纹理（避免内存泄漏）
         textureFrom.dispose();
         textureTo.dispose();
 
+        // 读取像素到新分配的缓冲区（每次返回新的 Buffer，避免引用共享）
         const outArray = Buffer.allocUnsafe(width * height * 4);
         gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, outArray);
 
         return outArray;
-      } finally {
-        buffer.dispose();
-        if (transition) transition.dispose();
+      } catch (error) {
+        console.error('转场渲染错误:', error);
+        // 如果出错，返回简单的混合结果
+        return this.easingFunction(progress) > 0.5 ? toFrame : fromFrame;
       }
     };
   }

@@ -146,8 +146,22 @@ export class VideoElement extends BaseElement {
     if (this.initialized || !this.videoPath) {
       return;
     }
-
-    try {
+    
+    // 防止并发初始化（使用 Promise 缓存）
+    if (this._initializingPromise) {
+      console.log(`[VideoElement] 等待正在进行的初始化... (${this.videoPath})`);
+      await this._initializingPromise;
+      return;
+    }
+    
+    // 检测是否在 Worker 线程中
+    const isWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+    const threadInfo = isWorker ? '[Worker]' : '[Main]';
+    console.log(`${threadInfo} [VideoElement] 开始初始化: ${this.videoPath}`);
+    
+    // 创建初始化 Promise
+    this._initializingPromise = (async () => {
+      try {
       // 获取视频流信息
       const streams = await readFileStreams(this.videoPath);
       const videoStream = streams.find(s => s.codec_type === 'video');
@@ -156,9 +170,15 @@ export class VideoElement extends BaseElement {
         throw new Error(`无法找到视频流: ${this.videoPath}`);
       }
 
-      // 解析帧率 (例如 "30/1" -> 30)
+      // 解析帧率
+      // 优先使用 avg_frame_rate（平均帧率，更准确），如果没有则使用 r_frame_rate（编码帧率）
       let fps = 30;
-      if (videoStream.r_frame_rate) {
+      if (videoStream.avg_frame_rate) {
+        const [num, den] = videoStream.avg_frame_rate.split('/').map(Number);
+        if (den && den > 0) {
+          fps = num / den;
+        }
+      } else if (videoStream.r_frame_rate) {
         const [num, den] = videoStream.r_frame_rate.split('/').map(Number);
         if (den && den > 0) {
           fps = num / den;
@@ -171,6 +191,7 @@ export class VideoElement extends BaseElement {
         duration: parseFloat(videoStream.duration) || 0,
         fps: fps,
       };
+      
 
       // 计算目标尺寸
       const viewSize = paper.view && paper.view.viewSize ? paper.view.viewSize : { width: 1920, height: 1080 };
@@ -228,6 +249,15 @@ export class VideoElement extends BaseElement {
       this.actualCutFrom = actualCutFrom;
       this.actualCutTo = actualCutTo;
 
+      // 使用视频的实际 FPS，而不是固定的 30
+      // 这样可以确保提取的帧数正确
+      const targetFps = this.fps || this.videoInfo.fps || 30;
+      
+      // 计算提取参数
+      const extractDuration = actualCutTo - actualCutFrom;
+      const expectedFrames = Math.ceil(extractDuration * targetFps);
+      this.expectedFrames = expectedFrames;
+      
       // 构建 FFmpeg 参数
       const args = buildVideoFFmpegArgs({
         inputPath: this.videoPath,
@@ -235,7 +265,7 @@ export class VideoElement extends BaseElement {
         cutFrom: actualCutFrom,
         cutTo: actualCutTo,
         speedFactor: this.speedFactor,
-        framerate: this.fps || 30,
+        framerate: targetFps,
         scaleFilter,
         mute: this.mute,
         volume: 1
@@ -251,17 +281,21 @@ export class VideoElement extends BaseElement {
       });
 
       // 检测是否在 Worker 线程中
-      // Worker 线程中 process.stderr 是 WritableWorkerStdio，不能直接传递给 execa
-      // 检查 process.stderr 的类型来判断是否在 Worker 线程中
+      // Worker 线程中的 process.stderr 是 WritableWorkerStdio，不能直接传递给 execa
+      // 使用多种方法检测 Worker 线程
       let isWorkerThread = false;
       try {
-        // 尝试检查 process.stderr 的类型
-        // 在 Worker 线程中，process.stderr 是 WritableWorkerStdio 对象
-        // 在主线程中，process.stderr 是 WriteStream 对象
-        if (process.stderr && typeof process.stderr === 'object') {
-          // 检查是否有 _writableState 属性（WritableWorkerStdio 的特征）
-          isWorkerThread = process.stderr._writableState !== undefined && 
-                          process.stderr.constructor.name === 'WritableWorkerStdio';
+        // 方法1: 检查 WorkerGlobalScope
+        if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && self instanceof WorkerGlobalScope) {
+          isWorkerThread = true;
+        }
+        // 方法2: 检查 process.stderr 的类型
+        else if (process.stderr && typeof process.stderr === 'object') {
+          // Worker 线程中的 process.stderr 是 WritableWorkerStdio
+          const stderrType = process.stderr.constructor?.name || '';
+          if (stderrType === 'WritableWorkerStdio' || (process.stderr._writableState && !process.stderr.isTTY)) {
+            isWorkerThread = true;
+          }
         }
       } catch (e) {
         // 如果检测失败，默认不在 Worker 线程中
@@ -363,7 +397,6 @@ export class VideoElement extends BaseElement {
         transform.end();
       }).catch(() => {
         // 进程异常结束，但不立即 destroy（可能正在缓冲）
-        // transform.destroy(); // 注释掉，让缓冲过程自然结束
       });
 
       // 转换为迭代器 - 使用 transform 流的迭代器
@@ -373,18 +406,16 @@ export class VideoElement extends BaseElement {
       this.finalWidth = finalWidth;
       this.finalHeight = finalHeight;
 
-      // 多进程渲染需要随机访问帧，所以无论是否循环都先缓冲所有帧
-      // 这样可以支持根据 progress 随机访问任意帧
-      console.log(`[VideoElement] 开始缓冲视频帧（多进程渲染优化）...`);
+      // 缓冲所有帧（用于随机访问）
       let frameCount = 0;
       let bufferError = null;
+      const frameSize = finalWidth * finalHeight * 4; // RGBA
       
       try {
         while (true) {
           try {
             const { value, done } = await this.frameIterator.next();
             if (done) {
-              // 正常结束
               break;
             }
             if (value) {
@@ -392,23 +423,14 @@ export class VideoElement extends BaseElement {
               frameCount++;
             }
           } catch (iterError) {
-            // 迭代器错误，可能是流已关闭或进程结束
-            // 如果已经缓冲了一些帧，这是可以接受的（FFmpeg 可能已经完成）
-            if (frameCount > 0) {
-              console.log(`[VideoElement] 帧迭代器结束（已缓冲 ${frameCount} 帧，FFmpeg 可能已完成）`);
-            } else {
-              console.warn(`[VideoElement] 帧迭代器错误（未缓冲任何帧）:`, iterError.message);
+            if (frameCount === 0) {
               bufferError = iterError;
             }
             break;
           }
         }
       } catch (error) {
-        // 捕获缓冲过程中的其他错误
-        if (frameCount > 0) {
-          console.log(`[VideoElement] 缓冲过程中出现错误但已缓冲 ${frameCount} 帧:`, error.message);
-        } else {
-          console.warn(`[VideoElement] 缓冲视频帧时出错（未缓冲任何帧）:`, error.message);
+        if (frameCount === 0) {
           bufferError = error;
         }
       }
@@ -422,8 +444,6 @@ export class VideoElement extends BaseElement {
             : '无法缓冲视频帧: 未知错误');
         throw new Error(errorMsg);
       }
-      
-      console.log(`[VideoElement] 视频帧缓冲完成，共 ${frameCount} 帧`);
       
       // 重新创建迭代器（如果需要的话，但通常不需要了）
       // 注意：由于我们已经缓冲了所有帧，frameIterator 已经用完了
@@ -455,14 +475,27 @@ export class VideoElement extends BaseElement {
         }
       }
 
-      this.initialized = true;
-      
-      // 调用 onLoaded 回调（注意：此时还没有 paperItem，所以传递 null）
-      this._callOnLoaded(this.startTime || 0, null, null);
-    } catch (error) {
-      console.error(`Failed to initialize video: ${this.videoPath}`, error);
-      this.initialized = false;
-    }
+        this.initialized = true;
+        
+        const isWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+        const threadInfo = isWorker ? '[Worker]' : '[Main]';
+        console.log(`${threadInfo} [VideoElement] 初始化完成: ${this.videoPath}, 缓冲了 ${this.frameBuffer.length} 帧`);
+        
+        // 调用 onLoaded 回调（注意：此时还没有 paperItem，所以传递 null）
+        this._callOnLoaded(this.startTime || 0, null, null);
+      } catch (error) {
+        const isWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+        const threadInfo = isWorker ? '[Worker]' : '[Main]';
+        console.error(`${threadInfo} [VideoElement] 初始化失败: ${this.videoPath}`, error);
+        this.initialized = false;
+        throw error;
+      } finally {
+        // 清除初始化 Promise，允许后续重新初始化
+        this._initializingPromise = null;
+      }
+    })();
+    
+    await this._initializingPromise;
   }
 
   /**
@@ -475,7 +508,7 @@ export class VideoElement extends BaseElement {
       await this.initialize();
     }
 
-    if (!this.initialized || !this.frameIterator) {
+    if (!this.initialized) {
       return null;
     }
 
@@ -486,57 +519,61 @@ export class VideoElement extends BaseElement {
         return this.frameImageCache.get(cacheKey);
       }
 
-      let rgba;
+      let rgba = null;
+      let frameIndex = 0;
 
       if (this.frameBuffer.length > 0 && this.videoInfo) {
         // frameBuffer 现在只包含元素 duration 对应的帧
-        // 所以实际视频时长就是元素的 duration
         const elementDuration = this.duration || 0;
-        
-        // progress 是基于元素的 duration 计算的（0-1）
-        // progress * elementDuration 表示元素已经播放的时间
-        // 这个时间直接对应 frameBuffer 中的帧索引
-        
-        // 根据视频时间和 FPS 计算帧索引
         const videoFps = this.videoInfo.fps || 30;
-        let frameIndex;
         
+        // 计算帧索引
         if (elementDuration > 0) {
-          // 使用元素的 duration 来计算视频时间（正常速度播放）
           const videoTime = progress * elementDuration;
           frameIndex = Math.floor(videoTime * videoFps);
         } else {
-          // 如果元素没有设置 duration，使用 progress 直接计算帧索引
           frameIndex = Math.floor(progress * this.frameBuffer.length);
         }
         
-        // 确保帧索引在缓冲范围内
-        // frameBuffer 包含的是元素 duration 对应的帧
-        // 索引范围是 0 到 frameBuffer.length - 1
+        // 确保帧索引在有效范围内
         frameIndex = Math.max(0, Math.min(frameIndex, this.frameBuffer.length - 1));
         
         if (this.loop) {
-          // 循环模式：使用模运算
           frameIndex = frameIndex % this.frameBuffer.length;
         }
         
+        // 获取帧，如果无效则尝试使用相邻帧
         rgba = this.frameBuffer[frameIndex];
-      } else {
-        // 如果没有缓冲（不应该发生），尝试从迭代器获取
-        console.warn('[VideoElement] 帧缓冲为空，尝试从迭代器获取（可能影响性能）');
+        
+        // 如果当前帧无效，尝试使用相邻帧
+        if (!rgba || !Buffer.isBuffer(rgba) || rgba.length === 0) {
+          // 尝试使用前一帧
+          if (frameIndex > 0) {
+            rgba = this.frameBuffer[frameIndex - 1];
+          }
+          // 如果前一帧也无效，尝试使用后一帧
+          if ((!rgba || !Buffer.isBuffer(rgba) || rgba.length === 0) && frameIndex < this.frameBuffer.length - 1) {
+            rgba = this.frameBuffer[frameIndex + 1];
+          }
+          // 如果都无效，使用第一帧
+          if ((!rgba || !Buffer.isBuffer(rgba) || rgba.length === 0) && this.frameBuffer.length > 0) {
+            rgba = this.frameBuffer[0];
+          }
+        }
+      } else if (this.frameIterator) {
+        // 如果没有缓冲，尝试从迭代器获取
         try {
           const { value, done } = await this.frameIterator.next();
-          if (done) {
-            return null;
+          if (!done && value) {
+            rgba = Buffer.from(value);
           }
-          rgba = value ? Buffer.from(value) : null;
         } catch (err) {
-          console.warn('Frame iterator error:', err.message);
-          return null;
+          // 忽略迭代器错误
         }
       }
 
-      if (!rgba) {
+      // 如果仍然无法获取有效帧，返回 null（避免黑屏，render 方法会跳过渲染）
+      if (!rgba || !Buffer.isBuffer(rgba) || rgba.length === 0) {
         return null;
       }
 
@@ -696,10 +733,6 @@ export class VideoElement extends BaseElement {
     // 计算进度
     const progress = this.getProgressAtTime(time);
     
-    // 获取当前帧
-    const frameImage = await this.getFrameAtProgress(progress);
-    if (!frameImage) return null;
-    
     // 视频帧已经在 initialize() 时根据 fit 参数通过 FFmpeg 处理过了
     // 所以这里直接使用处理后的帧尺寸（finalWidth, finalHeight）
     // 但也要考虑元素配置的 width/height（可能被动画修改）
@@ -724,6 +757,39 @@ export class VideoElement extends BaseElement {
     }
     
     const { x, y } = this.calculatePosition(state, context, { width, height });
+    
+    // 获取当前帧
+    const frameImage = await this.getFrameAtProgress(progress);
+    if (!frameImage) {
+      // 如果无法获取帧，尝试使用第一帧作为回退（避免黑屏）
+      if (this.frameBuffer.length > 0) {
+        try {
+          const fallbackRgba = this.frameBuffer[0];
+          if (fallbackRgba && Buffer.isBuffer(fallbackRgba) && fallbackRgba.length > 0) {
+            const fallbackImage = await createImageFromRGBA(fallbackRgba, this.finalWidth, this.finalHeight);
+            if (fallbackImage) {
+              // 使用回退帧继续渲染，避免黑屏
+              const raster = new p.Raster(fallbackImage);
+              raster.position = new p.Point(x, y);
+              raster.size = new p.Size(width, height);
+              this.applyTransform(raster, state, {
+                applyPosition: false,
+                paperInstance: p
+              });
+              const finalItem = this.applyVisualEffects(raster, state, width, height, p);
+              if (layer) {
+                layer.addChild(finalItem);
+              }
+              return finalItem;
+            }
+          }
+        } catch (error) {
+          // 忽略回退帧创建错误
+        }
+      }
+      // 如果回退也失败，跳过渲染（避免黑屏）
+      return null;
+    }
     
     // 直接使用 Image 对象创建 Raster
     const raster = new p.Raster(frameImage);

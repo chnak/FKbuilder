@@ -1384,5 +1384,20 @@ async function createDemoVideo() {
   console.log(`📁 输出文件: ${outputPath}`);
 }
 
-createDemoVideo().catch(console.error);
+// 全局错误处理
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('未处理的 Promise 拒绝:', reason);
+  console.error('Promise:', promise);
+  process.exit(1);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('未捕获的异常:', error);
+  process.exit(1);
+});
+
+createDemoVideo().catch((error) => {
+  console.error('视频生成失败:', error);
+  process.exit(1);
+});
 

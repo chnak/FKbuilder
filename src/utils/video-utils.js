@@ -50,7 +50,20 @@ export function rawVideoToFrames({ width, height, channels, signal, ...options }
       }
     },
     flush(callback) {
-      // 如果还有未完成的帧数据，忽略它（可能是最后一帧不完整）
+      // 如果还有未完成的帧数据，尝试处理它
+      if (bytesRead > 0) {
+        // 如果数据量超过 90% 帧大小，补齐并发出（可能是最后一帧）
+        if (bytesRead >= frameByteSize * 0.9) {
+          // 用零补齐到完整帧大小
+          const paddedBuffer = new Uint8Array(frameByteSize);
+          paddedBuffer.set(buffer.subarray(0, bytesRead), 0);
+          const frame = Buffer.from(paddedBuffer);
+          this.push(frame);
+        } else {
+          // 数据量太少，可能是流提前结束，记录警告
+          console.warn(`[rawVideoToFrames] 流结束时还有 ${bytesRead}/${frameByteSize} 字节未完成，可能丢失最后一帧`);
+        }
+      }
       callback();
     },
   });
@@ -165,15 +178,33 @@ export function buildVideoFFmpegArgs({
   mute = true,
   volume = 1
 }) {
+  // 计算实际提取时长
+  // cutTo 是绝对时间，cutFrom 也是绝对时间
+  // 所以提取时长 = cutTo - cutFrom（不考虑 speedFactor，因为 speedFactor 只影响播放速度，不影响提取时长）
+  const extractDuration = cutTo && cutFrom !== undefined 
+    ? (cutTo - cutFrom) 
+    : (cutTo || undefined);
+  
+  // FFmpeg 参数顺序很重要：
+  // 1. 输入定位：-ss 在 -i 之后（精度更高，确保帧数准确）
+  // 2. 输出时长：-t 在 -i 之后（限制输出时长）
+  // 3. 如果目标帧率与输入帧率相同，可以不使用 fps 滤镜（避免重新采样导致的帧数不准确）
+  // 4. 但对于 rawvideo 输出，必须使用 fps 滤镜或 -r 参数来确保帧率
+  
   const args = [
     '-nostdin',
     '-hide_banner', // 隐藏版本信息横幅
     '-loglevel', 'error', // 只显示错误信息
     ...(inputCodec ? ['-vcodec', inputCodec] : []),
-    ...(cutFrom ? ['-ss', cutFrom.toString()] : []),
     '-i', inputPath,
-    ...(cutTo ? ['-t', ((cutTo - (cutFrom || 0)) / speedFactor).toString()] : []),
+    // 输入定位：-ss 在 -i 之后（精度更高，确保帧数准确）
+    ...(cutFrom ? ['-ss', cutFrom.toString()] : []),
+    // 输出时长：-t 在 -i 之后（限制输出时长）
+    ...(extractDuration ? ['-t', extractDuration.toString()] : []),
+    // 视频滤镜：先应用速度调整，再应用帧率和缩放
     '-vf', `${speedFactor !== 1 ? `setpts=${1/speedFactor}*PTS,` : ''}fps=${framerate},${scaleFilter}`,
+    // 输出帧率：确保输出帧率准确
+    '-r', framerate.toString(),
     '-map', 'v:0',
     '-vcodec', 'rawvideo',
     '-pix_fmt', 'rgba',
@@ -279,13 +310,36 @@ export async function createAudioStream({
   
   const controller = new AbortController();
   
+  // 检测是否在 Worker 线程中
+  // Worker 线程中的 process.stderr 是 WritableWorkerStdio，不能直接传递给 execa
+  let isWorkerThread = false;
+  try {
+    // 方法1: 检查 WorkerGlobalScope
+    if (typeof WorkerGlobalScope !== 'undefined' && typeof self !== 'undefined' && self instanceof WorkerGlobalScope) {
+      isWorkerThread = true;
+    }
+    // 方法2: 检查 process.stderr 的类型
+    else if (process.stderr && typeof process.stderr === 'object') {
+      // Worker 线程中的 process.stderr 是 WritableWorkerStdio
+      const stderrType = process.stderr.constructor?.name || '';
+      if (stderrType === 'WritableWorkerStdio' || (process.stderr._writableState && !process.stderr.isTTY)) {
+        isWorkerThread = true;
+      }
+    }
+  } catch (e) {
+    // 如果检测失败，默认不在 Worker 线程中
+    isWorkerThread = false;
+  }
+  
+  const stderrOption = isWorkerThread ? 'pipe' : process.stderr;
+  
   try {
     const ps = execa('ffmpeg', args, {
       encoding: 'buffer',
       buffer: false,
       stdin: 'ignore',
       stdout: 'pipe',
-      stderr: process.stderr,
+      stderr: stderrOption,
       cancelSignal: controller.signal
     });
     

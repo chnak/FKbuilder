@@ -135,10 +135,32 @@ export class FFmpegUtil {
     args.push(outputPath);
 
     // 启动 FFmpeg 进程，stdin 作为管道
-    const process = execa('ffmpeg', args, {
+    const ffmpegProcess = execa('ffmpeg', args, {
       stdin: 'pipe',
       stdout: 'pipe',
       stderr: 'pipe',
+    });
+
+    // 在 CommonJS 编译环境中，execa 可能返回一个代理对象
+    // 需要等待 stdin 属性可用（最多等待 100ms）
+    if (!ffmpegProcess.stdin) {
+      let waited = 0;
+      const maxWait = 100; // 100ms
+      while (!ffmpegProcess.stdin && waited < maxWait) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        waited += 10;
+      }
+    }
+
+    // 检查 stdin 是否可用
+    if (!ffmpegProcess || !ffmpegProcess.stdin) {
+      throw new Error('FFmpeg process stdin is not available. execa may not support stdin pipe in this environment.');
+    }
+
+    // 监听进程错误（但不阻塞写入）
+    let processError = null;
+    ffmpegProcess.catch((error) => {
+      processError = error;
     });
 
     // 创建 Promise 来等待编码完成
@@ -152,7 +174,7 @@ export class FFmpegUtil {
     });
 
     // 监听进程完成
-    process.then(() => {
+    ffmpegProcess.then(() => {
       if (finishResolve) finishResolve(outputPath);
     }).catch((error) => {
       if (finishReject) finishReject(new Error(`FFmpeg encoding failed: ${error.message}`));
@@ -160,40 +182,62 @@ export class FFmpegUtil {
 
     // 写入帧的函数
     const writeFrame = async (buffer) => {
-      if (process.stdin && !process.stdin.destroyed) {
-        try {
-          await new Promise((resolve, reject) => {
-            process.stdin.write(buffer, (error) => {
-              if (error) reject(error);
-              else resolve();
-            });
-          });
-        } catch (error) {
-          throw new Error(`Failed to write frame to FFmpeg: ${error.message}`);
-        }
-      } else {
+      if (processError) {
+        throw new Error(`FFmpeg process error: ${processError.message}`);
+      }
+      if (!ffmpegProcess.stdin) {
+        throw new Error('FFmpeg stdin is not available');
+      }
+      if (ffmpegProcess.stdin.destroyed) {
         throw new Error('FFmpeg stdin is closed');
+      }
+      try {
+        await new Promise((resolve, reject) => {
+          // 再次检查是否已关闭
+          if (ffmpegProcess.stdin.destroyed) {
+            reject(new Error('FFmpeg stdin was closed during write'));
+            return;
+          }
+          ffmpegProcess.stdin.write(buffer, (error) => {
+            if (error) {
+              reject(new Error(`Failed to write frame to FFmpeg: ${error.message}`));
+            } else {
+              resolve();
+            }
+          });
+        });
+      } catch (error) {
+        // 如果错误信息已经包含详细信息，直接抛出
+        if (error.message.includes('FFmpeg') || error.message.includes('stdin')) {
+          throw error;
+        }
+        throw new Error(`Failed to write frame to FFmpeg: ${error.message}`);
       }
     };
 
     // 添加 Stream 输入（用于流式渲染）
     const addStream = (stream) => {
-      if (process.stdin && !process.stdin.destroyed) {
-        stream.pipe(process.stdin);
-      } else {
+      if (processError) {
+        throw new Error(`FFmpeg process error: ${processError.message}`);
+      }
+      if (!ffmpegProcess.stdin) {
+        throw new Error('FFmpeg stdin is not available');
+      }
+      if (ffmpegProcess.stdin.destroyed) {
         throw new Error('FFmpeg stdin is closed');
       }
+      stream.pipe(ffmpegProcess.stdin);
     };
 
     // 结束写入的函数
     const end = () => {
-      if (process.stdin && !process.stdin.destroyed) {
-        process.stdin.end();
+      if (ffmpegProcess.stdin && !ffmpegProcess.stdin.destroyed) {
+        ffmpegProcess.stdin.end();
       }
     };
 
     return {
-      process,
+      process: ffmpegProcess,
       writeFrame,
       addStream,
       end,

@@ -67,7 +67,7 @@ async function testImageVideoSimple() {
         height: "70%",
         anchor: [0.5, 0.5],
         duration: 3,
-        fit: 'cover',
+        fit: 'contain',
       });
   }
 

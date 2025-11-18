@@ -1,14 +1,14 @@
 {
-  "name": "FKvideo-spritejs",
-  "version": "1.0.3",
-  "description": "基于 Creatomate 配置结构的视频制作库，使用 Paper.js 渲染引擎",
-  "main": "dist/cjs/index.js",
+  "name": "fkbuilder",
+  "version": "1.0.11",
+  "description": "基于 Node.js + Paper.js 的程序化视频生成库，支持多轨道多场景、丰富动画效果、转场特效和并行渲染",
+  "main": "dist/cjs/index.cjs",
   "module": "dist/esm/index.js",
   "type": "module",
   "exports": {
     ".": {
       "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js",
+      "require": "./dist/cjs/index.cjs",
       "default": "./dist/esm/index.js"
     }
   },
@@ -43,7 +43,7 @@
   "license": "MIT",
   "dependencies": {
     "canvas": "^3.2.0",
-    "cheerio": "^1.0.0-rc.12",
+    "cheerio": "^1.0.0",
     "execa": "^9.6.0",
     "font-finder": "^1.1.0",
     "font-list": "^2.0.1",

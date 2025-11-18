@@ -398,14 +398,9 @@ export class VideoElement extends BaseElement {
     if (!this.initialized) await this.initialize();
     if (!this.initialized) return null;
     
-    // 获取 Paper.js 实例
     const { paper: p, project } = this.getPaperInstance(paperInstance);
-    
-    // 计算视图尺寸
     const viewSize = project?.view?.viewSize || { width: 1920, height: 1080 };
     const context = { width: viewSize.width, height: viewSize.height };
-    
-    // 获取当前状态
     const state = this.getStateAtTime(time, context);
     
     // 计算进度
@@ -419,13 +414,8 @@ export class VideoElement extends BaseElement {
     const { width, height } = this.convertSize(state.width, state.height, context);
     const { x, y } = this.calculatePosition(state, context, { width, height });
     
-    // 创建 Canvas 并绘制视频帧
-    const canvas = createCanvas(width, height);
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(frameImage, 0, 0, width, height);
-    
-    // 创建 Paper.js Raster
-    const raster = new p.Raster(canvas);
+    // 直接使用 Image 对象创建 Raster
+    const raster = new p.Raster(frameImage);
     raster.position = new p.Point(x, y);
     raster.size = new p.Size(width, height);
     

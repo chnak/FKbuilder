@@ -197,40 +197,35 @@ export class ImageElement extends BaseElement {
     if (!this.isActiveAtTime(time)) return null;
     if (!this.loaded) await this.initialize();
     if (!this.loaded || !this.imageData) return null;
-
+  
     const { paper: p, project } = this.getPaperInstance(paperInstance);
     const viewSize = project?.view?.viewSize || { width: 1920, height: 1080 };
     const context = { width: viewSize.width, height: viewSize.height };
     const state = this.getStateAtTime(time, context);
-
+  
     // 计算位置和尺寸
     const { width, height } = this.convertSize(state.width, state.height, context);
     const { x, y } = this.calculatePosition(state, context, { width, height });
-
-    // 创建 Canvas 并绘制图片
-    const canvas = createCanvas(width, height);
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(this.imageData, 0, 0, width, height);
-    
-    // 创建 Paper.js Raster
-    const raster = new p.Raster(canvas);
+  
+    // 直接使用 Image 对象创建 Raster
+    const raster = new p.Raster(this.imageData);
     raster.position = new p.Point(x, y);
     raster.size = new p.Size(width, height);
-
+  
     // 应用变换
     this.applyTransform(raster, state, {
       applyPosition: false,
       paperInstance: p
     });
-
+  
     // 应用视觉效果
     const finalItem = this.applyVisualEffects(raster, state, width, height, p);
-
+  
     // 添加到图层
     if (layer) {
       layer.addChild(finalItem);
     }
-
+  
     return finalItem;
   }
 

@@ -441,8 +441,29 @@ export class VideoElement extends BaseElement {
     const frameImage = await this.getFrameAtProgress(progress);
     if (!frameImage) return null;
     
-    // 计算位置和尺寸
-    const { width, height } = this.convertSize(state.width, state.height, context);
+    // 视频帧已经在 initialize() 时根据 fit 参数通过 FFmpeg 处理过了
+    // 所以这里直接使用处理后的帧尺寸（finalWidth, finalHeight）
+    // 但也要考虑元素配置的 width/height（可能被动画修改）
+    const containerSize = this.convertSize(state.width, state.height, context);
+    const containerWidth = containerSize.width || viewSize.width;
+    const containerHeight = containerSize.height || viewSize.height;
+    
+    // 如果视频已经根据 fit 处理过，使用处理后的尺寸
+    // 否则使用容器尺寸（fill 模式）
+    const fit = state.fit || this.fit || 'cover';
+    let width, height;
+    
+    if (fit === 'fill' || fit === 'stretch') {
+      // fill 模式：使用容器尺寸
+      width = containerWidth;
+      height = containerHeight;
+    } else {
+      // cover/contain 模式：使用 FFmpeg 处理后的尺寸
+      // 这些尺寸已经在 initialize() 时根据 fit 计算好了
+      width = this.finalWidth || containerWidth;
+      height = this.finalHeight || containerHeight;
+    }
+    
     const { x, y } = this.calculatePosition(state, context, { width, height });
     
     // 直接使用 Image 对象创建 Raster

@@ -5,6 +5,7 @@ import { ElementType } from '../types/enums.js';
 import { Image, createCanvas } from 'canvas';
 import { toPixels } from '../utils/unit-converter.js';
 import paper from 'paper-jsdom-canvas';
+import { calculateImageFit } from '../utils/image-fit.js';
 
 /**
  * 图片元素
@@ -203,8 +204,28 @@ export class ImageElement extends BaseElement {
     const context = { width: viewSize.width, height: viewSize.height };
     const state = this.getStateAtTime(time, context);
   
-    // 计算位置和尺寸
-    const { width, height } = this.convertSize(state.width, state.height, context);
+    // 计算容器尺寸（元素的目标尺寸）
+    const containerSize = this.convertSize(state.width, state.height, context);
+    const containerWidth = containerSize.width || viewSize.width;
+    const containerHeight = containerSize.height || viewSize.height;
+  
+    // 获取图片原始尺寸
+    const imageWidth = this.imageData.width || 0;
+    const imageHeight = this.imageData.height || 0;
+  
+    // 根据 fit 参数计算实际显示尺寸
+    const fit = state.fit || this.config.fit || 'cover';
+    const fitResult = calculateImageFit({
+      imageWidth,
+      imageHeight,
+      containerWidth,
+      containerHeight,
+      fit
+    });
+  
+    // 使用适配后的尺寸
+    const width = fitResult.width;
+    const height = fitResult.height;
     const { x, y } = this.calculatePosition(state, context, { width, height });
   
     // 直接使用 Image 对象创建 Raster

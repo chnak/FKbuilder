@@ -5,7 +5,7 @@ import { ElementType } from '../types/enums.js';
 import { toPixels } from '../utils/unit-converter.js';
 import fs from 'fs-extra';
 import path from 'path';
-import paper from 'paper-jsdom-canvas';
+import paper from '../vendor/paper-node.js';
 
 /**
  * JSON 元素 - 支持导入 Paper.js JSON 格式

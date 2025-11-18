@@ -3,7 +3,7 @@ import { TextElement } from './TextElement.js';
 import { ElementType } from '../types/enums.js';
 import { parseSubtitles, calculateMixedTextCapacity } from '../utils/subtitle-utils.js';
 import { getDefaultFontFamily } from '../utils/font-manager.js';
-import paper from 'paper-jsdom-canvas';
+import paper from '../vendor/paper-node.js';
 
 /**
  * 字幕元素

@@ -6,8 +6,8 @@ import { toPixels } from '../utils/unit-converter.js';
 import { getDefaultFontFamily, isFontRegistered } from '../utils/font-manager.js';
 import { TextSplitter } from '../utils/text-splitter.js';
 import { TransformAnimation } from '../animations/TransformAnimation.js';
-import { createCanvas, Image } from 'canvas';
-import paper from 'paper-jsdom-canvas';
+import { createCanvas, Image } from 'node-canvas-webgl';
+import paper from '../vendor/paper-node.js';
 
 /**
  * 文本元素

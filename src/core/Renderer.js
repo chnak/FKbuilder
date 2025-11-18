@@ -1,8 +1,8 @@
-import paper from 'paper-jsdom-canvas';
+import paper from '../vendor/paper-node.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs-extra';
-import { createCanvas, registerFont } from 'canvas';
+import { createCanvas, registerFont } from 'node-canvas-webgl';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

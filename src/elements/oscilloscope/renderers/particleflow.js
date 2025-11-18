@@ -1,4 +1,4 @@
-import paper from 'paper-jsdom-canvas';
+import paper from '../../../vendor/paper-node.js';
 
 /**
  * 粒子流样式默认配置

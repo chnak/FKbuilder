@@ -6,7 +6,7 @@ import { DEFAULT_ELEMENT_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
 import { TransitionRenderer } from '../utils/transition-renderer.js';
-import { createCanvas } from 'canvas';
+import { createCanvas } from 'node-canvas-webgl';
 
 /**
  * 转场元素类

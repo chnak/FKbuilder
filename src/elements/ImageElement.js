@@ -2,9 +2,9 @@ import { BaseElement } from './BaseElement.js';
 import { DEFAULT_IMAGE_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
-import { Image, createCanvas } from 'canvas';
+import { Image, createCanvas } from 'node-canvas-webgl';
 import { toPixels } from '../utils/unit-converter.js';
-import paper from 'paper-jsdom-canvas';
+import paper from '../vendor/paper-node.js';
 import { calculateImageFit } from '../utils/image-fit.js';
 
 /**

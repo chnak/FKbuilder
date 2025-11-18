@@ -6,7 +6,7 @@ import { toPixels } from '../utils/unit-converter.js';
 import fs from 'fs-extra';
 import path from 'path';
 import execa from 'execa';
-import paper from 'paper-jsdom-canvas';
+import paper from '../vendor/paper-node.js';
 import { ensureRenderersLoaded, getRenderer } from './oscilloscope/renderer-loader.js';
 
 // 在模块加载时预加载渲染器（非阻塞）

@@ -34,7 +34,7 @@ oscilloscope/
 2. 导出一个默认函数，函数签名如下：
 
 ```javascript
-import paper from 'paper-jsdom-canvas';
+import paper from '../../../vendor/paper-node.js';
 
 /**
  * 自定义渲染器
@@ -128,7 +128,7 @@ await scene.addOscilloscope({
 ## 注意事项
 
 1. 渲染器函数必须是同步的（不能使用 async/await）
-2. 使用 Paper.js 进行绘制，确保已导入 `paper-jsdom-canvas`
+2. 使用 Paper.js 进行绘制，确保已导入 `paper-node.js`（位于 `vendor/paper-node.js`）
 3. 渲染器会在首次使用时自动加载
 4. 如果渲染器加载失败，会自动回退到默认的 `line` 渲染器
 5. 某些渲染器（如 `waterfall`, `ripple`, `blob`, `rotating3d`, `trail`, `weave`, `lightwave`, `particleflow`）需要 `time` 参数，系统会自动传递

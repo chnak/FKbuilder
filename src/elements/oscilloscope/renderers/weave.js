@@ -1,4 +1,4 @@
-import paper from 'paper-jsdom-canvas';
+import paper from '../../../vendor/paper-node.js';
 
 /**
  * 波形编织样式默认配置

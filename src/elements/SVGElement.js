@@ -6,7 +6,7 @@ import { toPixels } from '../utils/unit-converter.js';
 import { parseSVGAnimations, convertSVGAnimationToFunction } from '../utils/svg-animation-parser.js';
 import fs from 'fs-extra';
 import path from 'path';
-import paper from 'paper-jsdom-canvas';
+import paper from '../vendor/paper-node.js';
 
 /**
  * SVG 元素 - 支持导入和渲染 SVG 文件

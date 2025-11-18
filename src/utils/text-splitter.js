@@ -3,7 +3,7 @@
  * 用于将文本按字符、单词或行进行分割，并计算每个片段的位置和尺寸
  * 使用 Canvas API 准确计算文本尺寸
  */
-import { createCanvas } from 'canvas';
+import { createCanvas } from 'node-canvas-webgl';
 
 export class TextSplitter {
   constructor(text, options = {}) {

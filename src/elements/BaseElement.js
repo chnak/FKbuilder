@@ -6,7 +6,7 @@ import { TransformAnimation } from '../animations/TransformAnimation.js';
 import { KeyframeAnimation } from '../animations/KeyframeAnimation.js';
 import { AnimationType } from '../types/enums.js';
 import { getPresetAnimation } from '../animations/preset-animations.js';
-import paper from 'paper-jsdom-canvas';
+import paper from '../vendor/paper-node.js';
 
 /**
  * 规范化动画配置为统一格式

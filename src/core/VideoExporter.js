@@ -4,7 +4,7 @@ import path from 'path';
 import { Renderer } from './Renderer.js';
 import { TransitionElement } from '../elements/TransitionElement.js';
 import { TransitionRenderer } from '../utils/transition-renderer.js';
-import { createCanvas } from 'canvas';
+import { createCanvas } from 'node-canvas-webgl';
 import { ElementLayer } from '../layers/ElementLayer.js';
 import os from 'os';
 import { Worker } from 'worker_threads';

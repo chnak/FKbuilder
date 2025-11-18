@@ -1,7 +1,7 @@
 /**
  * DOM Polyfill for Node.js environment
  */
-import { createCanvas } from 'canvas';
+import { createCanvas } from 'node-canvas-webgl';
 
 // 创建全局document和window对象
 // 确保在全局作用域中可用（不仅限于 global）

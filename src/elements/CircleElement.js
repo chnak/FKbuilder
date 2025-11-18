@@ -3,7 +3,7 @@ import { DEFAULT_ELEMENT_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
 import { toPixels } from '../utils/unit-converter.js';
-import paper from 'paper-jsdom-canvas';
+import paper from '../vendor/paper-node.js';
 
 /**
  * 圆形元素

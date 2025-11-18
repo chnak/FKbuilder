@@ -19,10 +19,22 @@
 
 ## 📦 安装
 
+### 通过 npm 安装
+
 ```bash
-npm install
+npm install fkbuilder
 # 或
-yarn install
+yarn add fkbuilder
+# 或
+pnpm add fkbuilder
+```
+
+### 本地开发安装
+
+```bash
+git clone <repository-url>
+cd FKbuilder
+npm install
 ```
 
 ## 🔧 系统要求
@@ -49,8 +61,22 @@ sudo apt-get install ffmpeg
 
 ### 基础示例
 
+**ESM 模块（推荐）：**
+
 ```javascript
-import { VideoBuilder } from './src/index.js';
+import { VideoBuilder } from 'fkbuilder';
+```
+
+**CommonJS 模块：**
+
+```javascript
+const { VideoBuilder } = require('fkbuilder');
+```
+
+**完整示例：**
+
+```javascript
+import { VideoBuilder } from 'fkbuilder';
 
 // 创建视频构建器
 const builder = new VideoBuilder({
@@ -137,7 +163,7 @@ scene.addComponent(component);
 组件是可复用的元素容器，有自己的宽高和时间控制。组件内的元素使用相对坐标（相对于组件）。
 
 ```javascript
-import { Component } from './src/index.js';
+import { Component } from 'fkbuilder';
 
 // 创建组件
 const cardComponent = new Component({
@@ -460,7 +486,7 @@ animations: ['fadeIn', 'bigIn', 'bounceIn', 'slideInLeft', 'rotate', 'scale']
 ### 自定义动画
 
 ```javascript
-import { TransformAnimation, KeyframeAnimation } from './src/index.js';
+import { TransformAnimation, KeyframeAnimation } from 'fkbuilder';
 
 // 变换动画
 const transform = new TransformAnimation({
@@ -493,7 +519,7 @@ element.addAnimation(keyframe);
 `onFrame` 回调函数可以在每一帧更新元素，实现持续动画效果（如旋转、脉冲、闪烁等）：
 
 ```javascript
-import { withContext } from './src/index.js';
+import { withContext } from 'fkbuilder';
 
 // 持续旋转的圆形
 const rotationSpeed = 3;
@@ -522,7 +548,7 @@ scene.addCircle({
 在并行渲染中，闭包变量会丢失。使用 `withContext` 可以自动关联上下文变量：
 
 ```javascript
-import { withContext } from './src/index.js';
+import { withContext } from 'fkbuilder';
 
 const rotationSpeed = 3;
 const phaseOffset = 0.5;
@@ -620,7 +646,7 @@ await builder.render(outputPath, {
 ### 多轨道多场景示例
 
 ```javascript
-import { VideoBuilder } from './src/index.js';
+import { VideoBuilder } from 'fkbuilder';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -716,7 +742,7 @@ createVideo().catch(console.error);
 ### 组件使用示例
 
 ```javascript
-import { VideoBuilder, Component } from './src/index.js';
+import { VideoBuilder, Component } from 'fkbuilder';
 
 const builder = new VideoBuilder({
   width: 1920,
@@ -778,7 +804,7 @@ await builder.render('./output/video.mp4');
 ### onFrame 持续动画示例
 
 ```javascript
-import { VideoBuilder, withContext } from './src/index.js';
+import { VideoBuilder, withContext } from 'fkbuilder';
 
 const builder = new VideoBuilder({
   width: 1920,
@@ -1023,7 +1049,7 @@ component.addImage(config);
 ### 工具函数
 
 ```javascript
-import { withContext, autoContext, smartContext } from './src/index.js';
+import { withContext, autoContext, smartContext } from 'fkbuilder';
 
 // 上下文关联（用于并行渲染）
 const onFrame = withContext((element, progress, time) => {

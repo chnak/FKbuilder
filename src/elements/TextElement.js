@@ -282,9 +282,13 @@ export class TextElement extends BaseElement {
       y = segmentPos.y;
       segmentBaseline = segmentPos.baseline;
     } else {
-      // 普通元素，state.x 和 state.y 已经在 getStateAtTime 中转换了单位
-      x = state.x || 0;
-      y = state.y || 0;
+      // 普通元素，使用 BaseElement 的统一方法计算位置
+      // calculatePosition 会处理单位转换和 anchor 对齐
+      const position = this.calculatePosition(state, context, {
+        anchor: state.anchor || [0.5, 0.5],
+      });
+      x = position.x;
+      y = position.y;
     }
 
     // 构建字体字符串
@@ -299,7 +303,9 @@ export class TextElement extends BaseElement {
 
     // 使用 Paper.js 的 PointText 渲染文本
     const pointText = new p.PointText(new p.Point(x, y));
-    pointText.content = state.text || '';
+    // 确保 text 属性正确传递（优先使用 state.text，如果没有则使用 this.config.text）
+    const textContent = state.text !== undefined ? state.text : (this.config.text || '');
+    pointText.content = textContent;
     pointText.fontSize = fontSize;
     pointText.fontFamily = fontFamily;
     pointText.fontWeight = fontWeight;

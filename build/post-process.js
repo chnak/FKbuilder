@@ -74,25 +74,24 @@ export function fixFilenameDeclarations(dir, extensions = ['.cjs']) {
       let content = readFile(filePath);
       let modified = false;
       
-      // 移除 const __filename = fileURLToPath(import_meta.url) 声明
-      const newContent = content
-        .replace(
-          /const __filename = [^=]*fileURLToPath\(import_meta\.url\);/g,
-          () => {
-            modified = true;
-            return '// __filename is available in CommonJS';
-          }
-        )
-        .replace(
-          /const __dirname = [^=]*dirname\(__filename\);/g,
-          () => {
-            modified = true;
-            return '// __dirname is available in CommonJS';
-          }
-        );
+      // 移除所有 const __filename = ... 声明（CommonJS 中 __filename 是内置的）
+      // 匹配多行模式，因为 Rollup 生成的代码可能跨多行
+      // 使用非贪婪匹配，匹配到第一个分号为止
+      const filenamePattern = /const __filename\s*=\s*[^;]+?;/gs;
+      if (filenamePattern.test(content)) {
+        content = content.replace(filenamePattern, '// __filename is available in CommonJS');
+        modified = true;
+      }
+      
+      // 移除所有 const __dirname = ... 声明（CommonJS 中 __dirname 是内置的）
+      const dirnamePattern = /const __dirname\s*=\s*[^;]+?;/gs;
+      if (dirnamePattern.test(content)) {
+        content = content.replace(dirnamePattern, '// __dirname is available in CommonJS');
+        modified = true;
+      }
       
       if (modified) {
-        writeFile(filePath, newContent);
+        writeFile(filePath, content);
       }
     }
   }

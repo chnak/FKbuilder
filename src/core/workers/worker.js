@@ -218,8 +218,27 @@ async function renderSegment() {
               
               const className = elementTypeMap[elementData.type] || 
                 elementData.type.charAt(0).toUpperCase() + elementData.type.slice(1);
-              const elementModule = await import(`../../elements/${className}Element.js`);
-              const ElementClass = elementModule[`${className}Element`];
+              // 检测是否在 CommonJS 环境中
+              const isCommonJS = typeof require !== 'undefined' && typeof module !== 'undefined';
+              let ElementClass = null;
+              
+              if (isCommonJS) {
+                // CommonJS 环境：使用 require（需要绝对路径）
+                const elementExt = '.cjs';
+                const elementPath = path.resolve(__dirname, '..', '..', 'elements', `${className}Element${elementExt}`);
+                try {
+                  const elementModule = require(elementPath);
+                  ElementClass = elementModule[`${className}Element`] || elementModule.default;
+                } catch (requireError) {
+                  // 如果 require 失败，尝试动态 import（使用相对路径）
+                  const elementModule = await import(`../../elements/${className}Element${elementExt}`);
+                  ElementClass = elementModule[`${className}Element`] || elementModule.default;
+                }
+              } else {
+                // ESM 环境：使用动态 import
+                const elementModule = await import(`../../elements/${className}Element.js`);
+                ElementClass = elementModule[`${className}Element`] || elementModule.default;
+              }
               
               if (ElementClass) {
                 // 反序列化 config（重建函数）

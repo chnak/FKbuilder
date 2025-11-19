@@ -305,8 +305,9 @@ async function completeExample() {
     const startTime = Date.now();
     
     await builder.render(outputPath, {
-      parallel: false, // CommonJS 环境建议使用串行渲染
-      usePipe: true,
+        parallel: true,
+        usePipe: true,
+        maxWorkers: 4,
     });
     
     const endTime = Date.now();

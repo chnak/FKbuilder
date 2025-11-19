@@ -796,7 +796,10 @@ export class VideoExporter {
     process.on('SIGTERM', signalHandler);
     
     const __filename = fileURLToPath(import.meta.url);
-    const workerPath = path.resolve(path.dirname(__filename), 'workers', 'worker.js');
+    // 检测是否在 CommonJS 环境中，如果是则使用 .cjs 扩展名
+    const isCommonJS = typeof require !== 'undefined' && typeof module !== 'undefined';
+    const workerFileName = isCommonJS ? 'worker.cjs' : 'worker.js';
+    const workerPath = path.resolve(path.dirname(__filename), 'workers', workerFileName);
     
     for (const segment of segments) {
       segmentProgress.set(segment.segmentIndex, { currentFrame: 0, totalFrames: segment.endFrame - segment.startFrame });
@@ -1101,7 +1104,10 @@ export class VideoExporter {
     process.on('SIGTERM', signalHandler);
     
     const __filename = fileURLToPath(import.meta.url);
-    const workerPath = path.resolve(path.dirname(__filename), 'workers', 'worker.js');
+    // 检测是否在 CommonJS 环境中，如果是则使用 .cjs 扩展名
+    const isCommonJS = typeof require !== 'undefined' && typeof module !== 'undefined';
+    const workerFileName = isCommonJS ? 'worker.cjs' : 'worker.js';
+    const workerPath = path.resolve(path.dirname(__filename), 'workers', workerFileName);
     
     // 转场预处理完成标志
     let transitionPreprocessCompleted = false;

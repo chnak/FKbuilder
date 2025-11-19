@@ -248,9 +248,17 @@ export class Component {
       ? toPixels(this.y, parentUnitContext, 'y')
       : (this.y || parentHeight / 2);
     
-    // 计算锚点偏移
-    const anchorOffsetX = this.width * this.anchor[0];
-    const anchorOffsetY = this.height * this.anchor[1];
+    // 转换组件的尺寸（支持百分比、vw、vh 等单位）
+    const componentWidth = typeof this.width === 'string'
+      ? toPixels(this.width, parentUnitContext, 'width')
+      : (this.width || parentWidth);
+    const componentHeight = typeof this.height === 'string'
+      ? toPixels(this.height, parentUnitContext, 'height')
+      : (this.height || parentHeight);
+    
+    // 计算锚点偏移（使用转换后的像素值）
+    const anchorOffsetX = componentWidth * this.anchor[0];
+    const anchorOffsetY = componentHeight * this.anchor[1];
     
     // 组件的左上角位置（绝对坐标）
     const componentLeft = componentAbsoluteX - anchorOffsetX;
@@ -262,10 +270,10 @@ export class Component {
     // 添加背景（作为矩形元素，相对于组件）
     if (this.backgroundLayer) {
       const backgroundElement = new RectElement({
-        x: componentLeft + this.width / 2, // 组件中心 X（绝对坐标）
-        y: componentTop + this.height / 2, // 组件中心 Y（绝对坐标）
-        width: this.width,
-        height: this.height,
+        x: componentLeft + componentWidth / 2, // 组件中心 X（绝对坐标）
+        y: componentTop + componentHeight / 2, // 组件中心 Y（绝对坐标）
+        width: componentWidth,
+        height: componentHeight,
         anchor: [0.5, 0.5],
         bgcolor: this.backgroundLayer.config.backgroundColor,
         startTime: componentAbsoluteStartTime,
@@ -292,7 +300,8 @@ export class Component {
         // 转换元素的位置（从相对坐标转换为绝对坐标）
         // 元素的位置是相对于组件的，需要转换为相对于父容器的绝对位置
         // 使用 toPixels 来处理各种单位（%, px, vw, vh, rpx 等）
-        const unitContext = { width: this.width, height: this.height };
+        // 使用转换后的组件尺寸作为单位上下文
+        const unitContext = { width: componentWidth, height: componentHeight };
         let elementRelativeX = 0;
         let elementRelativeY = 0;
         

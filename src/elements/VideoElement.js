@@ -469,11 +469,13 @@ export class VideoElement extends BaseElement {
           frameIndex = Math.floor(progress * this.frameBuffer.length);
         }
         
-        // 确保帧索引在有效范围内
-        frameIndex = Math.max(0, Math.min(frameIndex, this.frameBuffer.length - 1));
-        
-        if (this.loop) {
-          frameIndex = frameIndex % this.frameBuffer.length;
+        // 处理循环播放
+        if (this.loop && this.frameBuffer.length > 0) {
+          // 循环模式：使用取模运算，允许超出范围的索引循环回开头
+          frameIndex = ((frameIndex % this.frameBuffer.length) + this.frameBuffer.length) % this.frameBuffer.length;
+        } else {
+          // 非循环模式：限制帧索引在有效范围内
+          frameIndex = Math.max(0, Math.min(frameIndex, this.frameBuffer.length - 1));
         }
         
         // 获取帧，如果无效则尝试使用相邻帧

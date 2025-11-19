@@ -355,6 +355,7 @@ async function testVisualEffects() {
       fit: 'cover',
       mute: true,
       borderWidth: 8,
+      loop: true,
       borderColor: '#00FF00',
       borderRadius: 15,
     });
@@ -371,6 +372,7 @@ async function testVisualEffects() {
       fit: 'cover',
       mute: true,
       brightness: 1.3,
+      loop: true,
       contrast: 1.2,
       saturation: 1.4,
     });

@@ -55,6 +55,9 @@ export const config = {
     commonjs: {
       transformMixedEsModules: true,
       requireReturnsDefault: 'auto',
+      // 支持动态 require（用于示波器渲染器加载）
+      // 忽略动态 require 检查，让运行时动态 require 正常工作
+      ignoreDynamicRequires: true,
     },
   },
   

@@ -2,122 +2,14 @@ import { BaseElement } from './BaseElement.js';
 import { DEFAULT_IMAGE_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
-import { Image, createCanvas } from 'canvas';
+import { Image, loadImage, createCanvas } from 'canvas';
 import { toPixels } from '../utils/unit-converter.js';
 import execa from 'execa';
 import { rawVideoToFrames, calculateVideoScale, getInputCodec, buildVideoFFmpegArgs, readFileStreams, createAudioStream } from '../utils/video-utils.js';
 import paper from 'paper-jsdom-canvas';
+import { calculateImageFit } from '../utils/image-fit.js';
 import path from 'path';
 import os from 'os';
-
-/**
- * 全局视频帧缓存（避免多个实例重复初始化同一视频）
- * 使用 global 对象存储，确保跨模块实例共享（但在 Worker 线程中不共享）
- * Map<cacheKey, { frameBuffer, videoInfo, initializingPromise }>
- */
-if (!global.__videoFrameCache) {
-  global.__videoFrameCache = new Map();
-}
-const globalVideoFrameCache = global.__videoFrameCache;
-
-/**
- * 生成视频缓存键
- */
-function getVideoCacheKey(videoPath, cutFrom, cutTo, finalWidth, finalHeight, fps) {
-  return `${videoPath}|${cutFrom}|${cutTo}|${finalWidth}|${finalHeight}|${fps}`;
-}
-
-/**
- * 检测是否在 CommonJS 环境中
- */
-function isCommonJS() {
-  return typeof require !== 'undefined' && typeof module !== 'undefined' && module.exports;
-}
-
-/**
- * 从 RGBA Buffer 创建兼容的 Image 对象
- * CommonJS: 使用 jsdom Image
- * ESM: 使用 canvas Image
- * 优化：使用 'image/jpeg' 格式，质量 0.95，比 PNG 更快
- */
-async function createImageFromRGBA(rgbaBuffer, width, height) {
-  // 将 RGBA Buffer 转换为 data URL
-  // 临时使用 canvas 来转换，但不保存 canvas 对象
-  // 使用 JPEG 格式（质量 0.95）比 PNG 更快，适合视频帧
-  const tempCanvas = createCanvas(width, height);
-  const ctx = tempCanvas.getContext('2d');
-  const imageData = ctx.createImageData(width, height);
-  imageData.data.set(rgbaBuffer);
-  ctx.putImageData(imageData, 0, 0);
-  
-  // 使用 JPEG 格式，质量 0.95，比 PNG 编码更快
-  const dataURL = tempCanvas.toDataURL('image/jpeg', 0.95);
-
-  if (!isCommonJS()) {
-    // ESM 环境使用 canvas Image
-    const canvasImage = new Image();
-    return new Promise((resolve, reject) => {
-      // 设置超时，避免长时间等待
-      const timeout = setTimeout(() => {
-        reject(new Error('Image load timeout'));
-      }, 5000);
-      
-      canvasImage.onload = () => {
-        clearTimeout(timeout);
-        resolve(canvasImage);
-      };
-      canvasImage.onerror = (err) => {
-        clearTimeout(timeout);
-        reject(err);
-      };
-      canvasImage.src = dataURL;
-    });
-  }
-
-  try {
-    // 动态导入 jsdom（只在 CommonJS 中需要）
-    const { JSDOM } = await import('jsdom');
-    const dom = new JSDOM();
-    const jsdomImage = new dom.window.Image();
-
-    // 使用 data URL 加载 jsdom Image
-    return new Promise((resolve, reject) => {
-      // 设置超时，避免长时间等待
-      const timeout = setTimeout(() => {
-        reject(new Error('jsdom Image load timeout'));
-      }, 5000);
-      
-      jsdomImage.onload = () => {
-        clearTimeout(timeout);
-        resolve(jsdomImage);
-      };
-      jsdomImage.onerror = (error) => {
-        clearTimeout(timeout);
-        reject(new Error(`Failed to load jsdom Image from RGBA: ${error.message || 'Unknown error'}`));
-      };
-      jsdomImage.src = dataURL;
-    });
-  } catch (error) {
-    console.warn(`[VideoElement] 无法创建 jsdom Image，回退到 canvas Image: ${error.message}`);
-    // 如果失败，回退到 canvas Image
-    const canvasImage = new Image();
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Image load timeout'));
-      }, 5000);
-      
-      canvasImage.onload = () => {
-        clearTimeout(timeout);
-        resolve(canvasImage);
-      };
-      canvasImage.onerror = (err) => {
-        clearTimeout(timeout);
-        reject(err);
-      };
-      canvasImage.src = dataURL;
-    });
-  }
-}
 
 /**
  * 视频元素
@@ -151,9 +43,21 @@ export class VideoElement extends BaseElement {
     this.frameImageCacheSize = 10; // 最多缓存10帧
     this.preloadNextFrame = null; // 预加载的下一帧 Promise
     
+    // 与 ImageElement 一致的属性
+    this.imageData = null; // 当前帧的 Image/Canvas 对象
+    this.loaded = false; // 是否已加载（对于视频，表示是否已初始化）
+    
     // 音频相关
     this.audioStream = null;
     this.audioPath = null; // 提取的音频文件路径
+  }
+
+  /**
+   * 设置视频适配方式（与 ImageElement 一致）
+   */
+  setFit(fit) {
+    this.config.fit = fit; // cover, contain, fill, none
+    this.fit = fit;
   }
 
   /**
@@ -275,42 +179,7 @@ export class VideoElement extends BaseElement {
       const expectedFrames = Math.ceil(extractDuration * targetFps);
       this.expectedFrames = expectedFrames;
       
-      // 生成缓存键（使用 finalWidth 和 finalHeight）
-      const cacheKey = getVideoCacheKey(this.videoPath, actualCutFrom, actualCutTo, finalWidth, finalHeight, targetFps);
-      
-      // 检查全局缓存（在开始初始化之前）
-      const cached = globalVideoFrameCache.get(cacheKey);
-      if (cached && cached.initialized && cached.frameBuffer && cached.frameBuffer.length > 0) {
-        // 使用缓存的帧缓冲和视频信息
-        const isWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
-        const threadInfo = isWorker ? '[Worker]' : '[Main]';
-        console.log(`${threadInfo} [VideoElement] 使用缓存的视频帧: ${this.videoPath} (${cached.frameBuffer.length} 帧)`);
-        this.frameBuffer = cached.frameBuffer;
-        this.videoInfo = cached.videoInfo;
-        this.finalWidth = cached.finalWidth;
-        this.finalHeight = cached.finalHeight;
-        this.initialized = true;
-        return;
-      }
-      
-      // 如果有正在进行的初始化，等待它完成
-      if (cached && cached.initializingPromise) {
-        const isWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
-        const threadInfo = isWorker ? '[Worker]' : '[Main]';
-        console.log(`${threadInfo} [VideoElement] 等待其他实例完成初始化: ${this.videoPath}`);
-        await cached.initializingPromise;
-        const updatedCache = globalVideoFrameCache.get(cacheKey);
-        if (updatedCache && updatedCache.initialized && updatedCache.frameBuffer && updatedCache.frameBuffer.length > 0) {
-          this.frameBuffer = updatedCache.frameBuffer;
-          this.videoInfo = updatedCache.videoInfo;
-          this.finalWidth = updatedCache.finalWidth;
-          this.finalHeight = updatedCache.finalHeight;
-          this.initialized = true;
-          return;
-        }
-      }
-      
-      // 创建初始化 Promise 并保存到缓存
+      // 创建初始化 Promise
       const initializingPromise = (async () => {
         try {
           // 构建 FFmpeg 参数
@@ -532,43 +401,22 @@ export class VideoElement extends BaseElement {
 
         this.initialized = true;
         
-        // 保存到全局缓存
-        globalVideoFrameCache.set(cacheKey, {
-          frameBuffer: this.frameBuffer,
-          videoInfo: this.videoInfo,
-          finalWidth: this.finalWidth,
-          finalHeight: this.finalHeight,
-          initialized: true,
-          initializingPromise: null
-        });
-        
         const isWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
         const threadInfo = isWorker ? '[Worker]' : '[Main]';
         console.log(`${threadInfo} [VideoElement] 初始化完成: ${this.videoPath}, 缓冲了 ${this.frameBuffer.length} 帧`);
         
-          // 调用 onLoaded 回调（注意：此时还没有 paperItem，所以传递 null）
-          this._callOnLoaded(this.startTime || 0, null, null);
-        } catch (error) {
-          const isWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
-          const threadInfo = isWorker ? '[Worker]' : '[Main]';
-          console.error(`${threadInfo} [VideoElement] 初始化失败: ${this.videoPath}`, error);
-          this.initialized = false;
-          // 清除缓存中的初始化 Promise
-          const cached = globalVideoFrameCache.get(cacheKey);
-          if (cached) {
-            cached.initializingPromise = null;
-          }
-          throw error;
-        }
-      })();
-      
-      // 保存初始化 Promise 到缓存
-      globalVideoFrameCache.set(cacheKey, {
-        initializingPromise,
-        initialized: false
-      });
-      
-      await initializingPromise;
+        // 调用 onLoaded 回调（注意：此时还没有 paperItem，所以传递 null）
+        this._callOnLoaded(this.startTime || 0, null, null);
+      } catch (error) {
+        const isWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
+        const threadInfo = isWorker ? '[Worker]' : '[Main]';
+        console.error(`${threadInfo} [VideoElement] 初始化失败: ${this.videoPath}`, error);
+        this.initialized = false;
+        throw error;
+      }
+    })();
+    
+    await initializingPromise;
       } catch (error) {
         const isWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
         const threadInfo = isWorker ? '[Worker]' : '[Main]';
@@ -585,9 +433,9 @@ export class VideoElement extends BaseElement {
   }
 
   /**
-   * 获取当前帧的 Image 对象
+   * 获取当前帧的 Canvas 对象
    * @param {number} progress - 进度 (0-1)，基于元素的 duration
-   * @returns {Promise<Image|null>} 当前帧的 Image 对象
+   * @returns {Promise<Canvas|null>} 当前帧的 Canvas 对象
    */
   async getFrameAtProgress(progress) {
     if (!this.initialized) {
@@ -663,25 +511,22 @@ export class VideoElement extends BaseElement {
         return null;
       }
 
-      // 根据环境创建兼容的 Image 对象（不使用 createCanvas 保存）
-      const imagePromise = createImageFromRGBA(rgba, this.finalWidth, this.finalHeight);
+      // 从 RGBA Buffer 创建 Canvas 对象（与 ImageElement 一致，直接使用 Canvas）
+      const frameCanvas = createCanvas(this.finalWidth, this.finalHeight);
+      const ctx = frameCanvas.getContext('2d');
+      const imageData = ctx.createImageData(this.finalWidth, this.finalHeight);
+      imageData.data.set(rgba);
+      ctx.putImageData(imageData, 0, 0);
       
-      // 缓存 Image 对象
-      imagePromise.then((image) => {
-        if (image) {
-          // 限制缓存大小
-          if (this.frameImageCache.size >= this.frameImageCacheSize) {
-            // 删除最旧的缓存（FIFO）
-            const firstKey = this.frameImageCache.keys().next().value;
-            this.frameImageCache.delete(firstKey);
-          }
-          this.frameImageCache.set(cacheKey, image);
-        }
-      }).catch(() => {
-        // 忽略缓存错误
-      });
+      // 缓存 Canvas 对象
+      if (this.frameImageCache.size >= this.frameImageCacheSize) {
+        // 删除最旧的缓存（FIFO）
+        const firstKey = this.frameImageCache.keys().next().value;
+        this.frameImageCache.delete(firstKey);
+      }
+      this.frameImageCache.set(cacheKey, frameCanvas);
       
-      return await imagePromise;
+      return frameCanvas;
     } catch (error) {
       console.error('Failed to get video frame:', error);
       return null;
@@ -708,14 +553,17 @@ export class VideoElement extends BaseElement {
   applyVisualEffects(raster, state, width, height, paperInstance = null) {
     // 获取 Paper.js 实例
     const { paper: p } = this.getPaperInstance(paperInstance);
-    // 检查是否有视觉效果
+    // 检查是否有视觉效果（与 ImageElement 一致）
     const hasBorder = state.borderWidth > 0;
     const hasShadow = state.shadowBlur > 0;
     const hasFlip = state.flipX || state.flipY;
     const hasBlendMode = state.blendMode && state.blendMode !== 'normal';
+    const hasFilter = state.filter || 
+      (state.brightness !== 1 || state.contrast !== 1 || state.saturation !== 1 || 
+       state.hue !== 0 || state.grayscale > 0);
     const hasGlassEffect = state.glassEffect;
 
-    if (!hasBorder && !hasShadow && !hasFlip && !hasBlendMode && !hasGlassEffect) {
+    if (!hasBorder && !hasShadow && !hasFlip && !hasBlendMode && !hasFilter && !hasGlassEffect) {
       return raster;
     }
 
@@ -808,8 +656,24 @@ export class VideoElement extends BaseElement {
   async render(layer, time, paperInstance = null) {
     if (!this.visible) return null;
     if (!this.isActiveAtTime(time)) return null;
-    if (!this.initialized) await this.initialize();
-    if (!this.initialized) return null;
+    
+    // 确保视频已初始化（与 ImageElement 的 loaded 检查一致）
+    if (!this.initialized) {
+      try {
+        await Promise.race([
+          this.initialize(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Video initialization timeout (5s)')), 5000))
+        ]);
+      } catch (error) {
+        console.error(`[VideoElement] 初始化失败 (id: ${this.id}):`, error.message);
+        return null;
+      }
+    }
+    
+    if (!this.initialized) {
+      console.warn(`[VideoElement] 视频未初始化 (id: ${this.id})`);
+      return null;
+    }
     
     const { paper: p, project } = this.getPaperInstance(paperInstance);
     const viewSize = project?.view?.viewSize || { width: 1920, height: 1080 };
@@ -819,68 +683,53 @@ export class VideoElement extends BaseElement {
     // 计算进度
     const progress = this.getProgressAtTime(time);
     
-    // 视频帧已经在 initialize() 时根据 fit 参数通过 FFmpeg 处理过了
-    // 所以这里直接使用处理后的帧尺寸（finalWidth, finalHeight）
-    // 但也要考虑元素配置的 width/height（可能被动画修改）
+    // 获取当前帧并赋值给 this.imageData（与 ImageElement 一致）
+    const imageData = await this.getFrameAtProgress(progress);
+    if (!imageData) {
+      console.warn(`[VideoElement] 无法获取视频帧 (id: ${this.id})`);
+      return null;
+    }
+    
+    // 计算容器尺寸（元素的目标尺寸，与 ImageElement 一致）
     const containerSize = this.convertSize(state.width, state.height, context);
     const containerWidth = containerSize.width || viewSize.width;
     const containerHeight = containerSize.height || viewSize.height;
     
-    // 如果视频已经根据 fit 处理过，使用处理后的尺寸
-    // 否则使用容器尺寸（fill 模式）
-    const fit = state.fit || this.fit || 'cover';
-    let width, height;
+    // 获取视频帧原始尺寸
+    const imageWidth = imageData.width || this.finalWidth || containerWidth;
+    const imageHeight = imageData.height || this.finalHeight || containerHeight;
     
-    if (fit === 'fill' || fit === 'stretch') {
-      // fill 模式：使用容器尺寸
-      width = containerWidth;
-      height = containerHeight;
-    } else {
-      // cover/contain 模式：使用 FFmpeg 处理后的尺寸
-      // 这些尺寸已经在 initialize() 时根据 fit 计算好了
-      width = this.finalWidth || containerWidth;
-      height = this.finalHeight || containerHeight;
-    }
+    // 根据 fit 参数计算实际显示尺寸（与 ImageElement 一致）
+    const fit = state.fit || this.config.fit || this.fit || 'cover';
+    const fitResult = calculateImageFit({
+      imageWidth,
+      imageHeight,
+      containerWidth,
+      containerHeight,
+      fit
+    });
     
+    // 使用适配后的尺寸
+    const width = fitResult.width;
+    const height = fitResult.height;
     const { x, y } = this.calculatePosition(state, context, { width, height });
     
-    // 获取当前帧
-    const frameImage = await this.getFrameAtProgress(progress);
-    if (!frameImage) {
-      // 如果无法获取帧，尝试使用第一帧作为回退（避免黑屏）
-      if (this.frameBuffer.length > 0) {
-        try {
-          const fallbackRgba = this.frameBuffer[0];
-          if (fallbackRgba && Buffer.isBuffer(fallbackRgba) && fallbackRgba.length > 0) {
-            const fallbackImage = await createImageFromRGBA(fallbackRgba, this.finalWidth, this.finalHeight);
-            if (fallbackImage) {
-              // 使用回退帧继续渲染，避免黑屏
-              const raster = new p.Raster(fallbackImage);
-              raster.position = new p.Point(x, y);
-              raster.size = new p.Size(width, height);
-              this.applyTransform(raster, state, {
-                applyPosition: false,
-                paperInstance: p
-              });
-              const finalItem = this.applyVisualEffects(raster, state, width, height, p);
-              if (layer) {
-                layer.addChild(finalItem);
-              }
-              return finalItem;
-            }
-          }
-        } catch (error) {
-          // 忽略回退帧创建错误
-        }
-      }
-      // 如果回退也失败，跳过渲染（避免黑屏）
-      return null;
-    }
-    
-    // 直接使用 Image 对象创建 Raster
-    const raster = new p.Raster(frameImage);
+    // 直接使用 Image/Canvas 对象创建 Raster（与 ImageElement 完全一致）
+    const raster = new p.Raster(imageData);
     raster.position = new p.Point(x, y);
-    raster.size = new p.Size(width, height);
+    
+    // 使用 scale 来设置尺寸，而不是直接设置 size（与 ImageElement 一致）
+    const sourceWidth = imageData.width || width;
+    const sourceHeight = imageData.height || height;
+    
+    if (sourceWidth > 0 && sourceHeight > 0) {
+      const scaleX = width / sourceWidth;
+      const scaleY = height / sourceHeight;
+      raster.scale(scaleX, scaleY, raster.position);
+    } else {
+      // 如果无法获取原始尺寸，直接设置 size
+      raster.size = new p.Size(width, height);
+    }
     
     // 应用变换
     this.applyTransform(raster, state, {

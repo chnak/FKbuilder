@@ -2,60 +2,10 @@ import { BaseElement } from './BaseElement.js';
 import { DEFAULT_IMAGE_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
-import { Image, createCanvas } from 'canvas';
+import { loadImage } from 'canvas';
 import { toPixels } from '../utils/unit-converter.js';
 import paper from 'paper-jsdom-canvas';
 import { calculateImageFit } from '../utils/image-fit.js';
-
-/**
- * 检测是否在 CommonJS 环境中
- */
-function isCommonJS() {
-  return typeof require !== 'undefined' && typeof module !== 'undefined' && module.exports;
-}
-
-/**
- * 在 CommonJS 环境中创建 jsdom 兼容的 Image 对象
- * 直接使用 jsdom 的 Image 对象从文件路径加载
- */
-async function createJSDOMMpatibleImage(imageSrc) {
-  if (!isCommonJS()) {
-    // ESM 环境使用 canvas Image
-    const canvasImage = new Image();
-    return new Promise((resolve, reject) => {
-      canvasImage.onload = () => resolve(canvasImage);
-      canvasImage.onerror = reject;
-      canvasImage.src = imageSrc;
-    });
-  }
-
-  try {
-    // 动态导入 jsdom（只在 CommonJS 中需要）
-    const { JSDOM } = await import('jsdom');
-    const dom = new JSDOM();
-    const jsdomImage = new dom.window.Image();
-
-    // 直接使用 jsdom Image 从文件路径加载
-    return new Promise((resolve, reject) => {
-      jsdomImage.onload = () => {
-        resolve(jsdomImage);
-      };
-      jsdomImage.onerror = (error) => {
-        reject(new Error(`Failed to load jsdom Image: ${error.message || 'Unknown error'}`));
-      };
-      jsdomImage.src = imageSrc;
-    });
-  } catch (error) {
-    console.warn(`[ImageElement] 无法创建 jsdom Image，回退到 canvas Image: ${error.message}`);
-    // 如果失败，回退到 canvas Image
-    const canvasImage = new Image();
-    return new Promise((resolve, reject) => {
-      canvasImage.onload = () => resolve(canvasImage);
-      canvasImage.onerror = reject;
-      canvasImage.src = imageSrc;
-    });
-  }
-}
 
 /**
  * 图片元素
@@ -71,15 +21,13 @@ export class ImageElement extends BaseElement {
   }
 
   /**
-   * 初始化方法 - 根据环境使用不同的 Image 类加载图片
+   * 初始化方法 - 使用 canvas loadImage 加载图片
    */
   async initialize() {
     if (this.config.src && !this.loaded) {
       try {
-        // 根据环境创建兼容的 Image 对象
-        // CommonJS: 使用 jsdom Image
-        // ESM: 使用 canvas Image
-        this.imageData = await createJSDOMMpatibleImage(this.config.src);
+        // 使用 canvas loadImage 加载图片（支持文件路径和 URL）
+        this.imageData = await loadImage(this.config.src);
         this.loaded = true;
         // 调用 onLoaded 回调（注意：此时还没有 paperItem，所以传递 null）
         // paperInstance 会在 render 时保存
@@ -234,8 +182,24 @@ export class ImageElement extends BaseElement {
   async render(layer, time, paperInstance = null) {
     if (!this.visible) return null;
     if (!this.isActiveAtTime(time)) return null;
-    if (!this.loaded) await this.initialize();
-    if (!this.loaded || !this.imageData) return null;
+    
+    // 确保图片已加载（添加超时保护）
+    if (!this.loaded) {
+      try {
+        await Promise.race([
+          this.initialize(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Image initialization timeout (5s)')), 5000))
+        ]);
+      } catch (error) {
+        console.error(`[ImageElement] 初始化失败 (id: ${this.id}):`, error.message);
+        return null;
+      }
+    }
+    
+    if (!this.loaded || !this.imageData) {
+      console.warn(`[ImageElement] 图片未加载 (id: ${this.id})`);
+      return null;
+    }
   
     const { paper: p, project } = this.getPaperInstance(paperInstance);
     const viewSize = project?.view?.viewSize || { width: 1920, height: 1080 };

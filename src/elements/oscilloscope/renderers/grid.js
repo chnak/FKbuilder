@@ -1,4 +1,4 @@
-import paper from 'paper-jsdom-canvas';
+import paper from 'paper';
 
 /**
  * 网格样式默认配置

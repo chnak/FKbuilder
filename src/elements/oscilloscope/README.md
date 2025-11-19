@@ -34,7 +34,7 @@ oscilloscope/
 2. 导出一个默认函数，函数签名如下：
 
 ```javascript
-import paper from 'paper-jsdom-canvas';
+import paper from 'paper';
 
 /**
  * 自定义渲染器

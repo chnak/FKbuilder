@@ -4,7 +4,7 @@ import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
 import { loadImage } from 'canvas';
 import { toPixels } from '../utils/unit-converter.js';
-import paper from 'paper-jsdom-canvas';
+import paper from 'paper';
 import { calculateImageFit } from '../utils/image-fit.js';
 
 /**

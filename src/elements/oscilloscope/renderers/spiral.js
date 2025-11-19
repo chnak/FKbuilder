@@ -1,4 +1,4 @@
-import paper from 'paper-jsdom-canvas';
+import paper from 'paper';
 
 /**
  * 螺旋样式默认配置

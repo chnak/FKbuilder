@@ -3,7 +3,7 @@ import { DEFAULT_ELEMENT_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
 import { toPixels } from '../utils/unit-converter.js';
-import paper from 'paper-jsdom-canvas';
+import paper from 'paper';
 
 /**
  * 精灵元素（通用元素包装器，使用 Paper.js）

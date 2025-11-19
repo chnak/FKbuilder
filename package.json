@@ -58,7 +58,7 @@
     "lrc-kit": "^1.1.1",
     "nanoid": "^5.0.4",
     "paper": "^0.12.18",
-    "paper-jsdom-canvas": "^0.12.18",
+    "jsdom": "^16.2.2",
     "spritejs": "^3.8.3",
     "zod": "^4.1.12"
   },

@@ -7,7 +7,7 @@ import { getDefaultFontFamily, isFontRegistered } from '../utils/font-manager.js
 import { TextSplitter } from '../utils/text-splitter.js';
 import { TransformAnimation } from '../animations/TransformAnimation.js';
 import { createCanvas, Image } from 'canvas';
-import paper from 'paper-jsdom-canvas';
+import paper from 'paper';
 
 /**
  * 文本元素

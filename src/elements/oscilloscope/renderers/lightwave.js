@@ -1,4 +1,4 @@
-import paper from 'paper-jsdom-canvas';
+import paper from 'paper';
 
 /**
  * 光波扩散样式默认配置

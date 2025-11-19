@@ -6,7 +6,7 @@ import { Image, loadImage, createCanvas } from 'canvas';
 import { toPixels } from '../utils/unit-converter.js';
 import execa from 'execa';
 import { rawVideoToFrames, calculateVideoScale, getInputCodec, buildVideoFFmpegArgs, readFileStreams, createAudioStream } from '../utils/video-utils.js';
-import paper from 'paper-jsdom-canvas';
+import paper from 'paper';
 import { calculateImageFit } from '../utils/image-fit.js';
 import path from 'path';
 import os from 'os';

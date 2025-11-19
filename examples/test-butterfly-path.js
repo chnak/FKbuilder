@@ -1,5 +1,5 @@
 import { VideoBuilder } from '../src/index.js';
-import paper from 'paper-jsdom-canvas';
+import paper from 'paper';
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';

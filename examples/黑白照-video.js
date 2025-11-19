@@ -2,7 +2,7 @@ import { VideoBuilder, getAudioDuration, withContext } from '../src/index.js';
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import paper from 'paper-jsdom-canvas';
+import paper from 'paper';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

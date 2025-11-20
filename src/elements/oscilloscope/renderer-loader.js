@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,44 +25,44 @@ export async function loadRenderers() {
   // 支持 .js 和 .cjs 文件（构建后可能是 .cjs）
   const jsFiles = files.filter(f => f.endsWith('.js') || f.endsWith('.cjs'));
 
-  // 尝试多种方式加载 require
-  let localRequire = null;
-  
-  // 方法1: 直接使用 require（CommonJS 环境）
-  try {
-    if (typeof require !== 'undefined') {
-      localRequire = require;
-    }
-  } catch (e) {
-    // require 不可用
-  }
-  
-  // 方法2: 使用 createRequire（ESM 环境）
-  if (!localRequire) {
-    try {
-      const { createRequire } = await import('module');
-      localRequire = createRequire(import.meta.url);
-    } catch (e) {
-      // createRequire 不可用
-    }
-  }
+  // 检测是否是ESM环境（有import.meta.url）
+  const isESM = typeof import.meta !== 'undefined' && import.meta.url;
 
   for (const file of jsFiles) {
     try {
       const fileBaseName = path.basename(file, path.extname(file));
       let renderer = null;
       
-      if (localRequire) {
-        // 使用 require 加载
-        const rendererPath = path.join(renderersDir, file);
-        const rendererModule = localRequire(rendererPath);
-        // CommonJS 模块可能使用 exports.default 或直接导出
-        renderer = rendererModule.default || rendererModule;
-      } else {
+      if (isESM) {
         // ESM 环境：使用动态 import
-        const rendererPath = `./renderers/${fileBaseName}`;
-        const rendererModule = await import(rendererPath);
-        renderer = rendererModule.default;
+        // 使用相对于当前文件的路径
+        const rendererPath = `./renderers/${fileBaseName}.js`;
+        try {
+          const rendererModule = await import(rendererPath);
+          renderer = rendererModule.default;
+        } catch (importError) {
+          // 如果相对路径失败，尝试使用绝对路径（file:// URL）
+          try {
+            const absolutePath = path.join(renderersDir, fileBaseName + '.js');
+            // 转换为 file:// URL
+            const fileUrl = pathToFileURL(absolutePath).href;
+            const rendererModule = await import(fileUrl);
+            renderer = rendererModule.default;
+          } catch (absoluteError) {
+            // 如果还是失败，记录错误但继续
+            console.warn(`[OscilloscopeRenderer] 无法加载渲染器 ${fileBaseName}:`, importError.message);
+          }
+        }
+      } else {
+        // CommonJS 环境：使用 require
+        try {
+          const rendererPath = path.join(renderersDir, file);
+          const rendererModule = require(rendererPath);
+          // CommonJS 模块可能使用 exports.default 或直接导出
+          renderer = rendererModule.default || rendererModule;
+        } catch (requireError) {
+          console.warn(`[OscilloscopeRenderer] 无法加载渲染器 ${fileBaseName}:`, requireError.message);
+        }
       }
       
       if (renderer && typeof renderer === 'function') {
@@ -72,26 +72,11 @@ export async function loadRenderers() {
         if (styleName === 'particles') {
           renderers.set('dots', renderer);
         }
+      } else {
+        console.warn(`[OscilloscopeRenderer] 渲染器 ${fileBaseName} 不是有效的函数`);
       }
     } catch (error) {
-      // 如果第一种方式失败，尝试另一种方式
-      if (!localRequire && (error.code === 'ERR_UNSUPPORTED_DIR_IMPORT' || error.message.includes('Cannot find module'))) {
-        try {
-          // 尝试使用 require（CommonJS 环境）
-          const rendererPath = path.join(renderersDir, file);
-          const rendererModule = require(rendererPath);
-          const renderer = rendererModule.default || rendererModule;
-          if (renderer && typeof renderer === 'function') {
-            const styleName = renderer.style || path.basename(file, path.extname(file));
-            renderers.set(styleName, renderer);
-            if (styleName === 'particles') {
-              renderers.set('dots', renderer);
-            }
-          }
-        } catch (requireError) {
-          // 忽略错误
-        }
-      }
+      console.warn(`[OscilloscopeRenderer] 加载渲染器 ${file} 时出错:`, error.message);
     }
   }
 }

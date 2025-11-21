@@ -1,6 +1,6 @@
 {
   "name": "fkbuilder",
-  "version": "1.1.24",
+  "version": "1.1.26",
   "description": "基于 Node.js + Paper.js 的程序化视频生成库，支持多轨道多场景、丰富动画效果、转场特效和并行渲染",
   "main": "dist/cjs/index.cjs",
   "module": "dist/esm/index.js",
@@ -55,7 +55,7 @@
     "gl-texture2d": "^2.1.0",
     "gl-transition": "^1.13.0",
     "gl-transitions": "^1.43.0",
-    "got": "^14.6.4",
+    "got": "^11.8.5",
     "jsdom": "^16.2.2",
     "lrc-kit": "^1.1.1",
     "nanoid": "^5.0.4",

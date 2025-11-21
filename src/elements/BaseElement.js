@@ -7,10 +7,11 @@ import { KeyframeAnimation } from '../animations/KeyframeAnimation.js';
 import { AnimationType } from '../types/enums.js';
 import { getPresetAnimation } from '../animations/preset-animations.js';
 import paper from 'paper';
-import { got } from 'got';
+import got from 'got';
 import path from 'path';
 import fs from 'fs';
 import {pipeline} from 'stream/promises';
+
 /**
  * 规范化动画配置为统一格式
  * 将动画实例或配置对象转换为纯配置对象，便于序列化和传递
@@ -268,7 +269,6 @@ export class BaseElement {
         throw new Error('下载的文件为空');
       }
       
-      console.log(`📊 文件大小: ${stats.size} bytes`);
       return outputPath;
       
     } catch (error) {
@@ -336,7 +336,6 @@ export class BaseElement {
       const outputPath = path.join(this.cacheDir, filename);
       
       const result=await this.downloadWithPipeline(url,outputPath);
-      console.log(`下载完成: ${filename}`);
 
       return result;
     } catch (error) {

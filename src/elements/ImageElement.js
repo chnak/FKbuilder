@@ -16,10 +16,12 @@ export class ImageElement extends BaseElement {
     this.type = ElementType.IMAGE;
     // 重新合并配置，确保传入的config优先级最高
     this.config = deepMerge({}, DEFAULT_IMAGE_CONFIG, config);
+    this.src = this.config.src;
     this.imageData = null;
     this.loaded = false;
 
   }
+  
 
   /**
    * 初始化方法 - 使用 canvas loadImage 加载图片

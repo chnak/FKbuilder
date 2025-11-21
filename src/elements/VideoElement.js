@@ -10,6 +10,7 @@ import paper from 'paper';
 import { calculateImageFit } from '../utils/image-fit.js';
 import path from 'path';
 import os from 'os';
+import {getVideoDuration} from '../utils/video-utils.js';
 
 /**
  * 视频元素
@@ -23,8 +24,8 @@ export class VideoElement extends BaseElement {
     
     this.videoPath = config.src  || config.videoPath || null;
     this.fit = config.fit || 'cover'; // cover, contain, fill, none
-    this.cutFrom = config.cutFrom; // 开始时间（秒）
-    this.cutTo = config.cutTo; // 结束时间（秒）
+    this.cutFrom = config.cutFrom||0; // 开始时间（秒）
+    this.cutTo = config.cutTo||this.config.duration; // 结束时间（秒）
     this.speedFactor = config.speedFactor || 1; // 播放速度倍数
     this.loop = config.loop || false; // 是否循环播放
     this.mute = config.mute !== undefined ? config.mute : true; // 默认静音
@@ -52,6 +53,25 @@ export class VideoElement extends BaseElement {
     this.audioPath = null; // 提取的音频文件路径
   }
 
+  async ready() {
+    await super.ready();
+
+    if (this.videoPath) {
+      try {
+        const { effectiveDuration } = await getVideoDuration(this.videoPath, {
+          cutFrom: this.config.cutFrom,
+          cutTo: this.config.cutTo,
+        });
+        if (effectiveDuration > 0 && this.config.duration > effectiveDuration) {
+          this.config.loop = true;
+        }
+      } catch (err) {
+        console.warn(`[VideoElement] getVideoDuration failed: ${err.message}`);
+      }
+    }
+
+    return true;
+  }
   /**
    * 设置视频适配方式（与 ImageElement 一致）
    */
@@ -142,6 +162,10 @@ export class VideoElement extends BaseElement {
       });
 
       const { targetWidth: finalWidth, targetHeight: finalHeight, scaleFilter } = scaleParams;
+      const roundedWidth = Math.round(finalWidth);
+      const roundedHeight = Math.round(finalHeight);
+      this.finalWidth = roundedWidth;
+      this.finalHeight = roundedHeight;
 
       // 获取输入编解码器
       const inputCodec = getInputCodec(videoStream.codec_name);
@@ -199,8 +223,8 @@ export class VideoElement extends BaseElement {
         // 创建转换流
         const controller = new AbortController();
         const transform = rawVideoToFrames({
-          width: finalWidth,
-          height: finalHeight,
+          width: roundedWidth,
+          height: roundedHeight,
           channels: 4, // RGBA
           signal: controller.signal
         });
@@ -328,13 +352,13 @@ export class VideoElement extends BaseElement {
         this.frameIterator = transform[Symbol.asyncIterator]();
         this.controller = controller;
         this.ps = ps;
-        this.finalWidth = finalWidth;
-        this.finalHeight = finalHeight;
+        this.finalWidth = roundedWidth;
+        this.finalHeight = roundedHeight;
 
         // 缓冲所有帧（用于随机访问）
         let frameCount = 0;
         let bufferError = null;
-        const frameSize = finalWidth * finalHeight * 4; // RGBA
+        const frameSize = roundedWidth * roundedHeight * 4; // RGBA
         
         try {
           while (true) {

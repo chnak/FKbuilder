@@ -6,6 +6,31 @@ import execa from 'execa';
  */
 
 /**
+ * 获取视频时长，并根据 cutFrom/cutTo 返回有效区间
+ */
+export async function getVideoDuration(filePath, options = {}) {
+  const { cutFrom = 0, cutTo } = options;
+
+  const { stdout } = await execa('ffprobe', [
+    '-v', 'error',
+    '-show_entries', 'format=duration',
+    '-of', 'default=noprint_wrappers=1:nokey=1',
+    filePath,
+  ]);
+
+  const rawDuration = parseFloat(stdout.trim());
+  if (!Number.isFinite(rawDuration)) {
+    return { rawDuration: 0, effectiveDuration: 0 };
+  }
+
+  const start = Math.max(0, cutFrom);
+  const end = cutTo !== undefined ? Math.min(cutTo, rawDuration) : rawDuration;
+  const effectiveDuration = Math.max(0, end - start);
+
+  return { rawDuration, effectiveDuration };
+}
+
+/**
  * 将原始视频流转换为单独的帧
  * @param {Object} options - 选项
  * @param {number} options.width - 帧宽度

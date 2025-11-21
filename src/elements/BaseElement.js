@@ -677,6 +677,14 @@ export class BaseElement {
     };
   }
 
+
+  async ready() {
+    const src=this.config.src || this.config.videoPath || this.config.audioPath || this.config.svgPath || this.config.imagePath || this.config.jsonPath || this.config.fontPath || null;
+    if(src) {
+      console.log('ready', src);
+    }
+    return true;
+  }
   /**
    * 初始化元素（在渲染之前调用）
    * 子类可以覆盖此方法来实现异步初始化逻辑（如加载资源）
@@ -685,6 +693,17 @@ export class BaseElement {
   initialize() {
     // 默认实现为空，子类可以覆盖
     // 如果子类需要异步初始化，可以返回 Promise
+
+    // else if(this.audioPath) {
+    //   console.log('initialize', this.audioPath);
+    // }else if(this.videoPath) {
+    //   console.log('initialize', this.videoPath);
+    // }else if(this.imagePath) {
+    //   console.log('initialize', this.imagePath);
+    // }else if(this.svgPath) {
+    //   console.log('initialize', this.svgPath);
+    // }
+
     return Promise.resolve();
   }
 

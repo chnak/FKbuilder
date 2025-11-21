@@ -109,11 +109,6 @@ export class Scene {
   addImage(config = {}) {
     const imageElement = new ImageElement(config);
     // 如果提供了src，异步加载图片
-    if (config.src) {
-      imageElement.load().catch(err => {
-        console.warn('图片加载失败:', config.src, err);
-      });
-    }
     this.elements.push({
       type: 'image',
       element: imageElement,
@@ -129,11 +124,6 @@ export class Scene {
   addVideo(config = {}) {
     const videoElement = new VideoElement(config);
     // 如果提供了src，异步初始化视频
-    if (config.src || config.source || config.videoPath) {
-      videoElement.initialize().catch(err => {
-        console.warn('视频初始化失败:', config.src || config.source || config.videoPath, err);
-      });
-    }
     this.elements.push({
       type: 'video',
       element: videoElement,
@@ -209,11 +199,6 @@ export class Scene {
   addJSON(config = {}) {
     const jsonElement = new JSONElement(config);
     // 如果提供了 src，异步加载 JSON
-    if (config.src) {
-      jsonElement.load().catch(err => {
-        console.warn('JSON 加载失败:', config.src, err);
-      });
-    }
     this.elements.push({
       type: 'json',
       element: jsonElement,
@@ -253,9 +238,6 @@ export class Scene {
   addAudio(config = {}) {
     const audioElement = new AudioElement(config);
     // 异步加载音频信息
-    audioElement.load().catch(err => {
-      console.warn('音频加载失败:', config.src, err);
-    });
     this.elements.push({
       type: 'audio',
       element: audioElement,
@@ -332,18 +314,6 @@ export class Scene {
           // 如果返回 Promise，等待完成
           if (initResult && typeof initResult.then === 'function') {
             await initResult;
-          }
-          // 检查初始化状态
-          if (typeof element.isInitialized === 'function') {
-            const isInit = element.isInitialized();
-            if (!isInit && element.type === 'svg') {
-              console.warn(`[Scene] SVG 元素初始化后仍未就绪:`, {
-                loaded: element.loaded,
-                hasContent: !!element.svgContent,
-                svgString: !!element.svgString,
-                src: element.src
-              });
-            }
           }
         } catch (err) {
           console.warn(`[Scene] 元素 ${element.type} 初始化失败:`, err);

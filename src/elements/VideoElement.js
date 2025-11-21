@@ -21,7 +21,7 @@ export class VideoElement extends BaseElement {
     // 重新合并配置，确保传入的config优先级最高
     this.config = deepMerge({}, DEFAULT_IMAGE_CONFIG, config);
     
-    this.videoPath = config.src || config.source || config.videoPath || '';
+    this.videoPath = config.src  || config.videoPath || null;
     this.fit = config.fit || 'cover'; // cover, contain, fill, none
     this.cutFrom = config.cutFrom; // 开始时间（秒）
     this.cutTo = config.cutTo; // 结束时间（秒）
@@ -64,6 +64,7 @@ export class VideoElement extends BaseElement {
    * 初始化方法 - 使用 FFmpeg 提取视频帧
    */
   async initialize() {
+    await super.initialize();
     if (this.initialized || !this.videoPath) {
       return;
     }

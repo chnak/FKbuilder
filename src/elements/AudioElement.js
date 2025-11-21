@@ -29,6 +29,11 @@ export class AudioElement extends BaseElement {
     this.loaded = false;
   }
 
+  async initialize() {
+    await super.initialize();
+    await this.load();
+  }
+
   /**
    * 加载音频信息（使用 FFmpeg 获取音频时长等信息）
    */

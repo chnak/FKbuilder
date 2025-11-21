@@ -16,6 +16,7 @@ export class ImageElement extends BaseElement {
     this.type = ElementType.IMAGE;
     // 重新合并配置，确保传入的config优先级最高
     this.config = deepMerge({}, DEFAULT_IMAGE_CONFIG, config);
+    this.src = this.config.src;
     this.imageData = null;
     this.loaded = false;
   }
@@ -23,11 +24,14 @@ export class ImageElement extends BaseElement {
   /**
    * 初始化方法 - 使用 canvas loadImage 加载图片
    */
-  async initialize() {
+  async initialize(loaded) {
+    if(!loaded) {
+      await super.initialize();
+    }
     if (this.config.src && !this.loaded) {
       try {
         // 使用 canvas loadImage 加载图片（支持文件路径和 URL）
-        this.imageData = await loadImage(this.config.src);
+        this.imageData = await loadImage(this.src);
         this.loaded = true;
         // 调用 onLoaded 回调（注意：此时还没有 paperItem，所以传递 null）
         // paperInstance 会在 render 时保存
@@ -39,19 +43,16 @@ export class ImageElement extends BaseElement {
     }
   }
 
-  /**
-   * 加载图片（向后兼容，内部调用 initialize）
-   */
-  async load() {
-    await this.initialize();
-  }
+
 
   /**
    * 设置图片源
    */
   async setSrc(src) {
-    this.config.src = src;
-    await this.load();
+    this.src = src;
+    this.loaded = false;
+    this.imageData = null;
+    await this.initialize(false);
   }
 
   /**

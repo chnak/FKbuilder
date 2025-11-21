@@ -207,13 +207,14 @@ export class VideoMaker {
    * 收集所有音频元素（包括嵌套合成中的音频）
    * @returns {Array<Object>} 音频配置数组
    */
-  collectAllAudioElements() {
+  async collectAllElements() {
     const audioConfigs = [];
-    
+
     // 收集当前合成的音频元素
     for (const audioElement of this.audioElements) {
       if (audioElement && audioElement.type === 'audio') {
         // 如果音频已加载，使用加载后的配置；否则使用当前配置
+        await audioElement.initialize();
         if (audioElement.loaded && audioElement.audioPath) {
           audioConfigs.push(audioElement.getAudioConfig());
         } else if (audioElement.audioPath) {
@@ -228,23 +229,24 @@ export class VideoMaker {
       if (layer.elements) {
         for (const element of layer.elements) {
           if (element && element.type === 'audio') {
+            await element.initialize();
             if (element.loaded && element.audioPath) {
               audioConfigs.push(element.getAudioConfig());
             } else if (element.audioPath) {
               audioConfigs.push(element.getAudioConfig());
             }
-          }
-          
-          // 如果元素是 VideoElement，收集其音频（如果不禁音）
-          if (element && element.type === 'video') {
+          }else if(element && element.type === 'video') {
             // 确保视频已初始化（如果还未初始化，getAudioConfig 会返回 null，但会在导出时初始化）
             // 这里先尝试获取配置，如果 audioPath 存在则收集
+            await element.initialize();
             if (element.audioPath || (!element.mute && element.videoPath)) {
               const audioConfig = element.getAudioConfig();
               if (audioConfig && audioConfig.path) {
                 audioConfigs.push(audioConfig);
               }
             }
+          }else if(element.initialize){
+            await element.initialize();
           }
           
         }

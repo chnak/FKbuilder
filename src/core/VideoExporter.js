@@ -30,17 +30,15 @@ export class VideoExporter {
    * 预先初始化所有 VideoElement（避免在 Worker 中重复初始化）
    * @param {VideoMaker} composition - 合成对象
    */
-  async preInitializeVideoElements(composition) {
-    const videoElements = new Set();
+  async preInitializeAllElements(composition) {
+    const allElements = new Set();
     
     // 收集所有 VideoElement
     const collectVideoElements = (layers) => {
       for (const layer of layers) {
         if (layer.elements) {
           for (const element of layer.elements) {
-            if (element && element.type === 'video' && element.videoPath && !element.initialized) {
-              videoElements.add(element);
-            }
+              allElements.add(element);
           }
         }
       }
@@ -49,10 +47,10 @@ export class VideoExporter {
     collectVideoElements(composition.layers || []);
     
     // 并行初始化所有 VideoElement
-    if (videoElements.size > 0) {
-      console.log(`预先初始化 ${videoElements.size} 个视频元素...`);
-      await Promise.all(Array.from(videoElements).map(element => element.initialize()));
-      console.log(`所有视频元素初始化完成`);
+    if (allElements.size > 0) {
+      console.log(`预先初始化 ${allElements.size} 个元素...`);
+      await Promise.all(Array.from(allElements).map(element => element.ready()));
+      console.log(`所有元素初始化完成`);
     }
   }
 
@@ -79,11 +77,16 @@ export class VideoExporter {
     await fs.ensureDir(outputDir);
     
     // 预先初始化所有 VideoElement（避免在 Worker 中重复初始化）
-    await this.preInitializeVideoElements(composition);
+    
 
 
 
       try {
+
+      let audioConfigs = [];
+      await this.preInitializeAllElements(composition);
+      // 使用 collectAllAudioElements 方法收集音频
+      audioConfigs = await composition.collectAllElements();
         // 记录渲染开始时间
         const renderStartTime = performance.now();
 
@@ -161,10 +164,7 @@ export class VideoExporter {
         TransitionElement.printTransitionStats();
 
         // 收集所有音频元素（在渲染帧的同时可以提前准备）
-      let audioConfigs = [];
       
-      // 使用 collectAllAudioElements 方法收集音频
-      audioConfigs = composition.collectAllAudioElements();
       
       // 去重：根据路径和开始时间去重
       const uniqueAudioConfigs = [];

@@ -382,18 +382,18 @@ async function renderSegment() {
                 }
                 
                 // 初始化元素（如果需要异步加载资源）
-                if (element.initialize && typeof element.initialize === 'function') {
-                  try {
-                    // 添加超时机制，避免资源加载卡住
-                    const initPromise = element.initialize();
-                    const timeoutPromise = new Promise((_, reject) => {
-                      setTimeout(() => reject(new Error('初始化超时（30秒）')), 30000);
-                    });
-                    await Promise.race([initPromise, timeoutPromise]);
-                  } catch (initError) {
-                    console.warn(`[Worker ${segmentIndex}] 元素 ${elementData.type} 初始化失败或超时:`, initError.message);
-                  }
-                }
+                // if (element.initialize && typeof element.initialize === 'function') {
+                //   try {
+                //     // 添加超时机制，避免资源加载卡住
+                //     const initPromise = element.initialize();
+                //     const timeoutPromise = new Promise((_, reject) => {
+                //       setTimeout(() => reject(new Error('初始化超时（30秒）')), 30000);
+                //     });
+                //     await Promise.race([initPromise, timeoutPromise]);
+                //   } catch (initError) {
+                //     console.warn(`[Worker ${segmentIndex}] 元素 ${elementData.type} 初始化失败或超时:`, initError.message);
+                //   }
+                // }
                 
                 layer.addElement(element);
               }

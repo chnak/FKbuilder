@@ -216,6 +216,7 @@ export class CodeElement extends BaseElement {
 
     // 上对齐：使用固定 padding（顶部缩进）
     const paddingPx = this.padding;
+    const paddingBottomPx = this.config.paddingBottom !== undefined ? this.config.paddingBottom : paddingPx;
 
     const lineNumberWidth = this.showLineNumbers ? 50 : 0;
     const contentStartX = pos.x + paddingPx + lineNumberWidth + 8;
@@ -237,7 +238,7 @@ export class CodeElement extends BaseElement {
     const cursorYOffset =  -(fontSize * 0.3);
 
     const contentWidth = Math.max(0, elementWidth - paddingPx * 2);
-    const contentHeight = Math.max(0, elementHeight - paddingPx * 2);
+    const contentHeight = Math.max(0, elementHeight - paddingPx - paddingBottomPx);
     const maxVisibleLines = Math.max(1, Math.floor(contentHeight / lineHeightPx));
 
     let lastPrintedLine = 0;
@@ -265,12 +266,26 @@ export class CodeElement extends BaseElement {
         if (remaining >= 0) lastPrintedLine = i;
       }
     }
-    const visibleStart = (this.split && this.autoScroll) ? Math.max(0, lastPrintedLine - maxVisibleLines + 1) : 0;
+    const printedLines = lastPrintedLine + 1;
+    const scrollOffsetY = (this.split && this.autoScroll) ? Math.max(0, printedLines * lineHeightPx - contentHeight) : 0;
+
+    const clipExtraTop = Math.max(2, Math.round(fontSize * 0.3));
+    const clipExtraBottom = Math.max(2, Math.round(fontSize * 0.6));
+    const clipRect = new p.Path.Rectangle({ rectangle: new p.Rectangle(
+      pos.x + paddingPx,
+      pos.y + paddingPx - clipExtraTop,
+      contentWidth,
+      contentHeight + clipExtraTop + clipExtraBottom
+    ) });
+    const clipGroup = new p.Group();
+    clipGroup.addChild(clipRect);
+    clipRect.clipMask = true;
+    clipGroup.clipped = true;
+    layer.addChild(clipGroup);
+    const target = clipGroup;
 
     this.highlightedLines.forEach((lineData, idx) => {
-      const visibleIndex = idx - visibleStart;
-      if (visibleIndex < 0 || visibleIndex >= maxVisibleLines) return;
-      const centerY = contentStartY + visibleIndex * lineHeightPx + (lineHeightPx / 2);
+      const centerY = contentStartY + idx * lineHeightPx + (lineHeightPx / 2) - scrollOffsetY;
       const fontFamily = state.fontFamily || 'Courier New';
       let currentX = contentStartX;
 
@@ -286,6 +301,7 @@ export class CodeElement extends BaseElement {
           ln.justification = 'right';
           ln.fillColor = '#888888';
           //ln.opacity = progress;
+          target.addChild(ln);
         }
         for (const token of lineData.tokens) {
           if (token.type === 'space') {
@@ -301,6 +317,7 @@ export class CodeElement extends BaseElement {
           pt.fillColor = colorMap[token.type] || '#ffffff';
           //pt.opacity = progress;
           const w = this.measureTextWidth(token.text, fontSize, fontFamily);
+          target.addChild(pt);
           currentX += w;
         }
         return;
@@ -319,6 +336,7 @@ export class CodeElement extends BaseElement {
             ln.justification = 'right';
             ln.fillColor = '#888888';
             //ln.opacity = progress;
+            target.addChild(ln);
           }
         }
         let lastDrawnX = currentX;
@@ -331,8 +349,7 @@ export class CodeElement extends BaseElement {
           }
           const segStart = this.startTime + globalTokenIndex * this.splitDelay;
           if (time < segStart) {
-            globalTokenIndex += 1;
-            continue;
+            break;
           }
           const progress = Math.max(0, Math.min(1, (time - segStart) / this.splitDuration));
           const pt = new p.PointText(new p.Point(currentX, centerY));
@@ -343,6 +360,7 @@ export class CodeElement extends BaseElement {
           pt.fillColor = colorMap[token.type] || '#ffffff';
           //pt.opacity = progress;
           const w = this.measureTextWidth(token.text, fontSize, fontFamily);
+          target.addChild(pt);
           currentX += w;
           lastDrawnX = currentX;
           globalTokenIndex += 1;
@@ -367,12 +385,16 @@ export class CodeElement extends BaseElement {
             ln.justification = 'right';
             ln.fillColor = '#888888';
             //ln.opacity = progress;
+            target.addChild(ln);
           }
         }
         let lastDrawnX = currentX;
         let anyDrawn = false;
+        let stopProcessing = false;
         for (const token of lineData.tokens) {
           if (token.type === 'space') {
+            const segStartSpace = this.startTime + globalCharIndex * this.splitDelay;
+            if (time < segStartSpace) { stopProcessing = true; break; }
             const w = this.measureTextWidth(token.text, fontSize, fontFamily);
             currentX += w;
             globalCharIndex += token.text.length;
@@ -382,21 +404,22 @@ export class CodeElement extends BaseElement {
             const ch = token.text[i];
             const segStart = this.startTime + globalCharIndex * this.splitDelay;
             const wch = this.measureTextWidth(ch, fontSize, fontFamily);
-            if (time >= segStart) {
-              const progress = Math.max(0, Math.min(1, (time - segStart) / this.splitDuration));
-              const pt = new p.PointText(new p.Point(currentX, centerY));
-              pt.content = ch;
-              pt.fontSize = fontSize;
-              pt.fontFamily = fontFamily;
-              pt.justification = 'left';
-              pt.fillColor = colorMap[token.type] || '#ffffff';
-              //pt.opacity = progress;
-              lastDrawnX = currentX + wch;
-              anyDrawn = true;
-            }
+            if (time < segStart) { stopProcessing = true; break; }
+            const progress = Math.max(0, Math.min(1, (time - segStart) / this.splitDuration));
+            const pt = new p.PointText(new p.Point(currentX, centerY));
+            pt.content = ch;
+            pt.fontSize = fontSize;
+            pt.fontFamily = fontFamily;
+            pt.justification = 'left';
+            pt.fillColor = colorMap[token.type] || '#ffffff';
+            //pt.opacity = progress;
+            target.addChild(pt);
+            lastDrawnX = currentX + wch;
+            anyDrawn = true;
             currentX += wch;
             globalCharIndex += 1;
           }
+          if (stopProcessing) break;
         }
         if (this.cursor && anyDrawn) {
           pendingCursorX = lastDrawnX + this.cursorPaddingLeft;
@@ -412,6 +435,7 @@ export class CodeElement extends BaseElement {
         ln.fontFamily = fontFamily;
         ln.justification = 'right';
         ln.fillColor = '#888888';
+        target.addChild(ln);
       }
       for (const token of lineData.tokens) {
         if (token.type === 'space') {
@@ -426,6 +450,7 @@ export class CodeElement extends BaseElement {
         pt.justification = 'left';
         pt.fillColor = colorMap[token.type] || '#ffffff';
         const w = this.measureTextWidth(token.text, fontSize, fontFamily);
+        target.addChild(pt);
         currentX += w;
       }
     });
@@ -435,7 +460,7 @@ export class CodeElement extends BaseElement {
       const rect = new p.Path.Rectangle({ rectangle: new p.Rectangle(pendingCursorX, pendingCursorYTop, this.cursorWidth, cursorHeight) });
       rect.fillColor = this.cursorColor;
       rect.opacity = blink ? 1 : 0;
-      layer.addChild(rect);
+      target.addChild(rect);
       this._cursorItem = rect;
     }
 

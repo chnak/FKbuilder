@@ -10,7 +10,7 @@ const track = builder.createTrack({ zIndex: 1 })
 const scene = track.createScene({ duration: 6 }).addBackground({ color: '#0a0e27' })
 
 const option = {
-  animation: false,
+  animation: true,
   backgroundColor: '#101622',
   title: { text: 'ECharts 示例', textStyle: { color: '#fff' } },
   tooltip: {},

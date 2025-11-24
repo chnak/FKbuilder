@@ -311,6 +311,11 @@ export class VideoExporter {
       if (this.renderer) {
         this.renderer.destroy();
       }
+      try {
+        if (composition && typeof composition.destroy === 'function') {
+          composition.destroy();
+        }
+      } catch (_) {}
     }
   }
 

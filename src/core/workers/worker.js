@@ -469,6 +469,11 @@ async function renderSegment() {
 
     // 清理
     renderer.destroy();
+    try {
+      if (composition && typeof composition.destroy === 'function') {
+        composition.destroy();
+      }
+    } catch (_) {}
 
     // 收集所有 Buffer 用于 transferList（零拷贝传输）
     const transferList = [];

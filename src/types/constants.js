@@ -130,3 +130,118 @@ export const DEFAULT_FFMPEG_CONFIG = {
   audioBitrate: '128k',
 };
 
+export const DEFAULT_AUDIO_CONFIG = {
+  ...DEFAULT_ELEMENT_CONFIG,
+  src: '',
+  cutFrom: 0,
+  cutTo: undefined,
+  volume: 1,
+  fadeIn: 0,
+  fadeOut: 0,
+  loop: false,
+};
+
+export const DEFAULT_VIDEO_CONFIG = {
+  ...DEFAULT_IMAGE_CONFIG,
+  src: null,
+  cutFrom: 0,
+  cutTo: undefined,
+  speedFactor: 1,
+  loop: false,
+  mute: true,
+  volume: 1,
+};
+
+export const DEFAULT_RECT_CONFIG = {
+  ...DEFAULT_ELEMENT_CONFIG,
+  bgcolor: '#ffffff',
+  borderRadius: 0,
+  borderWidth: 0,
+  borderColor: '#000000',
+};
+
+export const DEFAULT_CIRCLE_CONFIG = {
+  ...DEFAULT_ELEMENT_CONFIG,
+  bgcolor: '#ffffff',
+  borderWidth: 0,
+  borderColor: '#000000',
+  radius: 0,
+};
+
+export const DEFAULT_PATH_CONFIG = {
+  ...DEFAULT_ELEMENT_CONFIG,
+  points: [],
+  closed: false,
+  smooth: false,
+  bezier: false,
+  fillColor: null,
+  strokeColor: '#000000',
+  strokeWidth: 1,
+  strokeCap: 'round',
+  strokeJoin: 'round',
+  dashArray: null,
+  dashOffset: 0,
+};
+
+export const DEFAULT_SVG_CONFIG = {
+  ...DEFAULT_ELEMENT_CONFIG,
+  src: '',
+  svgString: null,
+  fit: 'contain',
+  preserveAspectRatio: true,
+  enableSVGAnimations: true,
+};
+
+export const DEFAULT_OSCILLOSCOPE_CONFIG = {
+  ...DEFAULT_ELEMENT_CONFIG,
+  src: '',
+  waveColor: '#00ff00',
+  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  lineWidth: 2,
+  smoothing: 0.3,
+  mirror: true,
+  style: 'line',
+  sensitivity: 1,
+  cutFrom: 0,
+  cutTo: undefined,
+  windowSize: 0.1,
+  scrollSpeed: 1,
+};
+
+export const DEFAULT_SUBTITLE_CONFIG = {
+  ...DEFAULT_ELEMENT_CONFIG,
+  text: '',
+  fontSize: 72,
+  fontFamily: 'PatuaOne',
+  textColor: '#ffffff',
+  position: 'center',
+  textAlign: 'center',
+  split: null,
+  splitDelay: 0.1,
+  splitDuration: 0.3,
+  maxLength: 20,
+};
+
+export const DEFAULT_SPRITE_CONFIG = {
+  ...DEFAULT_ELEMENT_CONFIG,
+  spriteType: 'Sprite',
+  spriteConfig: {},
+};
+
+export const DEFAULT_JSON_CONFIG = {
+  ...DEFAULT_ELEMENT_CONFIG,
+  src: '',
+  jsonData: null,
+  jsonString: null,
+  fit: 'contain',
+  preserveAspectRatio: true,
+};
+
+export const DEFAULT_TRANSITION_CONFIG = {
+  ...DEFAULT_ELEMENT_CONFIG,
+  fromComposition: null,
+  toComposition: null,
+  transitionConfig: {},
+  duration: 0.5,
+};
+

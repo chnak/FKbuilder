@@ -97,7 +97,7 @@ export class CodeElement extends BaseElement {
     this.language = this.config.language || 'javascript';
     this.theme = this.config.theme || 'dark';
     this.showLineNumbers = this.config.showLineNumbers !== false;
-    this.padding = this.config.padding !== undefined ? this.config.padding : 12;
+    this.padding = this.config.padding !== undefined ? this.config.padding : 20;
     this.lineHeight = this.config.lineHeight || 1.6;
     this.fontSize = this.config.fontSize || 20;
     this.showBorder = this.config.showBorder !== false;
@@ -109,12 +109,19 @@ export class CodeElement extends BaseElement {
     this.split = this.config.split || null;
     this.splitDelay = this.config.splitDelay || 0.1;
     this.splitDuration = this.config.splitDuration || 0.3;
+    this.cursor = this.config.cursor !== false;
+    this.cursorWidth = this.config.cursorWidth || 2;
+    this.cursorColor = this.config.cursorColor || (this.theme === 'dark' ? '#ffffff' : '#000000');
+    this.cursorBlinkPeriod = this.config.cursorBlinkPeriod || 0.7;
+    this.cursorPaddingLeft = 8;
+    // this.cursorOffsetY = this.config.cursorOffsetY;
 
     this.highlighter = new SyntaxHighlighter(this.language);
     this.highlightedLines = this.highlighter.highlight(this.code);
     
     // 缓存用于宽度测量
     this._widthCache = new Map();
+    this._cursorItem = null;
   }
 
   /**
@@ -155,8 +162,13 @@ export class CodeElement extends BaseElement {
     const lineHeightPx = fontSize * this.lineHeight;
 
     // 几何尺寸
-    const elementWidth = state.width || this.config.width || context.width;
-    const elementHeight = state.height || this.config.height || context.height;
+    const size = this.convertSize(
+      state.width !== undefined ? state.width : (this.config.width !== undefined ? this.config.width : context.width),
+      state.height !== undefined ? state.height : (this.config.height !== undefined ? this.config.height : context.height),
+      context
+    );
+    const elementWidth = size.width;
+    const elementHeight = size.height;
 
     // 背景和边框
     const fillColor = state.bgcolor || this.bgcolor || (this.theme === 'light' ? '#ffffff' : '#071226');
@@ -213,6 +225,16 @@ export class CodeElement extends BaseElement {
     let globalCharIndex = 0;
     let globalTokenIndex = 0;
 
+    if (this._cursorItem) {
+      try { this._cursorItem.remove(); } catch (e) {}
+      this._cursorItem = null;
+    }
+
+    let pendingCursorX = null;
+    let pendingCursorYTop = null;
+    const cursorHeight = fontSize;
+    const cursorYOffset =  -(fontSize * 0.3);
+
     this.highlightedLines.forEach((lineData, idx) => {
       const centerY = contentStartY + idx * lineHeightPx + (lineHeightPx / 2);
       const fontFamily = state.fontFamily || 'Courier New';
@@ -229,7 +251,7 @@ export class CodeElement extends BaseElement {
           ln.fontFamily = fontFamily;
           ln.justification = 'right';
           ln.fillColor = '#888888';
-          ln.opacity = progress;
+          //ln.opacity = progress;
         }
         for (const token of lineData.tokens) {
           if (token.type === 'space') {
@@ -243,7 +265,7 @@ export class CodeElement extends BaseElement {
           pt.fontFamily = fontFamily;
           pt.justification = 'left';
           pt.fillColor = colorMap[token.type] || '#ffffff';
-          pt.opacity = progress;
+          //pt.opacity = progress;
           const w = this.measureTextWidth(token.text, fontSize, fontFamily);
           currentX += w;
         }
@@ -262,9 +284,11 @@ export class CodeElement extends BaseElement {
             ln.fontFamily = fontFamily;
             ln.justification = 'right';
             ln.fillColor = '#888888';
-            ln.opacity = progress;
+            //ln.opacity = progress;
           }
         }
+        let lastDrawnX = currentX;
+        let anyDrawn = false;
         for (const token of lineData.tokens) {
           if (token.type === 'space') {
             const w = this.measureTextWidth(token.text, fontSize, fontFamily);
@@ -283,10 +307,16 @@ export class CodeElement extends BaseElement {
           pt.fontFamily = fontFamily;
           pt.justification = 'left';
           pt.fillColor = colorMap[token.type] || '#ffffff';
-          pt.opacity = progress;
+          //pt.opacity = progress;
           const w = this.measureTextWidth(token.text, fontSize, fontFamily);
           currentX += w;
+          lastDrawnX = currentX;
           globalTokenIndex += 1;
+          anyDrawn = true;
+        }
+        if (this.cursor && anyDrawn) {
+          pendingCursorX = lastDrawnX + this.cursorPaddingLeft;
+          pendingCursorYTop = centerY - fontSize / 2 + cursorYOffset;
         }
         return;
       }
@@ -302,9 +332,11 @@ export class CodeElement extends BaseElement {
             ln.fontFamily = fontFamily;
             ln.justification = 'right';
             ln.fillColor = '#888888';
-            ln.opacity = progress;
+            //ln.opacity = progress;
           }
         }
+        let lastDrawnX = currentX;
+        let anyDrawn = false;
         for (const token of lineData.tokens) {
           if (token.type === 'space') {
             const w = this.measureTextWidth(token.text, fontSize, fontFamily);
@@ -324,11 +356,17 @@ export class CodeElement extends BaseElement {
               pt.fontFamily = fontFamily;
               pt.justification = 'left';
               pt.fillColor = colorMap[token.type] || '#ffffff';
-             // pt.opacity = progress;
+              //pt.opacity = progress;
+              lastDrawnX = currentX + wch;
+              anyDrawn = true;
             }
             currentX += wch;
             globalCharIndex += 1;
           }
+        }
+        if (this.cursor && anyDrawn) {
+          pendingCursorX = lastDrawnX + this.cursorPaddingLeft;
+          pendingCursorYTop = centerY - fontSize / 2 + cursorYOffset;
         }
         return;
       }
@@ -357,6 +395,15 @@ export class CodeElement extends BaseElement {
         currentX += w;
       }
     });
+
+    if (this.cursor && pendingCursorX !== null && pendingCursorYTop !== null) {
+      const blink = Math.floor(time / this.cursorBlinkPeriod) % 2 === 0;
+      const rect = new p.Path.Rectangle({ rectangle: new p.Rectangle(pendingCursorX, pendingCursorYTop, this.cursorWidth, cursorHeight) });
+      rect.fillColor = this.cursorColor;
+      rect.opacity = blink ? 1 : 0;
+      layer.addChild(rect);
+      this._cursorItem = rect;
+    }
 
     return null;
   }

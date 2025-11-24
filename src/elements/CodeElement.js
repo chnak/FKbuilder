@@ -106,6 +106,10 @@ export class CodeElement extends BaseElement {
     this.bgcolor = this.config.bgcolor || null;
     this.borderColor = this.config.borderColor || null;
 
+    this.split = this.config.split || null;
+    this.splitDelay = this.config.splitDelay || 0.1;
+    this.splitDuration = this.config.splitDuration || 0.3;
+
     this.highlighter = new SyntaxHighlighter(this.language);
     this.highlightedLines = this.highlighter.highlight(this.code);
     
@@ -204,26 +208,143 @@ export class CodeElement extends BaseElement {
     const contentStartX = pos.x + paddingPx + lineNumberWidth + 8;
     const contentStartY = pos.y + paddingPx;
 
-    // 遍历行，创建 PointText
+    const colorMap = { keyword: '#ff6b9d', string: '#00ff88', comment: '#888888', number: '#ffd700', operator: '#ffffff', function: '#00d9ff', identifier: '#ffffff', other: '#ffffff' };
+
+    let globalCharIndex = 0;
+    let globalTokenIndex = 0;
+
     this.highlightedLines.forEach((lineData, idx) => {
       const centerY = contentStartY + idx * lineHeightPx + (lineHeightPx / 2);
+      const fontFamily = state.fontFamily || 'Courier New';
+      let currentX = contentStartX;
+
+      if (this.split === 'line') {
+        const segStart = this.startTime + idx * this.splitDelay;
+        if (time < segStart) return;
+        const progress = Math.max(0, Math.min(1, (time - segStart) / this.splitDuration));
+        if (this.showLineNumbers) {
+          const ln = new p.PointText(new p.Point(pos.x + (lineNumberWidth - 8), centerY));
+          ln.content = String(idx + 1);
+          ln.fontSize = fontSize;
+          ln.fontFamily = fontFamily;
+          ln.justification = 'right';
+          ln.fillColor = '#888888';
+          ln.opacity = progress;
+        }
+        for (const token of lineData.tokens) {
+          if (token.type === 'space') {
+            const w = this.measureTextWidth(token.text, fontSize, fontFamily);
+            currentX += w;
+            continue;
+          }
+          const pt = new p.PointText(new p.Point(currentX, centerY));
+          pt.content = token.text;
+          pt.fontSize = fontSize;
+          pt.fontFamily = fontFamily;
+          pt.justification = 'left';
+          pt.fillColor = colorMap[token.type] || '#ffffff';
+          pt.opacity = progress;
+          const w = this.measureTextWidth(token.text, fontSize, fontFamily);
+          currentX += w;
+        }
+        return;
+      }
+
+      if (this.split === 'word') {
+        if (this.showLineNumbers) {
+          const firstTokenIndex = globalTokenIndex;
+          const segStart = this.startTime + firstTokenIndex * this.splitDelay;
+          const progress = Math.max(0, Math.min(1, (time - segStart) / this.splitDuration));
+          if (time >= segStart) {
+            const ln = new p.PointText(new p.Point(pos.x + (lineNumberWidth - 8), centerY));
+            ln.content = String(idx + 1);
+            ln.fontSize = fontSize;
+            ln.fontFamily = fontFamily;
+            ln.justification = 'right';
+            ln.fillColor = '#888888';
+            ln.opacity = progress;
+          }
+        }
+        for (const token of lineData.tokens) {
+          if (token.type === 'space') {
+            const w = this.measureTextWidth(token.text, fontSize, fontFamily);
+            currentX += w;
+            continue;
+          }
+          const segStart = this.startTime + globalTokenIndex * this.splitDelay;
+          if (time < segStart) {
+            globalTokenIndex += 1;
+            continue;
+          }
+          const progress = Math.max(0, Math.min(1, (time - segStart) / this.splitDuration));
+          const pt = new p.PointText(new p.Point(currentX, centerY));
+          pt.content = token.text;
+          pt.fontSize = fontSize;
+          pt.fontFamily = fontFamily;
+          pt.justification = 'left';
+          pt.fillColor = colorMap[token.type] || '#ffffff';
+          pt.opacity = progress;
+          const w = this.measureTextWidth(token.text, fontSize, fontFamily);
+          currentX += w;
+          globalTokenIndex += 1;
+        }
+        return;
+      }
+
+      if (this.split === 'letter') {
+        if (this.showLineNumbers) {
+          const segStart = this.startTime + globalCharIndex * this.splitDelay;
+          const progress = Math.max(0, Math.min(1, (time - segStart) / this.splitDuration));
+          if (time >= segStart) {
+            const ln = new p.PointText(new p.Point(pos.x + (lineNumberWidth - 8), centerY));
+            ln.content = String(idx + 1);
+            ln.fontSize = fontSize;
+            ln.fontFamily = fontFamily;
+            ln.justification = 'right';
+            ln.fillColor = '#888888';
+            ln.opacity = progress;
+          }
+        }
+        for (const token of lineData.tokens) {
+          if (token.type === 'space') {
+            const w = this.measureTextWidth(token.text, fontSize, fontFamily);
+            currentX += w;
+            globalCharIndex += token.text.length;
+            continue;
+          }
+          for (let i = 0; i < token.text.length; i++) {
+            const ch = token.text[i];
+            const segStart = this.startTime + globalCharIndex * this.splitDelay;
+            const wch = this.measureTextWidth(ch, fontSize, fontFamily);
+            if (time >= segStart) {
+              const progress = Math.max(0, Math.min(1, (time - segStart) / this.splitDuration));
+              const pt = new p.PointText(new p.Point(currentX, centerY));
+              pt.content = ch;
+              pt.fontSize = fontSize;
+              pt.fontFamily = fontFamily;
+              pt.justification = 'left';
+              pt.fillColor = colorMap[token.type] || '#ffffff';
+             // pt.opacity = progress;
+            }
+            currentX += wch;
+            globalCharIndex += 1;
+          }
+        }
+        return;
+      }
 
       if (this.showLineNumbers) {
         const ln = new p.PointText(new p.Point(pos.x + (lineNumberWidth - 8), centerY));
         ln.content = String(idx + 1);
         ln.fontSize = fontSize;
-        ln.fontFamily = state.fontFamily || 'Courier New';
+        ln.fontFamily = fontFamily;
         ln.justification = 'right';
         ln.fillColor = '#888888';
       }
-
-      // 逐 token 渲染（使用 canvas 精确测量宽度）
-      let currentX = contentStartX;
-      const fontFamily = state.fontFamily || 'Courier New';
       for (const token of lineData.tokens) {
         if (token.type === 'space') {
-          const spaceWidth = this.measureTextWidth(token.text, fontSize, fontFamily);
-          currentX += spaceWidth;
+          const w = this.measureTextWidth(token.text, fontSize, fontFamily);
+          currentX += w;
           continue;
         }
         const pt = new p.PointText(new p.Point(currentX, centerY));
@@ -231,10 +352,9 @@ export class CodeElement extends BaseElement {
         pt.fontSize = fontSize;
         pt.fontFamily = fontFamily;
         pt.justification = 'left';
-        const colorMap = { keyword: '#ff6b9d', string: '#00ff88', comment: '#888888', number: '#ffd700', operator: '#ffffff', function: '#00d9ff', identifier: '#ffffff', other: '#ffffff' };
         pt.fillColor = colorMap[token.type] || '#ffffff';
-        const tokenWidth = this.measureTextWidth(token.text, fontSize, fontFamily);
-        currentX += tokenWidth;
+        const w = this.measureTextWidth(token.text, fontSize, fontFamily);
+        currentX += w;
       }
     });
 

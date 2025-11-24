@@ -129,7 +129,7 @@ export class CodeElement extends BaseElement {
   /**
    * 使用 canvas 测量文本宽度
    */
-  measureTextWidth(text, fontSize, fontFamily = 'Courier New') {
+  measureTextWidth(text, fontSize, fontFamily = 'PatuaOne') {
     const cacheKey = `${text}|${fontSize}|${fontFamily}`;
     if (this._widthCache.has(cacheKey)) {
       return this._widthCache.get(cacheKey);
@@ -289,7 +289,7 @@ export class CodeElement extends BaseElement {
 
     this.highlightedLines.forEach((lineData, idx) => {
       const centerY = contentStartY + idx * lineHeightPx + (lineHeightPx / 2) - scrollOffsetY;
-      const fontFamily = state.fontFamily || 'Courier New';
+      const fontFamily = state.fontFamily || 'PatuaOne';
       let currentX = contentStartX;
 
       if (this.split === 'line') {

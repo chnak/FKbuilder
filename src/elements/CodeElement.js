@@ -4,6 +4,7 @@ import { deepMerge } from '../utils/helpers.js';
 import { toPixels } from '../utils/unit-converter.js';
 import {createCanvas} from 'canvas'
 import paper from 'paper';
+import { getCodeTheme } from '../builder/CodeBlock.js';
 
 
 /**
@@ -172,9 +173,12 @@ export class CodeElement extends BaseElement {
     const elementWidth = size.width;
     const elementHeight = size.height;
 
-    // 背景和边框
-    const fillColor = state.bgcolor || this.bgcolor || (this.theme === 'light' ? '#ffffff' : '#071226');
-    const strokeColor = state.borderColor || this.borderColor || (this.theme === 'light' ? '#e6e6e6' : '#2b2b2b');
+    // 背景和边框（优先使用 CodeBlock 主题颜色，允许 state/config 覆盖）
+    const themeColors = getCodeTheme(this.theme || 'dark');
+    const fillColorFromTheme = themeColors && themeColors.background ? themeColors.background : (this.theme === 'light' ? '#ffffff' : '#071226');
+    const strokeColorFromTheme = themeColors && themeColors.border ? themeColors.border : (this.theme === 'light' ? '#e6e6e6' : '#2b2b2b');
+    const fillColor = state.bgcolor || this.bgcolor || fillColorFromTheme;
+    const strokeColor = state.borderColor || this.borderColor || strokeColorFromTheme;
     const strokeWidth = state.borderWidth || this.borderWidth || 0;
 
     // 计算元素左上角位置（考虑 anchor）
@@ -223,7 +227,20 @@ export class CodeElement extends BaseElement {
     const contentStartX = pos.x + paddingPx + lineNumberWidth + 8;
     const contentStartY = pos.y + paddingPx;
 
-    const colorMap = { keyword: '#ff6b9d', string: '#00ff88', comment: '#888888', number: '#ffd700', operator: '#ffffff', function: '#00d9ff', identifier: '#ffffff', other: '#ffffff' };
+    // token color map from CodeBlock theme
+    const tokenColorMap = {
+      keyword: themeColors.keyword || '#ff6b9d',
+      string: themeColors.string || '#00ff88',
+      comment: themeColors.comment || '#888888',
+      number: themeColors.number || '#ffd700',
+      operator: themeColors.operator || '#ffffff',
+      function: themeColors.function || '#00d9ff',
+      identifier: themeColors.identifier || '#ffffff',
+      other: themeColors.text || '#ffffff',
+      space: themeColors.background || fillColorFromTheme,
+    };
+    const lineNumberColor = themeColors.lineNumber || '#888888';
+    const lineNumberBg = themeColors.lineNumberBackground || null;
 
     let globalCharIndex = 0;
     let globalTokenIndex = 0;
@@ -302,7 +319,7 @@ export class CodeElement extends BaseElement {
           ln.fontSize = fontSize;
           ln.fontFamily = fontFamily;
           ln.justification = 'right';
-          ln.fillColor = '#888888';
+            ln.fillColor = lineNumberColor;
           //ln.opacity = progress;
           target.addChild(ln);
         }
@@ -337,7 +354,7 @@ export class CodeElement extends BaseElement {
             ln.fontSize = fontSize;
             ln.fontFamily = fontFamily;
             ln.justification = 'right';
-            ln.fillColor = '#888888';
+            ln.fillColor = lineNumberColor;
             //ln.opacity = progress;
             target.addChild(ln);
           }
@@ -386,7 +403,7 @@ export class CodeElement extends BaseElement {
             ln.fontSize = fontSize;
             ln.fontFamily = fontFamily;
             ln.justification = 'right';
-            ln.fillColor = '#888888';
+              ln.fillColor = lineNumberColor;
             //ln.opacity = progress;
             target.addChild(ln);
           }
@@ -437,7 +454,7 @@ export class CodeElement extends BaseElement {
         ln.fontSize = fontSize;
         ln.fontFamily = fontFamily;
         ln.justification = 'right';
-        ln.fillColor = '#888888';
+        ln.fillColor = lineNumberColor;
         target.addChild(ln);
       }
       for (const token of lineData.tokens) {

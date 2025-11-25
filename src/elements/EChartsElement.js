@@ -29,11 +29,17 @@ export class EChartsElement extends BaseElement {
 
   async initialize() {
     await super.initialize();
-    const w = Number(this.config.width) || 1;
-    const h = Number(this.config.height) || 1;
+    // 初始使用最小画布（实际尺寸由 render 时根据上下文计算），防止 config 中使用百分比导致 Number() 解析失败
+    const w = 1;
+    const h = 1;
     this._canvas = paper.createCanvas(w, h);
     this._echarts = ECharts.init(this._canvas, this.theme, { renderer: this.config.renderer, devicePixelRatio: 1, width: w, height: h });
-    this._echarts.setOption({ animation: true, ...this.option, backgroundColor: this.backgroundColor }, true);
+    // 先做一次基础 setOption，后续在 render 中当尺寸确定后会重新 apply
+    try {
+      this._echarts.setOption({ animation: true, ...this.option, backgroundColor: this.backgroundColor }, true);
+    } catch (e) {
+      // 某些 option 在小画布上可能出错，忽略安全降级
+    }
     
   }
 
@@ -85,6 +91,27 @@ export class EChartsElement extends BaseElement {
     const size = this.convertSize(state.width, state.height, context);
     const width = size.width || viewSize.width;
     const height = size.height || viewSize.height;
+    // 目标像素尺寸（向上取整至少为 1）
+    const targetW = Math.max(1, Math.round(width));
+    const targetH = Math.max(1, Math.round(height));
+    // 如果画布或 chart 尺寸与目标不一致，则重建 canvas 与 echarts 实例（确保百分比尺寸生效）
+    if (!this._canvas || this._canvas.width !== targetW || this._canvas.height !== targetH) {
+      try {
+        if (this._echarts && typeof this._echarts.dispose === 'function') {
+          this._echarts.dispose();
+        }
+      } catch (_) {}
+      this._canvas = paper.createCanvas(targetW, targetH);
+      this._echarts = ECharts.init(this._canvas, this.theme, { renderer: this.config.renderer, devicePixelRatio: 1, width: targetW, height: targetH });
+      try {
+        this._echarts.setOption({ animation: true, ...this.option, backgroundColor: this.backgroundColor }, true);
+      } catch (e) {
+        // 忽略初始化时可能的错误，render 时继续尝试
+      }
+      // 需要重新修补 zrender 的动画方法
+      try { this.fixZrender(this._echarts); } catch (_) {}
+      this._ready = true;
+    }
     if (!this._ready) {
       this.fixZrender(this._echarts);
       this._ready = true;

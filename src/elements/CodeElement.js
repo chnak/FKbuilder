@@ -391,7 +391,7 @@ export class CodeElement extends BaseElement {
           pt.fontSize = fontSize;
           pt.fontFamily = fontFamily;
           pt.justification = 'left';
-          pt.fillColor = colorMap[token.type] || '#ffffff';
+          pt.fillColor = tokenColorMap[token.type] || '#ffffff';
           //pt.opacity = progress;
           const w = this.measureTextWidth(token.text, fontSize, fontFamily);
           target.addChild(pt);
@@ -434,7 +434,7 @@ export class CodeElement extends BaseElement {
           pt.fontSize = fontSize;
           pt.fontFamily = fontFamily;
           pt.justification = 'left';
-          pt.fillColor = colorMap[token.type] || '#ffffff';
+          pt.fillColor = tokenColorMap[token.type] || '#ffffff';
           //pt.opacity = progress;
           const w = this.measureTextWidth(token.text, fontSize, fontFamily);
           target.addChild(pt);

@@ -4,7 +4,65 @@ import { deepMerge } from '../utils/helpers.js';
 import { toPixels } from '../utils/unit-converter.js';
 import {createCanvas} from 'canvas'
 import paper from 'paper';
-import { getCodeTheme } from '../builder/CodeBlock.js';
+// 内置代码主题（从 CodeBlock 复制过来，便于 CodeElement 独立使用）
+const CODE_THEMES = {
+  dark: {
+    background: '#1e1e1e',
+    lineNumber: '#666666',
+    lineNumberBackground: '#2d2d2d',
+    keyword: '#ff6b9d',
+    string: '#00ff88',
+    comment: '#888888',
+    number: '#ffd700',
+    operator: '#ffffff',
+    function: '#00d9ff',
+    identifier: '#ffffff',
+    text: '#ffffff',
+    border: '#00ff88',
+  },
+  light: {
+    background: '#ffffff',
+    lineNumber: '#999999',
+    lineNumberBackground: '#f5f5f5',
+    keyword: '#d73a49',
+    string: '#032f62',
+    comment: '#6a737d',
+    number: '#005cc5',
+    operator: '#24292e',
+    function: '#6f42c1',
+    identifier: '#24292e',
+    text: '#24292e',
+    border: '#e1e4e8',
+  },
+  monokai: {
+    background: '#272822',
+    lineNumber: '#90908a',
+    lineNumberBackground: '#3e3d32',
+    keyword: '#f92672',
+    string: '#e6db74',
+    comment: '#75715e',
+    number: '#ae81ff',
+    operator: '#f8f8f2',
+    function: '#a1efe4',
+    identifier: '#f8f8f2',
+    text: '#f8f8f2',
+    border: '#a1efe4',
+  },
+  dracula: {
+    background: '#282a36',
+    lineNumber: '#6272a4',
+    lineNumberBackground: '#21222c',
+    keyword: '#ff79c6',
+    string: '#f1fa8c',
+    comment: '#6272a4',
+    number: '#bd93f9',
+    operator: '#f8f8f2',
+    function: '#50fa7b',
+    identifier: '#f8f8f2',
+    text: '#f8f8f2',
+    border: '#50fa7b',
+  },
+};
 
 
 /**
@@ -173,8 +231,8 @@ export class CodeElement extends BaseElement {
     const elementWidth = size.width;
     const elementHeight = size.height;
 
-    // 背景和边框（优先使用 CodeBlock 主题颜色，允许 state/config 覆盖）
-    const themeColors = getCodeTheme(this.theme || 'dark');
+    // 背景和边框（优先使用内置主题颜色，允许 state/config 覆盖）
+    const themeColors = (CODE_THEMES && CODE_THEMES[this.theme]) ? CODE_THEMES[this.theme] : CODE_THEMES.dark;
     const fillColorFromTheme = themeColors && themeColors.background ? themeColors.background : (this.theme === 'light' ? '#ffffff' : '#071226');
     const strokeColorFromTheme = themeColors && themeColors.border ? themeColors.border : (this.theme === 'light' ? '#e6e6e6' : '#2b2b2b');
     const fillColor = state.bgcolor || this.bgcolor || fillColorFromTheme;
@@ -431,7 +489,7 @@ export class CodeElement extends BaseElement {
             pt.fontSize = fontSize;
             pt.fontFamily = fontFamily;
             pt.justification = 'left';
-            pt.fillColor = colorMap[token.type] || '#ffffff';
+            pt.fillColor = tokenColorMap[token.type] || '#ffffff';
             //pt.opacity = progress;
             target.addChild(pt);
             lastDrawnX = currentX + wch;
@@ -468,7 +526,7 @@ export class CodeElement extends BaseElement {
         pt.fontSize = fontSize;
         pt.fontFamily = fontFamily;
         pt.justification = 'left';
-        pt.fillColor = colorMap[token.type] || '#ffffff';
+        pt.fillColor = tokenColorMap[token.type] || '#ffffff';
         const w = this.measureTextWidth(token.text, fontSize, fontFamily);
         target.addChild(pt);
         currentX += w;

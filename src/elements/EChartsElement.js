@@ -43,6 +43,7 @@ export class EChartsElement extends BaseElement {
     
   }
 
+  
   isInitialized() {
     return !!this._ready;
   }

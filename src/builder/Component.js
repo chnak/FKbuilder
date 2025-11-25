@@ -15,6 +15,8 @@ import { JSONElement } from '../elements/JSONElement.js';
 import { AudioElement } from '../elements/AudioElement.js';
 import { SubtitleElement } from '../elements/SubtitleElement.js';
 import { OscilloscopeElement } from '../elements/OscilloscopeElement.js';
+import { CodeElement } from '../elements/CodeElement.js';
+import { EChartsElement } from '../elements/EChartsElement.js';
 import { toPixels, toFontSizePixels } from '../utils/unit-converter.js';
 
 /**
@@ -210,6 +212,22 @@ export class Component {
     return this;
   }
 
+  addCode(config = {}) {
+    this.elements.push({
+      type: 'code',
+      element: new CodeElement(config),
+    });
+    return this;
+  }
+
+  addECharts(config = {}) {
+    this.elements.push({
+      type: 'echarts',
+      element: new EChartsElement(config),
+    });
+    return this;
+  }
+
   /**
    * 初始化组件（预加载需要异步加载的元素）
    * @returns {Promise<void>}
@@ -387,11 +405,10 @@ export class Component {
           elementConfig.endTime = componentAbsoluteStartTime + this.duration;
         }
         
-        // 合并 zIndex（组件的 zIndex + 元素的 zIndex）
         if (elementConfig.zIndex !== undefined) {
-          elementConfig.zIndex = this.zIndex + elementConfig.zIndex;
+          elementConfig.zIndex = (this.zIndex - 1) + elementConfig.zIndex;
         } else {
-          elementConfig.zIndex = this.zIndex;
+          elementConfig.zIndex = (this.zIndex - 1);
         }
         
         // 合并 opacity（组件的 opacity * 元素的 opacity）
@@ -473,6 +490,12 @@ export class Component {
             break;
           case 'oscilloscope':
             newElement = new OscilloscopeElement(elementConfig);
+            break;
+          case 'code':
+            newElement = new CodeElement(elementConfig);
+            break;
+          case 'echarts':
+            newElement = new EChartsElement(elementConfig);
             break;
           default:
             console.warn(`[Component] 未知的元素类型: ${element.type}`);

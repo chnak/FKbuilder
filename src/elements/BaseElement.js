@@ -186,6 +186,8 @@ export class BaseElement {
     this.parent = null;
     this.visible = true;
     this.createdAt = Date.now();
+    this.zIndex = (config.zIndex !== undefined ? config.zIndex : (this.config.zIndex !== undefined ? this.config.zIndex : 0));
+    this.opacity = (this.config.opacity !== undefined ? this.config.opacity : 1);
     
     // 时间范围控制
     this.startTime = config.startTime !== undefined ? config.startTime : 0;

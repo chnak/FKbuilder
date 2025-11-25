@@ -6,7 +6,12 @@ import { createCanvas, loadImage } from 'canvas';
 import fs from 'fs';
 import path from 'path';
 import * as ECharts from 'echarts';
-
+const echartsPolyfill = () => {
+  ECharts.Model.prototype.isAnimationEnabled = () => true;
+  ECharts.SeriesModel.prototype.isAnimationEnabled = () => true;
+  //echarts.PictorialBarView.prototype.isAnimationEnabled = () => true;
+};
+echartsPolyfill();
 export class EChartsElement extends BaseElement {
   constructor(config = {}) {
     super(config);
@@ -27,12 +32,46 @@ export class EChartsElement extends BaseElement {
     const h = Number(this.config.height) || 1;
     this._canvas = paper.createCanvas(w, h);
     this._echarts = ECharts.init(this._canvas, this.theme, { renderer: this.config.renderer, devicePixelRatio: 1, width: w, height: h });
-    this._echarts.setOption({ animation: false, ...this.option }, true);
-    this._ready = true;
+    this._echarts.setOption({ animation: true, ...this.option }, true);
+    
   }
 
   isInitialized() {
     return !!this._ready;
+  }
+
+  echartsUpdate(chart, time, delta) {
+    const animation = chart._zr.animation;
+    if (animation._running && !animation._paused) {
+      animation.update(false, time, delta);
+    }
+
+  }
+
+  fixZrender(chart) {
+    const animation = chart._zr.animation;
+    //console.log(animation)
+    animation._startLoop = () => (animation._running = true);
+    animation.update = function(notTriggerFrameAndStageUpdate, time, delta) {
+      let clip = this._head;
+      while (clip) {
+        const nextClip = clip.next;
+        let finished = clip.onframe(time, delta);
+        if (finished) {
+          clip.ondestroy && clip.ondestroy();
+          this.removeClip(clip);
+          clip = nextClip;
+        } else {
+          clip = nextClip;
+        }
+      }
+      
+      if (!notTriggerFrameAndStageUpdate) {
+        //clip.onframe(delta);
+        this.trigger('frame', delta);
+        this.stage.update && this.stage.update();
+      }
+    };
   }
 
   async render(layer, time, paperInstance = null) {
@@ -45,20 +84,15 @@ export class EChartsElement extends BaseElement {
     const size = this.convertSize(state.width, state.height, context);
     const width = size.width || viewSize.width;
     const height = size.height || viewSize.height;
-
-    if (!this._canvas || this._canvas.width !== width || this._canvas.height !== height) {
-      this._canvas = createCanvas(width, height);
-      this._echarts = ECharts.init(this._canvas, this.theme, { renderer: this.config.renderer, devicePixelRatio: 1, width, height });
-    } else if (this._echarts) {
-      this._echarts.resize({ width, height });
+    if (!this._ready) {
+      this.fixZrender(this._echarts);
+      this._ready = true;
     }
-    this._echarts.setOption({ animation: true, ...this.option }, true);
-    try {
-      const zr = this._echarts.getZr();
-      if (zr?.refreshImmediately) zr.refreshImmediately();
-      else if (zr?.refresh) zr.refresh();
-    } catch (_) {}
-
+    const ts = Math.max(0, Math.floor(time * 1000));
+    const delta = Math.max(0, ts - (this._lastTimestamp || ts));
+    this.echartsUpdate(this._echarts, time, delta);
+    
+    
     const raster = new p.Raster(this._canvas);
     const srcW = this._canvas.width || width;
     const srcH = this._canvas.height || height;
@@ -73,6 +107,7 @@ export class EChartsElement extends BaseElement {
     this.applyTransform(raster, state, { applyPosition: false, paperInstance: p });
     if (layer) layer.addChild(raster);
     this._paperItem = raster;
+    this._lastTimestamp = ts;
     return raster;
   }
 }

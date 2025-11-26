@@ -63,7 +63,7 @@ export function registerFontFile(fontPath, fontFamily, options = {}) {
       ...options,
     });
 
-    console.log(`字体已注册: ${fontFamily} (${resolvedPath})`);
+    // console.log(`字体已注册: ${fontFamily} (${resolvedPath})`);
   } catch (error) {
     console.error(`注册字体失败: ${fontFamily}`, error);
   }
@@ -75,7 +75,29 @@ export function registerFontFile(fontPath, fontFamily, options = {}) {
 export function initDefaultFont() {
   // 注册默认字体
   if (fs.pathExistsSync(DEFAULT_FONT_PATH)) {
+    // 注册主名称
     registerFontFile(DEFAULT_FONT_PATH, DEFAULT_FONT_FAMILY);
+
+    // 注册常见别名和变体，覆盖大小写/空格差异以及 Bold 变体（使用同一个文件作为替代）
+    const aliases = [
+      'Patua One',
+      'patuaone',
+      'patuaone Bold',
+      'PatuaOne Bold',
+      'PatuaOne-Regular',
+    ];
+
+    for (const alias of aliases) {
+      try {
+        if (alias.toLowerCase().includes('bold')) {
+          registerFontFile(DEFAULT_FONT_PATH, alias, { weight: 'bold' });
+        } else {
+          registerFontFile(DEFAULT_FONT_PATH, alias);
+        }
+      } catch (e) {
+        // 忽略单个别名注册失败
+      }
+    }
   } else {
     console.warn(`默认字体文件不存在: ${DEFAULT_FONT_PATH}`);
   }

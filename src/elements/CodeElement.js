@@ -363,7 +363,7 @@ export class CodeElement extends BaseElement {
 
     this.highlightedLines.forEach((lineData, idx) => {
       const centerY = contentStartY + idx * lineHeightPx + (lineHeightPx / 2) - scrollOffsetY;
-      const fontFamily = state.fontFamily || 'PatuaOne';
+      const fontFamily = this.fontFamily || 'PatuaOne';
       let currentX = contentStartX;
 
       if (this.split === 'line') {

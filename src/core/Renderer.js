@@ -3,32 +3,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs-extra';
 import { createCanvas, registerFont } from 'canvas';
-
+import {initDefaultFont,registerFontFile} from '../utils/font-manager.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 初始化默认字体（必须在创建Canvas之前注册）
-let fontsInitialized = false;
-export function initFonts() {
-  if (fontsInitialized) return;
-  
-  const defaultFontPath = path.join(__dirname, '../fonts/PatuaOne-Regular.ttf');
-  if (fs.pathExistsSync(defaultFontPath)) {
-    try {
-      registerFont(defaultFontPath, { family: 'PatuaOne' });
-      fontsInitialized = true;
-      console.log('默认字体已注册: PatuaOne');
-    } catch (error) {
-      console.warn('注册默认字体失败:', error.message);
-    }
-  } else {
-    console.warn(`默认字体文件不存在: ${defaultFontPath}`);
-  }
-}
-
-// 立即初始化字体
-initFonts();
-
+initDefaultFont();
 /**
  * 渲染器类 - 使用 Paper.js 渲染
  */
@@ -42,6 +21,7 @@ export class Renderer {
     this.project = null;
     this.paper = null; // Paper.js 实例引用
     this.initialized = false;
+    
   }
 
   /**

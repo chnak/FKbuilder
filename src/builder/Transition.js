@@ -2,7 +2,7 @@
  * 转场效果类 - 使用 gl-transitions
  */
 import { TransitionElement } from '../elements/TransitionElement.js';
-
+import {AllTransitions} from '../utils/transition-renderer.js';
 /**
  * 转场效果类
  */
@@ -11,13 +11,18 @@ export class Transition {
     this.track = config.track;
     this.name = config.name || config.type || 'fade'; // gl-transitions 名称
     this.duration = config.duration || 0.5; // 转场时长（秒）
-    this.startTime = config.startTime; // 转场开始时间（转场结束的时间点）
+    this.startTime = config.startTime; // 转场开始时间
     this.fromScene = config.fromScene;
     this.toScene = config.toScene;
     this.fromSceneIndex = config.fromSceneIndex;
     this.toSceneIndex = config.toSceneIndex;
     this.easing = config.easing || 'easeInOutQuad';
     this.params = config.params; // gl-transitions 参数
+    // 如果this.name是'random'，则随机选择一个过渡效果
+    if (this.name === 'random') {
+      const randomIndex = Math.floor(Math.random() * AllTransitions.length);
+      this.name = AllTransitions[randomIndex];
+    }
   }
 
   /**
@@ -45,7 +50,7 @@ export class Transition {
         easing: this.easing,
         params: this.params,
       },
-      startTime: transitionStartTime - this.duration,
+      startTime: transitionStartTime,
       duration: this.duration,
     });
 

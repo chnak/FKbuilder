@@ -104,81 +104,81 @@ export class VideoBuilder {
       // 收集转场信息
       for (let i = 0; i < track.transitions.length; i++) {
         const transition = track.transitions[i];
-        if (transition.startTime !== undefined) {
-          // 查找转场对应的场景
-          const sortedScenes = [...track.scenes].sort((a, b) => {
-            const aStartTime = a.startTime !== undefined ? a.startTime : 0;
-            const bStartTime = b.startTime !== undefined ? b.startTime : 0;
-            return aStartTime - bStartTime;
-          });
-          
-          // 找到转场对应的from和to场景
-          let fromScene = null;
-          let toScene = null;
-          let transitionStartTime = transition.startTime;
-          
-          // 如果transition.startTime未定义，尝试从场景推断
-          if (transitionStartTime === undefined) {
-            // 遍历场景，找到转场应该插入的位置
-            for (let j = 0; j < sortedScenes.length - 1; j++) {
-              const scene = sortedScenes[j];
-              const nextScene = sortedScenes[j + 1];
-              const sceneEndTime = (scene.startTime || 0) + scene.duration;
-              const nextSceneStartTime = nextScene.startTime !== undefined ? nextScene.startTime : sceneEndTime;
-              
-              // 如果转场没有指定startTime，使用下一个场景的开始时间
-              fromScene = scene;
-              toScene = nextScene;
-              transitionStartTime = nextSceneStartTime;
-              break;
-            }
-          } else {
-            // 转场有指定的startTime，查找对应的场景
-            // transition.startTime 是转场开始的时间点
-            for (let j = 0; j < sortedScenes.length; j++) {
-              const scene = sortedScenes[j];
-              const sceneStartTime = scene.startTime !== undefined ? scene.startTime : 0;
-              
-              // 找到在转场开始时间之后的场景（转场的目标场景）
-              if (sceneStartTime > transitionStartTime) {
-                // 找到目标场景，源场景是其前一个场景
-                if (j > 0) {
-                  fromScene = sortedScenes[j - 1];
-                  toScene = scene;
-                  break;
-                }
+        const transitionDuration = transition.duration || 0.5;
+        
+        // 查找转场对应的场景
+        const sortedScenes = [...track.scenes].sort((a, b) => {
+          const aStartTime = a.startTime !== undefined ? a.startTime : 0;
+          const bStartTime = b.startTime !== undefined ? b.startTime : 0;
+          return aStartTime - bStartTime;
+        });
+        
+        // 找到转场对应的from和to场景
+        let fromScene = null;
+        let toScene = null;
+        let transitionStartTime = transition.startTime;
+        
+        // 如果transition.startTime未定义，尝试从场景推断
+        if (transitionStartTime === undefined) {
+          // 遍历场景，找到转场应该插入的位置
+          // 假设转场按顺序添加，第 i 个转场应该在第 i 个和第 i+1 个场景之间
+          const sceneIndex = i; // 转场索引对应场景索引
+          if (sceneIndex < sortedScenes.length - 1) {
+            const scene = sortedScenes[sceneIndex];
+            const nextScene = sortedScenes[sceneIndex + 1];
+            const sceneEndTime = (scene.startTime || 0) + scene.duration;
+            
+            // 转场居中在两个场景的交界处
+            // 转场开始时间 = 场景结束时间 - duration/2
+            fromScene = scene;
+            toScene = nextScene;
+            transitionStartTime = sceneEndTime - transitionDuration / 2;
+          }
+        } else {
+          // 转场有指定的startTime，查找对应的场景
+          // transition.startTime 是转场开始的时间点
+          for (let j = 0; j < sortedScenes.length; j++) {
+            const scene = sortedScenes[j];
+            const sceneStartTime = scene.startTime !== undefined ? scene.startTime : 0;
+            
+            // 找到在转场开始时间之后的场景（转场的目标场景）
+            if (sceneStartTime > transitionStartTime) {
+              // 找到目标场景，源场景是其前一个场景
+              if (j > 0) {
+                fromScene = sortedScenes[j - 1];
+                toScene = scene;
+                break;
               }
             }
           }
+        }
+        
+        if (fromScene && toScene && transitionStartTime !== undefined) {
+          // 转场时间计算：
+          // transition.startTime 是转场开始的时间点
+          // 转场结束时间 = startTime + duration
+          const transitionActualStartTime = transitionStartTime;
+          const transitionActualEndTime = transitionStartTime + transitionDuration;
           
-          if (fromScene && toScene && transitionStartTime !== undefined) {
-            // 转场时间计算：
-            // transition.startTime 是转场开始的时间点
-            // 转场结束时间 = startTime + duration
-            const transitionDuration = transition.duration || 0.5;
-            const transitionActualStartTime = transitionStartTime;
-            const transitionActualEndTime = transitionStartTime + transitionDuration;
-            
-            // 确保计算正确
-            if (transitionActualStartTime >= transitionActualEndTime) {
-              console.warn(`转场 ${transition.name} 时间计算错误: startTime=${transitionActualStartTime}, endTime=${transitionActualEndTime}, transitionStartTime=${transitionStartTime}, duration=${transitionDuration}`);
-            }
-            
-            const transitionObj = {
-              name: transition.name,
-              duration: transitionDuration,
-              startTime: transitionActualStartTime, // 转场开始时间
-              endTime: transitionActualEndTime, // 转场结束时间（目标场景开始时间）
-              easing: transition.easing,
-              params: transition.params,
-              fromScene: fromScene,
-              toScene: toScene,
-            };
-            
-            allTransitions.push(transitionObj);
-          } else {
-            console.warn(`转场 ${transition.name} 无法找到对应的场景，startTime: ${transitionStartTime}, fromScene: ${fromScene}, toScene: ${toScene}`);
+          // 确保计算正确
+          if (transitionActualStartTime >= transitionActualEndTime) {
+            console.warn(`转场 ${transition.name} 时间计算错误: startTime=${transitionActualStartTime}, endTime=${transitionActualEndTime}, transitionStartTime=${transitionStartTime}, duration=${transitionDuration}`);
           }
+          
+          const transitionObj = {
+            name: transition.name,
+            duration: transitionDuration,
+            startTime: transitionActualStartTime, // 转场开始时间
+            endTime: transitionActualEndTime, // 转场结束时间（目标场景开始时间）
+            easing: transition.easing,
+            params: transition.params,
+            fromScene: fromScene,
+            toScene: toScene,
+          };
+          
+          allTransitions.push(transitionObj);
+        } else {
+          console.warn(`转场 ${transition.name} 无法找到对应的场景，startTime: ${transitionStartTime}, fromScene: ${fromScene}, toScene: ${toScene}`);
         }
       }
     }

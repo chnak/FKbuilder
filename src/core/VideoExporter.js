@@ -454,19 +454,28 @@ export class VideoExporter {
 
   /**
    * 预先渲染转场的 fromFrame 和 toFrame
+   * 转场居中在两个场景交界处：
+   * - transition.startTime = sceneEndTime - duration/2（转场开始）
+   * - transition.endTime = sceneEndTime + duration/2（转场结束）
    * @param {VideoMaker} composition - 合成对象
    * @param {Object} transition - 转场配置
    * @param {string} backgroundColor - 背景色
    * @returns {Promise<{fromFrame: Buffer, toFrame: Buffer}>} 预渲染的帧
    */
   async preRenderTransitionFrames(composition, transition, backgroundColor) {
-    // 在转场开始时间渲染一帧，作为 fromFrame（此时 fromScene 还在显示）
-    await this.renderer.renderFrame(composition.timeline.getLayers(), transition.startTime, backgroundColor);
+    // 在转场开始时间渲染 fromFrame（此时 fromScene 还在显示）
+    // transition.startTime = sceneEndTime - duration/2
+    const fromScene = transition.fromScene;
+    const fromBackgroundColor = fromScene.backgroundLayer?.config?.backgroundColor || backgroundColor;
+    await this.renderer.renderFrame(composition.timeline.getLayers(), transition.startTime, fromBackgroundColor);
     // 转场帧使用原始 RGBA 数据（与转场函数兼容）
     const fromBuffer = this.renderer.getCanvasBuffer('raw');
     
-    // 在转场结束时间渲染一帧，作为 toFrame（此时 toScene 已经完全显示）
-    await this.renderer.renderFrame(composition.timeline.getLayers(), transition.endTime, backgroundColor);
+    // 在转场结束时间渲染 toFrame（此时 toScene 已经完全显示）
+    // transition.endTime = sceneEndTime + duration/2
+    const toScene = transition.toScene;
+    const toBackgroundColor = toScene.backgroundLayer?.config?.backgroundColor || backgroundColor;
+    await this.renderer.renderFrame(composition.timeline.getLayers(), transition.endTime, toBackgroundColor);
     // 转场帧使用原始 RGBA 数据（与转场函数兼容）
     const toBuffer = this.renderer.getCanvasBuffer('raw');
     
@@ -531,17 +540,15 @@ export class VideoExporter {
       // 回退到原来的实时渲染方法
       const fromScene = transition.fromScene;
       const fromBackgroundColor = fromScene.backgroundLayer?.config?.backgroundColor || backgroundColor;
-      const fromSceneEndTime = transition.startTime;
-      
-      await this.renderer.renderFrame(composition.timeline.getLayers(), fromSceneEndTime, fromBackgroundColor);
+      // 在转场开始时间渲染 fromFrame
+      await this.renderer.renderFrame(composition.timeline.getLayers(), transition.startTime, fromBackgroundColor);
       // 使用原始 RGBA 数据（与转场函数兼容）
       fromBuffer = this.renderer.getCanvasBuffer('raw');
       
       const toScene = transition.toScene;
       const toBackgroundColor = toScene.backgroundLayer?.config?.backgroundColor || backgroundColor;
-      const toSceneStartTime = transition.startTime;
-      
-      await this.renderer.renderFrame(composition.timeline.getLayers(), toSceneStartTime, toBackgroundColor);
+      // 在转场结束时间渲染 toFrame
+      await this.renderer.renderFrame(composition.timeline.getLayers(), transition.endTime, toBackgroundColor);
       // 使用原始 RGBA 数据（与转场函数兼容）
       toBuffer = this.renderer.getCanvasBuffer('raw');
     }
@@ -852,7 +859,7 @@ export class VideoExporter {
             
             // 只在总体进度变化超过 1% 时打印，避免输出过多
             if (Math.abs(overallProgress - lastOverallProgress) >= 1 || overallProgress >= 100) {
-              process.stdout.write(`\r总体进度: ${overallProgress.toFixed(1)}% (${totalCompletedFrames}/${totalWorkerFrames} 帧) | [Worker ${segmentIndex}] ${progress}%                    `);
+              console.log(`\r总体进度: ${overallProgress.toFixed(1)}% (${totalCompletedFrames}/${totalWorkerFrames} 帧) | [Worker ${segmentIndex}] ${progress}%                    `);
               lastOverallProgress = overallProgress;
             }
             
@@ -1219,7 +1226,7 @@ export class VideoExporter {
             
             // 只在总体进度变化超过 1% 时打印，避免输出过多
             if (Math.abs(overallProgress - lastOverallProgress) >= 1 || overallProgress >= 100) {
-              process.stdout.write(`\r总体进度: ${overallProgress.toFixed(1)}% (${totalCompletedFrames}/${totalWorkerFrames} 帧) | [Worker ${segmentIndex}] ${progress}%                    `);
+              console.log(`\r总体进度: ${overallProgress.toFixed(1)}% (${totalCompletedFrames}/${totalWorkerFrames} 帧) | [Worker ${segmentIndex}] ${progress}%                    `);
               lastOverallProgress = overallProgress;
             }
             

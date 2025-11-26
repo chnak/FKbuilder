@@ -27,6 +27,7 @@ export const ElementType = {
   SVG: 'svg',
   JSON: 'json',
   SPRITE: 'sprite',
+  SPINE: 'spine',
   TRANSITION: 'transition',
   AUDIO: 'audio',
   OSCILLOSCOPE: 'oscilloscope',

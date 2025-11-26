@@ -43,7 +43,13 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
+    "@esotericsoftware/spine-canvaskit": "^4.2.95",
+    "@pdf-lib/upng": "^1.0.1",
+    "@pixi-spine/loader-uni": "^4.0.6",
+    "@pixi-spine/runtime-4.1": "^4.0.6",
+    "@pixi/node": "^7.3.0",
     "canvas": "^3.2.0",
+    "canvaskit-wasm": "^0.40.0",
     "cheerio": "1.0.0",
     "echarts": "^6.0.0",
     "execa": "^5.1.1",
@@ -61,14 +67,17 @@
     "lrc-kit": "^1.1.1",
     "nanoid": "^5.0.4",
     "paper": "^0.12.18",
+    "pixi-spine": "^4.0.6",
     "spritejs": "^3.8.3",
     "zod": "^4.1.12"
   },
   "overrides": {
-    "canvas": "^3.2.0"
+    "canvas": "^3.2.0",
+    "gl": "^8.1.6"
   },
   "resolutions": {
-    "**/canvas": "^3.2.0"
+    "**/canvas": "^3.2.0",
+    "**/gl": "^8.1.6"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.0",

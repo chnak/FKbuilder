@@ -14,6 +14,7 @@ import { SubtitleElement } from '../elements/SubtitleElement.js';
 import { OscilloscopeElement } from '../elements/OscilloscopeElement.js';
 import { CodeElement } from '../elements/CodeElement.js';
 import { EChartsElement } from '../elements/EChartsElement.js';
+import { SpineElement } from '../elements/SpineElement.js';
 import { LRCSubtitleBuilder } from '../utils/lrcSubtitleBuilder.js';
 import { Component } from './Component.js';
 
@@ -114,6 +115,15 @@ export class Scene {
     this.elements.push({
       type: 'image',
       element: imageElement,
+    });
+    return this;
+  }
+
+  addSpine(config = {}) {
+    const spineElement = new SpineElement(config);
+    this.elements.push({
+      type: 'spine',
+      element: spineElement,
     });
     return this;
   }
@@ -289,6 +299,17 @@ export class Scene {
   addECharts(config = {}) {
     const el = new EChartsElement(config);
     this.elements.push({ type: 'echarts', element: el });
+    return this;
+  }
+
+  /**
+   * 添加 Spine 动画元素
+   * @param {Object} config - Spine 配置 { atlasPath/skeletonPath 或 atlasText/skeletonJson, width, height, x, y, animation, loop, timeScale }
+   * @returns {Scene} 返回自身以支持链式调用
+   */
+  addSpine(config = {}) {
+    const el = new SpineElement(config);
+    this.elements.push({ type: 'spine', element: el });
     return this;
   }
 

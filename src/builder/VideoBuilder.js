@@ -134,14 +134,14 @@ export class VideoBuilder {
             }
           } else {
             // 转场有指定的startTime，查找对应的场景
-            // transition.startTime 是转场结束的时间点（目标场景开始的时间）
+            // transition.startTime 是转场开始的时间点
             for (let j = 0; j < sortedScenes.length; j++) {
               const scene = sortedScenes[j];
               const sceneStartTime = scene.startTime !== undefined ? scene.startTime : 0;
               
-              // 转场结束时间应该等于目标场景的开始时间
-              if (Math.abs(transitionStartTime - sceneStartTime) < 0.01) {
-                // 找到目标场景，查找源场景（前一个场景）
+              // 找到在转场开始时间之后的场景（转场的目标场景）
+              if (sceneStartTime > transitionStartTime) {
+                // 找到目标场景，源场景是其前一个场景
                 if (j > 0) {
                   fromScene = sortedScenes[j - 1];
                   toScene = scene;
@@ -153,12 +153,11 @@ export class VideoBuilder {
           
           if (fromScene && toScene && transitionStartTime !== undefined) {
             // 转场时间计算：
-            // transition.startTime 是转场结束的时间点（目标场景开始的时间）
-            // 转场开始时间 = transitionStartTime - duration
-            // 转场结束时间 = transitionStartTime
+            // transition.startTime 是转场开始的时间点
+            // 转场结束时间 = startTime + duration
             const transitionDuration = transition.duration || 0.5;
-            const transitionActualStartTime = transitionStartTime - transitionDuration;
-            const transitionActualEndTime = transitionStartTime;
+            const transitionActualStartTime = transitionStartTime;
+            const transitionActualEndTime = transitionStartTime + transitionDuration;
             
             // 确保计算正确
             if (transitionActualStartTime >= transitionActualEndTime) {

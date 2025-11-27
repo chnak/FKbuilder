@@ -56,9 +56,17 @@ async function main() {
       duration: 30,
       fit:'contain',
       valign: 'bottom',
-      animations: [{
-        type:"tran"
-      }],
+      animations: [
+        {
+          type: 'keyframe',
+          duration: 30,
+          easing: 'linear',
+          keyframes: [
+            { time: 0, x: 0, translateY: 0 },
+            { time: 1, x:1280, translateY: 0 },
+          ],
+        },
+      ],
     })
 
   const videoMaker = builder.build()

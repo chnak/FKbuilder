@@ -51,6 +51,17 @@ async function main() {
       playMode: 'forward', // 播放模式：forward/reverse/ping-pong
       // 适配模式（图像如何适配显示尺寸）
       fit: 'contain', // contain/cover/fill/scale-down/none
+      animations: [
+        {
+          type: 'keyframe',
+          duration: 1,
+          easing: 'linear',
+          keyframes: [
+            { time: 0, translateX: -200, translateY: 0 },
+            { time: 1, translateX: 200, translateY: 0 },
+          ],
+        },
+      ],
     });
 
   await fs.ensureDir(path.join(__dirname, '../output'));

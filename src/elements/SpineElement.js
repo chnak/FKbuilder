@@ -2,7 +2,7 @@ import { BaseElement } from './BaseElement.js'
 import { DEFAULT_SPINE_CONFIG } from '../types/constants.js'
 import { deepMerge } from '../utils/helpers.js'
 import { ElementType } from '../types/enums.js'
-
+import * as PIXI from '@pixi/node'
 import '@pixi-spine/loader-uni'
 import { Spine } from '@pixi-spine/runtime-4.1'
 import { Image, createCanvas } from 'canvas'

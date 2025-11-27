@@ -235,9 +235,7 @@ export const DEFAULT_SPINE_CONFIG = {
   atlas: '',
   role: null,
   prefer: 'alien',
-  anim: null,
-  animation: null,
-  animList: null,
+  timeline: null,
   animationPlayMode: 'sequence',
   sequenceLoop: false,
   animSchedule: null,
@@ -246,6 +244,7 @@ export const DEFAULT_SPINE_CONFIG = {
   timeScale: 1,
   fit: 'contain',
   valign: 'bottom',
+  suppressWarnings: true,
 };
 
 export const DEFAULT_JSON_CONFIG = {

@@ -2,12 +2,13 @@ import { BaseElement } from './BaseElement.js'
 import { DEFAULT_SPINE_CONFIG } from '../types/constants.js'
 import { deepMerge } from '../utils/helpers.js'
 import { ElementType } from '../types/enums.js'
-import * as PIXI from '@pixi/node'
+
 import '@pixi-spine/loader-uni'
 import { Spine } from '@pixi-spine/runtime-4.1'
 import { Image, createCanvas } from 'canvas'
 import fs from 'fs'
 import path from 'path'
+
 
 
 export class SpineElement extends BaseElement {
@@ -22,6 +23,15 @@ export class SpineElement extends BaseElement {
 
   async initialize() {
     await super.initialize()
+    if (this.config && this.config.suppressWarnings && !this._suppressApplied) {      const origWarn = console.warn
+      console.warn = (...args) => {
+        const first = args[0]
+        const msg = (first != null ? String(first) : '')
+        if (msg.includes('PixiJS Deprecation Warning') || msg.includes('Deprecated since')) return
+        origWarn.apply(console, args)
+      }
+      this._suppressApplied = true
+    }
     const { dir, skeleton, atlas, prefer, scale, role, anim } = this.config
     let assetsDir = dir || (skeleton ? path.dirname(skeleton) : '')
     if (!assetsDir) return
@@ -160,7 +170,8 @@ export class SpineElement extends BaseElement {
     }
 
     await PIXI.Assets.init()
-    const spineRes = await PIXI.Assets.load(skeletonPath)
+    PIXI.Assets.add({ alias: `${baseName}-skeleton`, src: skeletonPath })
+    const spineRes = await PIXI.Assets.load(`${baseName}-skeleton`)
     const spineData = (spineRes && (spineRes.spineData || spineRes.data || spineRes))
     if (!spineData) return
 
@@ -180,76 +191,36 @@ export class SpineElement extends BaseElement {
     const anims = Array.isArray(sData.animations) ? sData.animations : []
     console.log('[SpineElement] anims=%s', anims.map(a => a.name || a.id || '?').join(', '))
     const available = new Set(anims.map(a => a?.name))
-    const requestedAnim = this.config.animation || anim || null
-    const rawList = Array.isArray(this.config.animList) ? this.config.animList : null
-    const list = rawList ? rawList.filter(n => typeof n === 'string') : null
-    const objList = rawList ? rawList.filter(n => n && typeof n === 'object') : null
-    const playMode = this.config.animationPlayMode || 'sequence'
-    const sequenceLoop = !!this.config.sequenceLoop
     let schedule = Array.isArray(this.config.animSchedule) ? this.config.animSchedule : null
+    const timeline = Array.isArray(this.config.timeline) ? this.config.timeline : null
 
-    if ((!schedule || schedule.length === 0) && objList && objList.length > 0) {
+    if (!schedule && timeline && timeline.length > 0) {
       const sch = []
-      for (const item of objList) {
-        const mode = item.mode || playMode
-        const baseTrack = (item.track != null ? item.track : 0)
-        const loop = !!item.loop
-        const mix = (item.mix != null ? item.mix : null)
-        const delay = Number(item.delay) >= 0 ? Number(item.delay) : 0
-        const duration = Number(item.duration) > 0 ? Number(item.duration) : null
-        const namesArr = Array.isArray(item.name) ? item.name : (item.name ? [item.name] : [])
+      for (const item of timeline) {
+        const baseTrack = (item && item.track != null) ? item.track : 0
+        const loop = !!(item && item.loop)
+        const mix = (item && item.mix != null) ? item.mix : null
+        const at = Number(item && item.at) >= 0 ? Number(item.at) : 0
+        const duration = Number(item && item.duration) > 0 ? Number(item.duration) : null
+        const namesArr = Array.isArray(item?.name) ? item.name : (item?.name ? [item.name] : [])
         const validNames = namesArr.filter(n => available.has(n))
-        if (mode === 'tracks') {
-          for (let i = 0; i < validNames.length; i++) {
-            const n = validNames[i]
-            const track = baseTrack + i
-            sch.push({ track, name: n, action: 'set', start: delay, loop, mix })
-            if (duration != null) {
-              sch.push({ track, action: 'empty', start: delay + duration, end: delay + duration, mix })
-            }
-          }
-        } else {
-          let t = delay
-          for (let i = 0; i < validNames.length; i++) {
-            const n = validNames[i]
-            sch.push({ track: baseTrack, name: n, action: 'set', start: t, loop, mix })
-            if (duration != null) {
-              sch.push({ track: baseTrack, action: 'empty', start: t + duration, end: t + duration, mix })
-              t += duration
-            }
+        if (validNames.length === 0) continue
+        for (let i = 0; i < validNames.length; i++) {
+          const n = validNames[i]
+          const track = baseTrack + i
+          sch.push({ track, name: n, action: 'set', start: at, loop, mix })
+          if (duration != null) {
+            sch.push({ track, action: 'empty', start: at + duration, end: at + duration, mix })
           }
         }
       }
       this.config.animSchedule = sch
       schedule = sch
     }
-    if (schedule && schedule.length > 0) {
-      // 使用时间调度，在渲染阶段按时间触发
-    } else if (list && list.length > 0) {
-      const names = list.filter(n => available.has(n))
-      if (names.length > 0) {
-        if (playMode === 'tracks') {
-          for (let i = 0; i < names.length; i++) {
-            state.setAnimation(i, names[i], this.config.loop !== false)
-          }
-        } else {
-          const lastLoop = (this.config.loop !== false) && !sequenceLoop
-          state.setAnimation(0, names[0], names.length === 1 ? (this.config.loop !== false) : false)
-          for (let j = 1; j < names.length; j++) {
-            const isLast = j === names.length - 1
-            state.addAnimation(0, names[j], isLast ? lastLoop : false, 0)
-          }
-          if (sequenceLoop && names.length > 0) {
-            state.addAnimation(0, names[0], true, 0)
-          }
-        }
-      } else {
-        const fallback = anims.length > 0 ? (anims[0].name || anims[0].id || null) : null
-        if (fallback) state.setAnimation(0, fallback, this.config.loop !== false)
-      }
-    } else {
-      const animName = requestedAnim && available.has(requestedAnim) ? requestedAnim : (anims.length > 0 ? (anims[0].name || anims[0].id || null) : null)
-      if (animName) state.setAnimation(0, animName, this.config.loop !== false)
+
+    if (!schedule && (!timeline || timeline.length === 0)) {
+      const fallback = anims.length > 0 ? (anims[0].name || anims[0].id || null) : null
+      if (fallback) state.setAnimation(0, fallback, this.config.loop !== false)
     }
 
     let naturalW = width

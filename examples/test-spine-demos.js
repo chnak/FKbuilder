@@ -8,9 +8,13 @@ const __dirname = path.dirname(__filename)
 
 async function main() {
   const assetsDir = path.join(__dirname, '../assets/spine/boy')
-  const skeletonPath = path.join(assetsDir, 'spineboy-pro.skel')
+  const skeletonPath = path.join(assetsDir, 'spineboy-ess.skel')
   const atlasPath = path.join(assetsDir, 'spineboy-pma.atlas')
   const skeletonAgg = path.join(assetsDir,'spineboy-pro.json')
+  // const assetsDir = path.join(__dirname, '../assets/sprite')
+  // const skeletonPath = path.join(assetsDir, 'animation.json')
+  // const atlasPath = path.join(assetsDir, 'animation.atlas')
+  // const skeletonAgg = path.join(assetsDir,'spineboy-pro.json')
   const atlas = [atlasPath].filter(p => {
     try { return fs.existsSync(p) } catch (_) { return false }
   })
@@ -31,12 +35,12 @@ async function main() {
   const builder = new VideoBuilder({ width: 1280, height: 720, fps: 30 })
   const track = builder.createTrack({ zIndex: 1 })
   track.createScene({ duration: 30 })
-    .addBackground({ color: '#202020' })
+    .addBackground({ color: '#2baaf3ff' })
     .addSpine({
       skeleton: skeletonPath,
       atlas,
       timeline: [
-        { name: 'walk', loop: true },
+        { name: 'run', loop: true },
         { name: 'aim', track: 2, at: 1, duration: 1.0, mix: 0.15 },
         { name: 'death', track: 3, at: 5, duration: 1, mix: 0.2 },
         { name: 'hoverboard', track: 4, at: 6, duration: 1, mix: 0.2 },
@@ -51,7 +55,10 @@ async function main() {
       y: '60%',
       duration: 30,
       fit:'contain',
-      valign: 'bottom'
+      valign: 'bottom',
+      animations: [{
+        type:"tran"
+      }],
     })
 
   const videoMaker = builder.build()

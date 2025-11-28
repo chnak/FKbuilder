@@ -21,17 +21,43 @@ export class SpineElement extends BaseElement {
     this._appliedSchedule = new Set()
   }
 
+   _disableWarnings() {
+    if (!this.__fk_warn_suppressed) {      
+      const __origWarn = console.warn;
+      const __origGroup = console.group;
+      const __origGroupCollapsed = console.groupCollapsed;
+      const __origGroupEnd = console.groupEnd;
+      let __lastDeprecation = 0;
+      const __match = (args) => {
+        for (const a of args) {
+          const s = String(a ?? '');
+          if (s.includes('PixiJS Deprecation Warning') || s.includes('Deprecated since')) return true;
+        }
+        return false;
+      };
+      console.warn = (...args) => {
+        if (__match(args)) { __lastDeprecation = Date.now(); return; }
+        if (__lastDeprecation && Date.now() - __lastDeprecation < 500) return;
+        __origWarn.apply(console, args);
+      };
+      console.group = (...args) => {
+        if (__match(args)) { __lastDeprecation = Date.now(); return; }
+        if (typeof __origGroup === 'function') __origGroup.apply(console, args);
+      };
+      console.groupCollapsed = (...args) => {
+        if (__match(args)) { __lastDeprecation = Date.now(); return; }
+        if (typeof __origGroupCollapsed === 'function') __origGroupCollapsed.apply(console, args);
+      };
+      console.groupEnd = (...args) => {
+        if (typeof __origGroupEnd === 'function') __origGroupEnd.apply(console, args);
+      };
+      this.__fk_warn_suppressed = true;
+    }
+  }
+
   async initialize() {
     await super.initialize()
-    if (this.config && this.config.suppressWarnings && !this._suppressApplied) {      const origWarn = console.warn
-      console.warn = (...args) => {
-        const first = args[0]
-        const msg = (first != null ? String(first) : '')
-        if (msg.includes('PixiJS Deprecation Warning') || msg.includes('Deprecated since')) return
-        origWarn.apply(console, args)
-      }
-      this._suppressApplied = true
-    }
+    this._disableWarnings()
     const { dir, skeleton, atlas, prefer, scale, role, anim } = this.config
     let assetsDir = dir || (skeleton ? path.dirname(skeleton) : '')
     if (!assetsDir) return

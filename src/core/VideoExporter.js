@@ -884,6 +884,18 @@ export class VideoExporter {
           reject(new Error(`段 ${segment.segmentIndex} Worker 错误: ${error.message}`));
           worker.terminate();
         });
+
+        worker.on('exit', (code) => {
+          if (code !== 0) {
+            reject(new Error(`段 ${segment.segmentIndex} Worker 异常退出，退出码: ${code}`));
+          }
+        });
+
+        worker.on('exit', (code) => {
+          if (code !== 0) {
+            reject(new Error(`段 ${segment.segmentIndex} Worker 异常退出，退出码: ${code}`));
+          }
+        });
       });
       
       workerPromises.push(promise);
@@ -1824,6 +1836,22 @@ export class VideoExporter {
           value.constructor.name === 'Timeline'
         )) {
           return undefined;
+        }
+        
+        // 特殊处理动画日程事件，确保 track 字段信息不被丢失
+        if (Array.isArray(value) && value.length > 0 && value[0].name && value[0].start !== undefined) {
+          // 这看起来像动画日程数组，我们需要确保 track 信息在序列化后仍然可用
+          return value.map(evt => ({
+            // 保持原始 track 值，不进行特殊处理
+            track: evt.track,
+            name: evt.name,
+            action: evt.action,
+            start: evt.start,
+            end: evt.end,
+            loop: evt.loop,
+            mix: evt.mix,
+            delay: evt.delay
+          }));
         }
       }
       return value;

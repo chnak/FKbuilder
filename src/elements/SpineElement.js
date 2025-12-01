@@ -7,7 +7,7 @@ import fs from 'fs'
 import path from 'path'
 import CanvasKitInit from 'canvaskit-wasm'
 import * as spineck from '@esotericsoftware/spine-canvaskit'
-import { RegionAttachment, MeshAttachment, Utils } from '@esotericsoftware/spine-core'
+import { RegionAttachment, MeshAttachment, Utils, MixBlend } from '@esotericsoftware/spine-core'
 
 
 
@@ -39,7 +39,19 @@ export class SpineElement extends BaseElement {
           }
         }
       }
-      this.config.animSchedule = sch
+      // 确保所有事件都有明确的 track 字段，避免序列化时丢失
+      const finalSchedule = sch.map(evt => ({
+        track: evt.track != null ? evt.track : 0,
+        name: evt.name,
+        action: evt.action,
+        start: evt.start,
+        end: evt.end,
+        loop: evt.loop,
+        mix: evt.mix,
+        delay: evt.delay
+      }));
+      
+      this.config.animSchedule = finalSchedule
     }
   }
 
@@ -271,15 +283,27 @@ export class SpineElement extends BaseElement {
         console.log('[SpineElement] available animations:', Array.from(availableNames).join(', '))
       }
     } catch (_) {}
-    let schedule = Array.isArray(this.config.animSchedule) ? this.config.animSchedule : null
+    // 强制重新生成schedule，避免使用缓存数据
+    let schedule = null
     const timeline = Array.isArray(this.config.timeline) ? this.config.timeline : null
-    if (!schedule && timeline && timeline.length > 0) {
+    if (process.env.FK_DEBUG_SPINE === '1') {
+      console.log('[SpineElement] schedule exists:', !!schedule, 'timeline exists:', !!timeline)
+      console.log('[SpineElement] config.animSchedule:', this.config.animSchedule)
+      if (schedule) {
+        console.log('[SpineElement] schedule source:', schedule === this.config.animSchedule ? 'from cache' : 'newly generated')
+      }
+    }
+    if (timeline && timeline.length > 0) {
       if (process.env.FK_DEBUG_SPINE === '1') {
         console.log('[SpineElement] build schedule from timeline, count=%d', timeline.length)
+        console.log('[SpineElement] timeline content:', JSON.stringify(timeline, null, 2))
+        console.log('[SpineElement] config.animSchedule before generation:', this.config.animSchedule)
       }
       const sch = []
+      let trackCounter = 0
       for (const item of timeline) {
-        const baseTrack = Number(item && item.track) >= 0 ? Number(item.track) : 0
+        // 自动分配轨道号：如果用户没有指定轨道，就自动递增分配
+        const baseTrack = Number(item && item.track) >= 0 ? Number(item.track) : trackCounter++
         const loop = !!(item && item.loop)
         const mix = (item && item.mix != null) ? item.mix : null
         const at = Number(item && item.at) >= 0 ? Number(item.at) : 0
@@ -291,17 +315,44 @@ export class SpineElement extends BaseElement {
         if (validNames.length === 0) continue
         for (let i = 0; i < validNames.length; i++) {
           const n = validNames[i]
-          const track = baseTrack + i
+          // 使用自动分配的轨道号
+          const track = baseTrack
           sch.push({ track, name: n, action, start: at, loop, mix, delay })
-        if (duration != null) {
-          sch.push({ track, action: 'empty', start: at + duration, end: at + duration, mix })
-        }
+          if (duration != null) {
+            sch.push({ track, action: 'empty', start: at + duration, end: at + duration, mix })
+          }
         }
       }
-      this.config.animSchedule = sch
-      schedule = sch
+      // 确保所有事件都有明确的 track 字段，避免序列化时丢失
+      const finalSchedule = sch.map(evt => ({
+        track: evt.track != null ? evt.track : 0,
+        name: evt.name,
+        action: evt.action,
+        start: evt.start,
+        end: evt.end,
+        loop: evt.loop,
+        mix: evt.mix,
+        delay: evt.delay
+      }));
+      
+      this.config.animSchedule = finalSchedule
+      schedule = finalSchedule
+      if (process.env.FK_DEBUG_SPINE === '1') {
+        console.log('[SpineElement] schedule generated with tracks:', finalSchedule.map(e => e.track))
+        console.log('[SpineElement] full schedule:', JSON.stringify(finalSchedule, null, 2))
+        // 检查 schedule 对象是否被正确设置
+        console.log('[SpineElement] config animSchedule tracks:', this.config.animSchedule.map(e => e.track))
+        console.log('[SpineElement] config animSchedule keys:', Object.keys(this.config.animSchedule[0] || {}))
+      }
       if (process.env.FK_DEBUG_SPINE === '1') {
         console.log('[SpineElement] built animSchedule size=%d', schedule.length)
+        console.log('[SpineElement] schedule events:', schedule.map(evt => ({
+          name: evt.name,
+          track: evt.track,
+          action: evt.action,
+          start: evt.start
+        })))
+        console.log('[SpineElement] track assignments:', schedule.map(evt => evt.track))
       }
     }
     if (!schedule && (!timeline || timeline.length === 0)) {
@@ -342,13 +393,16 @@ export class SpineElement extends BaseElement {
     const timeScale = (state.timeScale !== undefined ? state.timeScale : this.config.timeScale) || 1
 
     // 先根据绝对时间应用动画日程
-    let schedule = Array.isArray(state.animSchedule) ? state.animSchedule : (Array.isArray(this.config.animSchedule) ? this.config.animSchedule : null)
+    // 强制重新生成schedule，避免使用缓存数据
+    let schedule = null
     if (!schedule) {
       const tl = Array.isArray(state.timeline) ? state.timeline : (Array.isArray(this.config.timeline) ? this.config.timeline : null)
       if (tl && tl.length > 0) {
         const sch = []
+        let trackCounter = 0
         for (const item of tl) {
-          const baseTrack = Number(item && item.track) >= 0 ? Number(item.track) : 0
+          // 自动分配轨道号：如果用户没有指定轨道，就自动递增分配
+          const baseTrack = Number(item && item.track) >= 0 ? Number(item.track) : trackCounter++
           const loop = !!(item && item.loop)
           const mix = (item && item.mix != null) ? item.mix : null
           const at = Number(item && item.at) >= 0 ? Number(item.at) : 0
@@ -358,17 +412,38 @@ export class SpineElement extends BaseElement {
           const namesArr = Array.isArray(item?.name) ? item.name : (item?.name ? [item.name] : [])
           for (let i = 0; i < namesArr.length; i++) {
             const n = namesArr[i]
-            const track = Number(baseTrack) + i
+            // 使用自动分配的轨道号
+            const track = Number(baseTrack)
             sch.push({ track, name: n, action, start: at, loop, mix, delay })
-        if (duration != null) {
-          sch.push({ track, action: 'empty', start: at + duration, end: at + duration, mix })
-        }
+            if (duration != null) {
+              sch.push({ track, action: 'empty', start: at + duration, end: at + duration, mix })
+            }
           }
         }
-        this.config.animSchedule = sch
-        schedule = sch
+        // 确保所有事件都有明确的 track 字段，避免序列化时丢失
+        const finalSchedule = sch.map(evt => ({
+          track: evt.track != null ? evt.track : 0,
+          name: evt.name,
+          action: evt.action,
+          start: evt.start,
+          end: evt.end,
+          loop: evt.loop,
+          mix: evt.mix,
+          delay: evt.delay
+        }));
+        
+        this.config.animSchedule = finalSchedule
+        schedule = finalSchedule
+        
+        // 调试日志：输出生成的动画日程和轨道分配
         if (process.env.FK_DEBUG_SPINE === '1') {
           console.log('[SpineElement] built animSchedule in render fallback, size=%d', schedule.length)
+          console.log('[SpineElement] Final schedule tracks:', finalSchedule.map(evt => ({
+            name: evt.name,
+            track: evt.track,
+            action: evt.action,
+            start: evt.start
+          })))
         }
       }
     }
@@ -407,13 +482,16 @@ export class SpineElement extends BaseElement {
       } catch (_) {}
     }
     if (schedule && schedule.length > 0) {
-      if (process.env.FK_DEBUG_SPINE === '1') {
+      if (true || process.env.FK_DEBUG_SPINE === '1') {
         console.log('[SpineElement] schedule detected, size=%d, now=%s', schedule.length, (time - (this.startTime || 0)).toFixed ? (time - (this.startTime || 0)).toFixed(3) : (time - (this.startTime || 0)))
+        console.log('[SpineElement] schedule content:', JSON.stringify(schedule, null, 2))
+        console.log('[SpineElement] first event tracks:', schedule.map(e => e.track))
+        console.log('[SpineElement] first event keys:', Object.keys(schedule[0] || {}))
       }
       const now = (time - (this.startTime || 0))
       for (let i = 0; i < schedule.length; i++) {
         const evt = schedule[i] || {}
-        const track = (evt.track != null ? evt.track : 0)
+        const track = (evt.track != null ? evt.track : (evt.action === 'empty' ? 0 : 0))
         const start = (evt.start != null ? evt.start : 0)
         const end = (evt.end != null ? evt.end : null)
         const action = (evt.action || 'set')
@@ -430,21 +508,27 @@ export class SpineElement extends BaseElement {
           if (action === 'add') {
             te = as.addAnimation(track, name, loop, delay)
           } else if (action === 'empty') {
-            as.setEmptyAnimation(track, mix || 0)
+            // 保护Track 0，避免基础循环被打断
+            if (track !== 0) {
+              as.setEmptyAnimation(track, mix || 0)
+            }
           } else {
             te = as.setAnimation(track, name, loop)
           }
           
-          if (process.env.FK_DEBUG_SPINE === '1') {
+          if (true || process.env.FK_DEBUG_SPINE === '1') {
             console.log('[SpineElement] apply start evt: track=%d name=%s start=%s loop=%s', track, name, start, loop)
           }
           this._appliedSchedule.add(keyStart)
         }
         if (end != null && !this._appliedSchedule.has(keyEnd) && now >= end) {
           const as = drawable.animationState
-          as.setEmptyAnimation(track, mix || 0)
-          if (process.env.FK_DEBUG_SPINE === '1') {
-            console.log('[SpineElement] apply end evt: track=%d end=%s mix=%s', track, end, mix)
+          // 保护Track 0，避免基础循环被打断
+          if (evt.track !== 0) {
+            as.setEmptyAnimation(evt.track, mix || 0)
+          }
+          if (true || process.env.FK_DEBUG_SPINE === '1') {
+            console.log('[SpineElement] apply end evt: track=%d end=%s mix=%s', evt.track, end, mix)
           }
           this._appliedSchedule.add(keyEnd)
         }

@@ -39,12 +39,13 @@ async function main() {
     .addSpine({
       skeleton: skeletonPath,
       atlas,
+      animSchedule: null, // 强制重新生成schedule
       timeline: [
         { name: 'run',   track: 0, loop: true },
-        { name: 'aim',   track: 2, at: 1, duration: 1.0, mix: 0.2 },
-        { name: 'death', track: 3, at: 5, duration: 1.0, mix: 0.2 },
-        { name: 'jump', track: 4, at: 15, duration: 1.0, mix: 0.2 },
-        { name: 'idle', track: 4, at: 20, duration: 1.0, mix: 0.2 },
+        // { name: 'aim',   track: 2, at: 1, duration: 1.0, mix: 0.2 },
+        // { name: 'death', track: 3, at: 5, duration: 1.0, mix: 0.2 },
+        { name: 'jump', track: 4, at: 5, duration: 1.0, mix: 0.2 },
+        // { name: 'idle', track: 5, at: 20, duration: 1.0, mix: 0.2 },
         // { name: 'idle', track: 5, at: 8, duration: 1.0, mix: 0.2 }
         // 可用动画: aim, death, hoverboard, idle, idle-turn, jump, portal, run, run-to-idle, shoot, walk
       ],
@@ -98,7 +99,7 @@ async function main() {
   await videoMaker.export(outputPath, { 
     usePipe: true, 
     parallel: true, 
-    maxWorkers: 1 
+    maxWorkers: 4 
   })
   console.log('输出文件:', outputPath)
   videoMaker.destroy()

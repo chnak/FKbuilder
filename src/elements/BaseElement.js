@@ -4,6 +4,7 @@ import { deepMerge } from '../utils/helpers.js';
 import { toPixels, toFontSizePixels } from '../utils/unit-converter.js';
 import { TransformAnimation } from '../animations/TransformAnimation.js';
 import { KeyframeAnimation } from '../animations/KeyframeAnimation.js';
+import { CustomAnimation } from '../animations/CustomAnimation.js';
 import { AnimationType } from '../types/enums.js';
 import { getPresetAnimation } from '../animations/preset-animations.js';
 import paper from 'paper';
@@ -48,6 +49,9 @@ export function normalizeAnimationConfig(animConfig) {
     if (animConfig.fromRotation !== undefined) config.fromRotation = animConfig.fromRotation;
     if (animConfig.toRotation !== undefined) config.toRotation = animConfig.toRotation;
     if (animConfig.keyframes) config.keyframes = animConfig.keyframes;
+    if (animConfig.type === 'custom' && typeof animConfig.updateFn === 'function') {
+      config.update = animConfig.updateFn;
+    }
     return config;
   }
 
@@ -62,6 +66,8 @@ export function normalizeAnimationConfig(animConfig) {
         // 拷贝基本类型
         if (value === null || value === undefined || 
             typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') {
+          config[key] = value;
+        } else if (typeof value === 'function') {
           config[key] = value;
         } else if (Array.isArray(value)) {
           // 拷贝数组
@@ -132,6 +138,8 @@ function createAnimationFromConfig(animConfig) {
     case AnimationType.KEYFRAME:
     case 'keyframe':
       return new KeyframeAnimation(config);
+    case 'custom':
+      return new CustomAnimation(config);
     
     default:
       // 默认使用淡入动画预设
@@ -567,7 +575,8 @@ export class BaseElement {
         // Animation.getProgress 使用 time - this.startTime 来计算经过的时间
         // 所以需要传递 animation.startTime + animationRelativeTime
         // 这样动画内部计算时：elapsed = (animation.startTime + animationRelativeTime) - animation.startTime = animationRelativeTime
-        animationState = animation.getStateAtTime(animation.startTime + animationRelativeTime);
+        // 同时传递当前的 state，以便 CustomAnimation 可以基于当前状态进行计算
+        animationState = animation.getStateAtTime(animation.startTime + animationRelativeTime, state);
       }
       
       // 合并动画状态到元素状态（只合并非 undefined 的值）

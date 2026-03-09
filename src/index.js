@@ -25,6 +25,8 @@ export { ImageElement } from './elements/ImageElement.js';
 export { VideoElement } from './elements/VideoElement.js';
 export { RectElement } from './elements/RectElement.js';
 export { CircleElement } from './elements/CircleElement.js';
+export { PathElement } from './elements/PathElement.js';
+export { SVGElement } from './elements/SVGElement.js';
 export { SpriteElement } from './elements/SpriteElement.js';
 export { OscilloscopeElement } from './elements/OscilloscopeElement.js';
 

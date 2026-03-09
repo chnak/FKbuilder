@@ -27,7 +27,7 @@
     "example:basic": "node examples/basic-composition.js",
     "example:text": "node examples/text-animation.js",
     "example:image": "node examples/image-slideshow.js",
-    "test": "node test-spritejs-basic.js",
+    "test": "node examples/test-component-simple.js",
     "test:fit": "node examples/test-fit-parameters.js"
   },
   "keywords": [

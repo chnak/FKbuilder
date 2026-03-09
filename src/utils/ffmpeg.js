@@ -315,6 +315,7 @@ export class FFmpegUtil {
       audioCodec = this.config.audioCodec,
       audioBitrate = this.config.audioBitrate,
       audioStartTime = 0,
+      shortest = false,
     } = options;
 
     const args = [
@@ -334,7 +335,10 @@ export class FFmpegUtil {
       args.push('-ss', audioStartTime.toString());
     }
 
-    args.push('-shortest', outputPath);
+    if (shortest) {
+      args.push('-shortest');
+    }
+    args.push(outputPath);
 
     try {
       await execa('ffmpeg', args);

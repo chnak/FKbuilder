@@ -476,20 +476,12 @@ async function renderSegment() {
       }
     } catch (_) {}
 
-    // 收集所有 Buffer 用于 transferList（零拷贝传输）
-    const transferList = [];
-    for (const frame of frames) {
-      if (Buffer.isBuffer(frame.buffer)) {
-        transferList.push(frame.buffer.buffer); // 使用 ArrayBuffer
-      }
-    }
-
-    // 发送结果（使用 transferList 进行零拷贝传输）
+    // 发送结果（不进行零拷贝传输，避免 @napi-rs/canvas 的 Buffer 传输问题）
     parentPort.postMessage({
       success: true,
       segmentIndex,
       frames,
-    }, transferList);
+    });
   } catch (error) {
     parentPort.postMessage({
       success: false,

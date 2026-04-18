@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm ls:*)",
+      "Bash(node -e \"\nimport\\('./src/core/Renderer.js'\\).then\\(m => {\n  console.log\\('Renderer loaded successfully'\\);\n  console.log\\('Renderer class:', typeof m.Renderer\\);\n}\\).catch\\(e => console.error\\('Error:', e.message\\)\\);\n\")",
+      "Bash(npm run:*)"
+    ]
+  }
+}

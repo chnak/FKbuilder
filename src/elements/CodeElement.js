@@ -193,7 +193,7 @@ export class CodeElement extends BaseElement {
       return this._widthCache.get(cacheKey);
     }
 
-    const canvas = createCanvas();
+    const canvas = createCanvas(1, 1);
 
     const ctx = canvas.getContext('2d');
     ctx.font = `${fontSize}px ${fontFamily}`;

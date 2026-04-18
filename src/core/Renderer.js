@@ -2,7 +2,7 @@ import paper from 'paper';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs-extra';
-import { createCanvas, registerFont } from 'canvas';
+import { createCanvas } from 'canvas';
 import {initDefaultFont,registerFontFile} from '../utils/font-manager.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -201,34 +201,13 @@ export class Renderer {
    */
   getCanvasBuffer(format = 'raw') {
     if (!this.canvas) return null;
-    
+
     if (format === 'raw') {
-      // 使用 toBuffer('raw') 获取原始数据，性能提升 5-10倍
-      // 注意：node-canvas 的 toBuffer('raw') 在不同平台上可能返回不同格式：
-      // - Windows: BGRA 格式
-      // - Linux/Mac: RGBA 格式
-      // FFmpeg 需要 RGBA 格式，所以如果是 BGRA 需要转换
-      let buffer = this.canvas.toBuffer('raw');
-      
-      // 验证 buffer 大小是否正确
-      const expectedSize = this.width * this.height * 4;
-      if (buffer.length !== expectedSize) {
-        console.warn(`[Renderer] Buffer size mismatch: expected ${expectedSize}, got ${buffer.length}`);
-        // 如果大小不匹配，回退到 PNG 格式
-        return this.canvas.toBuffer('image/png');
-      }
-      
-      // 检测平台：Windows 上通常是 BGRA，需要转换为 RGBA
-      const platform = process.platform;
-      const isWindows = platform === 'win32';
-      
-      if (isWindows) {
-        // Windows 上 toBuffer('raw') 返回 BGRA，需要转换为 RGBA
-        buffer = this.convertBGRAtoRGBA(buffer);
-      }
-      // Linux/Mac 上通常是 RGBA，不需要转换
-      
-      return buffer;
+      // @napi-rs/canvas 不支持 toBuffer('raw')，需要通过 ImageData 获取原始 RGBA 数据
+      const ctx = this.canvas.getContext('2d');
+      const imageData = ctx.getImageData(0, 0, this.width, this.height);
+      // ImageData.data 已经是 RGBA 格式的 Uint8ClampedArray
+      return Buffer.from(imageData.data);
     } else {
       // PNG 格式（用于保存帧文件或转场处理）
       return this.canvas.toBuffer('image/png');

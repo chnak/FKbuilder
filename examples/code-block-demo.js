@@ -413,7 +413,7 @@ async function createCodeBlockDemo() {
     const outputPath = path.join(__dirname, '../output/code-block-demo.mp4');
     
     await builder.render(outputPath, {
-      parallel: true,
+      parallel: false,
       usePipe: true,
       maxWorkers: 4,
     });

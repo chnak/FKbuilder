@@ -1,7 +1,7 @@
 /**
  * 字体管理器
  */
-import { registerFont } from 'canvas';
+import { GlobalFonts } from 'canvas';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs-extra';
@@ -40,8 +40,8 @@ export function registerFontFile(fontPath, fontFamily, options = {}) {
   }
 
   try {
-    const resolvedPath = path.isAbsolute(fontPath) 
-      ? fontPath 
+    const resolvedPath = path.isAbsolute(fontPath)
+      ? fontPath
       : path.resolve(process.cwd(), fontPath);
 
     if (!fs.pathExistsSync(resolvedPath)) {
@@ -49,14 +49,8 @@ export function registerFontFile(fontPath, fontFamily, options = {}) {
       return;
     }
 
-    // 注册字体（必须在创建Canvas之前）
-    registerFont(resolvedPath, {
-      family: fontFamily,
-      weight: options.weight || 'normal',
-      style: options.style || 'normal',
-    });
-    
-    // 确保字体已注册（node-canvas的registerFont是同步的）
+    // 注册字体（@napi-rs/canvas 使用 GlobalFonts.registerFromPath）
+    GlobalFonts.registerFromPath(resolvedPath, fontFamily);
 
     registeredFonts.set(fontFamily, {
       path: resolvedPath,

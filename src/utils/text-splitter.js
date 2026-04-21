@@ -168,56 +168,63 @@ export class TextSplitter {
    */
   _calculateDynamicCharSpacing() {
     const spacing = [];
-    
+
     if (!this.options.dynamicSpacing) {
       return spacing;
     }
-    
+
     const chars = this.characters.filter(c => !c.isSpace);
-    
+
     if (chars.length <= 1) {
       return spacing;
     }
-    
+
     const widths = chars.map(c => c.width);
     const avgWidth = widths.reduce((sum, w) => sum + w, 0) / widths.length;
     const minWidth = Math.min(...widths);
     const maxWidth = Math.max(...widths);
     const widthRange = maxWidth - minWidth;
-    
+
     if (widthRange < avgWidth * 0.2) {
       for (let i = 0; i < chars.length - 1; i++) {
         spacing.push(this.options.charSpacing);
       }
       return spacing;
     }
-    
+
     for (let i = 0; i < chars.length - 1; i++) {
       const currentChar = chars[i];
       const nextChar = chars[i + 1];
-      
+
       const currentWidthRatio = currentChar.width / avgWidth;
       const nextWidthRatio = nextChar.width / avgWidth;
-      
+
       let baseSpacing = this.options.charSpacing;
-      
-      if (currentChar.isSymbol || nextChar.isSymbol) {
-        baseSpacing *= 0.6;
-      } else if (currentWidthRatio < 0.7 && nextWidthRatio < 0.7) {
-        baseSpacing *= 1.2;
-      } else if (currentWidthRatio > 1.3 && nextWidthRatio > 1.3) {
-        baseSpacing *= 0.7;
-      } else if (Math.abs(currentWidthRatio - nextWidthRatio) > 0.6) {
-        baseSpacing *= 1.05;
+
+      // 窄字符对之间减少更多间距
+      if (currentWidthRatio < 0.7 && nextWidthRatio < 0.7) {
+        baseSpacing *= 0.4; // 两个窄字符，减少 60% 间距
       }
-      
+      // 一个窄字符和一个正常/宽字符
+      else if (currentWidthRatio < 0.7 || nextWidthRatio < 0.7) {
+        baseSpacing *= 0.6; // 涉及窄字符，减少 40% 间距
+      }
+      // 两个宽字符之间减少间距
+      else if (currentWidthRatio > 1.3 && nextWidthRatio > 1.3) {
+        baseSpacing *= 0.7;
+      }
+      // 宽度差异大的一对
+      else if (Math.abs(currentWidthRatio - nextWidthRatio) > 0.6) {
+        baseSpacing *= 0.8;
+      }
+
       const minSpacing = this.options.charSpacing * 0.2;
       const maxSpacing = this.options.charSpacing * 1.5;
       baseSpacing = Math.max(minSpacing, Math.min(maxSpacing, baseSpacing));
-      
+
       spacing.push(baseSpacing);
     }
-    
+
     return spacing;
   }
 
@@ -279,32 +286,36 @@ export class TextSplitter {
 
   /**
    * 计算字符位置
+   * 注意：charSpacing 只用于字符间的视觉间距
+   * 但 totalWidth 应该用 Canvas measureText（不含 charSpacing）用于居中计算
    */
   _calculateCharacterPositions() {
     let currentX = 0;
+    let widthSum = 0; // 不含间距的宽度累加
     const lineHeight = this.options.fontSize * this.options.lineHeight;
     const dynamicSpacing = this._calculateDynamicCharSpacing();
-    
+
+    // char.x 不包含间距，只累加纯字符宽度（用于居中计算）
+    // currentX 包含间距，用于下一个字符的起始位置
     for (let i = 0; i < this.characters.length; i++) {
       const char = this.characters[i];
-      
-      char.x = currentX;
+
+      // char.x 只累加字符宽度（不含间距）
+      char.x = widthSum;
       char.y = 0;
-      
-      currentX += char.width;
-      
+
+      widthSum += char.width;
+      currentX = widthSum;
+
       // 添加字符间距（除了最后一个字符）
       if (i < this.characters.length - 1) {
-        if (char.isSpace) {
-          currentX += this.options.charSpacing * 0.3;
-        } else {
-          const spacing = dynamicSpacing[i] || this.options.charSpacing;
-          currentX += spacing;
-        }
+        const spacing = dynamicSpacing[i] || this.options.charSpacing;
+        currentX += spacing;
       }
     }
-    
-    this.totalWidth = currentX;
+
+    // 总宽度使用 measureText（不含间距），用于正确的居中计算
+    this.totalWidth = this._measureText(this.text);
     this.totalHeight = lineHeight;
   }
 
@@ -362,9 +373,70 @@ export class TextSplitter {
   }
 
   /**
+   * 计算单词位置
+   */
+  _calculateWordPositions() {
+    let currentX = 0;
+    const lineHeight = this.options.fontSize * this.options.lineHeight;
+    const dynamicSpacing = this._calculateDynamicWordSpacing();
+
+    for (let i = 0; i < this.words.length; i++) {
+      const word = this.words[i];
+
+      word.x = currentX;
+      word.y = 0;
+
+      currentX += word.width;
+
+      // 添加单词间距（除了最后一个单词）
+      if (i < this.words.length - 1) {
+        if (word.isSpace) {
+          currentX += this.options.wordSpacing * 0.3;
+        } else {
+          const spacing = dynamicSpacing[i] || this.options.wordSpacing;
+          currentX += spacing;
+        }
+      }
+    }
+
+    // 只在没有设置过 totalWidth 时设置（用于居中计算）
+    if (this.totalWidth === 0) {
+      this.totalWidth = currentX;
+    }
+    this.totalHeight = lineHeight;
+  }
+
+  /**
+   * 计算行位置
+   */
+  _calculateLinePositions() {
+    let currentY = 0;
+    const lineHeight = this.options.fontSize * this.options.lineHeight;
+    let maxWidth = 0;
+
+    for (let i = 0; i < this.lines.length; i++) {
+      const line = this.lines[i];
+
+      line.x = 0;
+      line.y = currentY;
+
+      maxWidth = Math.max(maxWidth, line.width);
+      currentY += lineHeight;
+    }
+
+    // 只在没有设置过 totalWidth 时设置
+    if (this.totalWidth === 0) {
+      this.totalWidth = maxWidth;
+    }
+    this.totalHeight = currentY;
+  }
+
+  /**
    * 计算所有尺寸和位置
    */
   _calculateDimensions() {
+    // 重置 totalWidth 确保字符计算的被使用
+    this.totalWidth = 0;
     this._calculateCharacterPositions();
     this._calculateWordPositions();
     this._calculateLinePositions();

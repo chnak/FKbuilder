@@ -340,7 +340,7 @@ export class VideoExporter {
     // 初始化转场渲染器（如果有转场）
     const transitionRenderers = new Map();
     const transitionFunctions = new Map(); // 缓存转场函数
-    const transitionCanvasCache = {}; // 缓存转场 Canvas
+    let transitionCanvasCache = {}; // 缓存转场 Canvas
     
     // 预先渲染并保存所有转场的帧
     const transitionFrames = new Map();
@@ -449,6 +449,12 @@ export class VideoExporter {
         // 忽略关闭错误
       }
       throw error;
+    } finally {
+      // 清理转场缓存，释放内存
+      transitionRenderers.clear();
+      transitionFunctions.clear();
+      transitionCanvasCache = {};
+      transitionFrames.clear();
     }
   }
 
@@ -573,7 +579,11 @@ export class VideoExporter {
     
     const ctx = resultCanvas.getContext('2d');
     const imageData = ctx.createImageData(composition.width, composition.height);
-    imageData.data.set(resultBuffer);
+    // Buffer.from() 返回的是 Node.js Buffer，而 Uint8Array.from() 可以直接从 Buffer 创建
+    // imageData.data 是 Uint8ClampedArray，需要确保 resultBuffer 是兼容的格式
+    // 将 resultBuffer（可能是 Node.js Buffer）转换为 Uint8Array 再设置
+    const uint8Data = new Uint8Array(resultBuffer.buffer, resultBuffer.byteOffset, resultBuffer.byteLength);
+    imageData.data.set(uint8Data);
     ctx.putImageData(imageData, 0, 0);
     
     // 转场帧使用 PNG 格式（因为转场期间 FFmpeg 使用 PNG 输入格式）
@@ -787,7 +797,9 @@ export class VideoExporter {
     // 进度跟踪
     const segmentProgress = new Map(); // segmentIndex -> { currentFrame, totalFrames }
     let lastOverallProgress = -1;
-    
+    let lastProgressTime = Date.now(); // 上次收到进度的时间
+    let lastProgressWorker = -1; // 上次收到进度的 Worker
+
     // 信号处理：确保 Ctrl+C 能立即终止所有 Worker
     let isCancelled = false;
     const cleanup = () => {
@@ -842,10 +854,14 @@ export class VideoExporter {
           if (result.type === 'progress') {
             // 处理进度消息
             const { segmentIndex, progress, currentFrame, totalFrames, frameIndex } = result;
-            
+
             // 更新该段的进度
             segmentProgress.set(segmentIndex, { currentFrame, totalFrames });
-            
+
+            // 更新最后进度时间（用于调试）
+            lastProgressTime = Date.now();
+            lastProgressWorker = segmentIndex;
+
             // 计算总体进度（排除转场帧）
             let totalCompletedFrames = 0;
             let totalWorkerFrames = 0;
@@ -854,15 +870,15 @@ export class VideoExporter {
               totalCompletedFrames += segProgress.currentFrame;
               totalWorkerFrames += segProgress.totalFrames;
             }
-            
+
             const overallProgress = totalWorkerFrames > 0 ? (totalCompletedFrames / totalWorkerFrames * 100) : 0;
-            
+
             // 只在总体进度变化超过 1% 时打印，避免输出过多
             if (Math.abs(overallProgress - lastOverallProgress) >= 1 || overallProgress >= 100) {
               console.log(`\r总体进度: ${overallProgress.toFixed(1)}% (${totalCompletedFrames}/${totalWorkerFrames} 帧) | [Worker ${segmentIndex}] ${progress}%                    `);
               lastOverallProgress = overallProgress;
             }
-            
+
             return; // 不 resolve，继续等待完成消息
           }
           
@@ -890,18 +906,6 @@ export class VideoExporter {
         worker.on('error', (error) => {
           reject(new Error(`段 ${segment.segmentIndex} Worker 错误: ${error.message}`));
           worker.terminate();
-        });
-
-        worker.on('exit', (code) => {
-          if (code !== 0) {
-            reject(new Error(`段 ${segment.segmentIndex} Worker 异常退出，退出码: ${code}`));
-          }
-        });
-
-        worker.on('exit', (code) => {
-          if (code !== 0) {
-            reject(new Error(`段 ${segment.segmentIndex} Worker 异常退出，退出码: ${code}`));
-          }
         });
       });
       
@@ -1101,7 +1105,9 @@ export class VideoExporter {
     // 进度跟踪
     const segmentProgress = new Map(); // segmentIndex -> { currentFrame, totalFrames }
     let lastOverallProgress = -1;
-    
+    let lastProgressTime = Date.now(); // 上次收到进度的时间
+    let lastProgressWorker = -1; // 上次收到进度的 Worker
+
     // 信号处理：确保 Ctrl+C 能立即终止所有 Worker
     let isCancelled = false;
     const cleanup = () => {
@@ -1152,11 +1158,51 @@ export class VideoExporter {
     const writeFramesToPipe = async () => {
       let transitionFramesAdded = false; // 标记转场帧是否已添加
       let framesWritten = 0; // 记录已写入的帧数
-      
+      let loopCount = 0; // 调试：记录循环次数
+      let lastFramesWritten = 0; // 上次写入的帧数
+      let stallCount = 0; // 连续没有写入帧的次数
+      const maxLoopsWithoutProgress = 500; // 最多循环这么多次没进展就强制退出
+      const startTime = Date.now();
+
+      // 定期打印 Worker 状态
+      const printWorkerStatus = () => {
+        const now = Date.now();
+        const sinceLastProgress = ((now - lastProgressTime) / 1000).toFixed(1);
+        console.log(`[WorkerStatus] 距离上次进度: ${sinceLastProgress}s, 上次Worker: ${lastProgressWorker}, completedWorkers: ${completedWorkers}/${segments.length}`);
+      };
+
       while (!frameBuffer.isComplete() || frameBuffer.getBufferedCount() > 0 || !transitionPreprocessCompleted || (!transitionFramesAdded && transitionFrames.size > 0)) {
+        loopCount++;
+        const elapsedSeconds = (Date.now() - startTime) / 1000;
+
+        // 每 30 秒打印一次 Worker 状态
+        if (loopCount % 3000 === 0) {
+          printWorkerStatus();
+        }
+
+        if (loopCount % 100 === 0) {
+          console.log(`[writeFramesToPipe] loop=${loopCount}, elapsed=${elapsedSeconds.toFixed(1)}s, isComplete=${frameBuffer.isComplete()}, buffered=${frameBuffer.getBufferedCount()}, transitionPreprocessCompleted=${transitionPreprocessCompleted}, transitionFramesAdded=${transitionFramesAdded}, transitionFrames.size=${transitionFrames.size}, allWorkersCompleted=${allWorkersCompleted}`);
+        }
         // 检查是否已取消
         if (isCancelled) {
           break;
+        }
+
+        // 检测写入是否停滞（连续 50 次循环没有写入新帧）
+        if (framesWritten === lastFramesWritten) {
+          stallCount++;
+          if (stallCount > 50 && !allWorkersCompleted) {
+            console.warn(`[writeFramesToPipe] 写入停滞！loop=${loopCount}, buffered=${frameBuffer.getBufferedCount()}, allWorkersCompleted=${allWorkersCompleted}, completedWorkers=${completedWorkers}`);
+            printWorkerStatus();
+          }
+          // 如果所有 Worker 都完成了但还在循环，强制退出
+          if (allWorkersCompleted && stallCount > maxLoopsWithoutProgress) {
+            console.warn(`[writeFramesToPipe] 强制退出！所有 Worker 完成但循环停滞。framesWritten=${framesWritten}`);
+            break;
+          }
+        } else {
+          stallCount = 0;
+          lastFramesWritten = framesWritten;
         }
         
         // 如果转场预处理已完成，添加转场帧到缓冲区（只添加一次）
@@ -1185,7 +1231,9 @@ export class VideoExporter {
           }
         } else if (allWorkersCompleted && transitionPreprocessCompleted && transitionFramesAdded) {
           // 所有 Worker 和转场预处理都已完成，转场帧已添加，检查是否还有帧
+          console.log(`[writeFramesToPipe] allWorkersCompleted=${allWorkersCompleted}, transitionPreprocessCompleted=${transitionPreprocessCompleted}, transitionFramesAdded=${transitionFramesAdded}, frameBuffer.isComplete()=${frameBuffer.isComplete()}, bufferedCount=${frameBuffer.getBufferedCount()}`);
           if (frameBuffer.isComplete() && frameBuffer.getBufferedCount() === 0) {
+            console.log(`[writeFramesToPipe] 写入循环结束条件满足，退出循环`);
             break;
           }
         } else {
@@ -1215,16 +1263,22 @@ export class VideoExporter {
       });
       
       workers.push(worker);
-      
+      console.log(`[VideoExporter] Worker ${segment.segmentIndex} 已创建并加入 workers 数组`);
+
       const promise = new Promise((resolve, reject) => {
         worker.on('message', async (result) => {
+          console.log(`[VideoExporter] Worker ${segment.segmentIndex} 收到消息: type=${result.type}, success=${result.success}`);
           if (result.type === 'progress') {
             // 处理进度消息
             const { segmentIndex, progress, currentFrame, totalFrames, frameIndex } = result;
-            
+
             // 更新该段的进度
             segmentProgress.set(segmentIndex, { currentFrame, totalFrames });
-            
+
+            // 更新最后进度时间（用于调试）
+            lastProgressTime = Date.now();
+            lastProgressWorker = segmentIndex;
+
             // 计算总体进度（排除转场帧）
             let totalCompletedFrames = 0;
             let totalWorkerFrames = 0;
@@ -1233,22 +1287,23 @@ export class VideoExporter {
               totalCompletedFrames += segProgress.currentFrame;
               totalWorkerFrames += segProgress.totalFrames;
             }
-            
+
             const overallProgress = totalWorkerFrames > 0 ? (totalCompletedFrames / totalWorkerFrames * 100) : 0;
-            
+
             // 只在总体进度变化超过 1% 时打印，避免输出过多
             if (Math.abs(overallProgress - lastOverallProgress) >= 1 || overallProgress >= 100) {
               console.log(`\r总体进度: ${overallProgress.toFixed(1)}% (${totalCompletedFrames}/${totalWorkerFrames} 帧) | [Worker ${segmentIndex}] ${progress}%                    `);
               lastOverallProgress = overallProgress;
             }
-            
+
             return; // 不 resolve，继续等待完成消息
           }
           
           if (result.success) {
             // 将帧存入缓冲区（转场帧会被跳过，因为 Worker 已经跳过了转场帧）
+            console.log(`[Worker ${segment.segmentIndex}] 完成，收到 ${result.frames.length} 帧`);
             for (const frameData of result.frames) {
-              // 检查是否是转场帧（转场帧不应该由 Worker 渲染）
+              // 跳过转场帧（在 Worker 中已经跳过了，但以防万一）
               const isTransitionFrame = transitionRanges.some(range => 
                 frameData.frameIndex >= range.startFrame && frameData.frameIndex < range.endFrame
               );
@@ -1283,33 +1338,52 @@ export class VideoExporter {
             
             completedWorkers++;
             console.log(`段 ${result.segmentIndex} 完成，共接收 ${result.frames.length} 帧，缓冲区: ${frameBuffer.getBufferedCount()} 帧`);
-            
+
             if (completedWorkers === segments.length) {
               allWorkersCompleted = true;
+              console.log(`所有 Worker 完成！completedWorkers=${completedWorkers}, segments.length=${segments.length}`);
             }
-            
+
             resolve(result);
           } else {
             reject(new Error(`段 ${result.segmentIndex} 渲染失败: ${result.error}`));
           }
           worker.terminate();
         });
-        
+
         worker.on('error', (error) => {
+          console.error(`[VideoExporter] Worker ${segment.segmentIndex} 错误:`, error.message);
           reject(new Error(`段 ${segment.segmentIndex} Worker 错误: ${error.message}`));
           worker.terminate();
         });
+
+        // Worker 退出监听器 - 处理 Worker 未发送完成消息就退出的情况
+        let workerExited = false;
+        worker.on('exit', (code) => {
+          console.log(`[VideoExporter] Worker ${segment.segmentIndex} 退出，退出码: ${code}`);
+          workerExited = true;
+          if (code !== 0) {
+            reject(new Error(`段 ${segment.segmentIndex} Worker 异常退出，退出码: ${code}`));
+          }
+        });
       });
-      
+
       workerPromises.push(promise);
     }
-    
+
     // 启动写入任务（在后台运行）
     const writeTask = writeFramesToPipe();
-    
+
     // 等待所有 Worker 完成和转场预处理完成（并行）
+    // 添加超时机制，防止无限等待
+    const timeoutMs = 10 * 60 * 1000; // 10 分钟超时
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('renderFramesWithPipeWorker 超时（10分钟）')), timeoutMs);
+    });
+
     try {
-      await Promise.all([...workerPromises, transitionPreprocessTask]);
+      // 竞争 Promise.all 和 timeout
+      await Promise.race([Promise.all([...workerPromises, transitionPreprocessTask]), timeoutPromise]);
       
       if (isCancelled) {
         return; // 如果已取消，直接返回
@@ -1384,6 +1458,10 @@ export class VideoExporter {
       // 移除信号监听器
       process.removeListener('SIGINT', signalHandler);
       process.removeListener('SIGTERM', signalHandler);
+
+      // 清理资源，避免内存泄漏
+      segmentProgress.clear();
+      workers.length = 0;
     }
   }
 
@@ -1396,7 +1474,7 @@ export class VideoExporter {
     const transitions = composition.transitions || [];
     const transitionRenderers = new Map();
     const transitionFunctions = new Map(); // 缓存转场函数
-    const transitionCanvasCache = {}; // 缓存转场 Canvas
+    let transitionCanvasCache = {}; // 缓存转场 Canvas
     
     // 预先渲染并保存所有转场的帧
     const transitionFrames = new Map();
@@ -1470,8 +1548,17 @@ export class VideoExporter {
         console.error(`渲染第 ${frame + 1} 帧时出错:`, error);
         console.error('错误堆栈:', error.stack);
         throw error;
+      } finally {
+        // 清理临时 buffer
+        buffer = null;
       }
     }
+
+    // 清理转场缓存，释放内存
+    transitionRenderers.clear();
+    transitionFunctions.clear();
+    transitionCanvasCache = {};
+    transitionFrames.clear();
   }
 
   /**

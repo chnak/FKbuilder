@@ -686,4 +686,25 @@ export class SpineElement extends BaseElement {
     this._callOnRender(time, finalItem, { paper: p, project })
     return finalItem
   }
+
+  /**
+   * 销毁元素，释放资源
+   */
+  destroy() {
+    if (this._ck) {
+      // 清理 CanvasKit 资源
+      if (this._ck.surface && typeof this._ck.surface.delete === 'function') {
+        this._ck.surface.delete();
+      }
+      if (this._ck.canvas && typeof this._ck.canvas.delete === 'function') {
+        this._ck.canvas.delete();
+      }
+      if (this._ck.drawable && typeof this._ck.drawable.dispose === 'function') {
+        this._ck.drawable.dispose();
+      }
+      this._ck = null;
+    }
+    this._appliedSchedule.clear();
+    super.destroy();
+  }
 }

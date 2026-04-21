@@ -411,4 +411,18 @@ export class SpineElement extends BaseElement {
     this._callOnRender(time, raster, { paper: p, project })
     return raster
   }
+
+  /**
+   * 销毁元素，释放资源
+   */
+  destroy() {
+    if (this._pixi) {
+      if (this._pixi.app && typeof this._pixi.app.destroy === 'function') {
+        this._pixi.app.destroy(true);
+      }
+      this._pixi = null;
+    }
+    this._appliedSchedule.clear();
+    super.destroy();
+  }
 }

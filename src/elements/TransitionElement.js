@@ -81,7 +81,9 @@ export class TransitionElement extends BaseElement {
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
     const imageData = ctx.createImageData(width, height);
-    imageData.data.set(buffer);
+    // Node.js Buffer 转换为 Uint8Array 以兼容 Uint8ClampedArray.set()
+    const uint8Data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    imageData.data.set(uint8Data);
     ctx.putImageData(imageData, 0, 0);
     return canvas;
   }

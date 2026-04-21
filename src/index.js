@@ -74,5 +74,5 @@ export { getAudioDuration } from './utils/audio-utils.js';
 // 转场相关
 export { TransitionRenderer, AllTransitions } from './utils/transition-renderer.js';
 export { TransitionElement } from './elements/TransitionElement.js';
-export { registerFontFile } from './utils/font-manager.js';
+export { registerFontFile, getFontFallbackChain, initDefaultFont, getRegisteredFontNames } from './utils/font-manager.js';
 

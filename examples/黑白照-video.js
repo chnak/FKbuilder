@@ -401,7 +401,7 @@ async function createBlackWhitePhotoVideo() {
     console.log(`总帧数: ${Math.ceil(audioDurationNum * 30)} 帧\n`);
     
     await videoMaker.export(outputPath, {
-      parallel: true,
+      parallel: false,
       usePipe: true,
       maxWorkers: 4,
     });

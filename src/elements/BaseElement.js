@@ -6,6 +6,7 @@ import { TransformAnimation } from '../animations/TransformAnimation.js';
 import { KeyframeAnimation } from '../animations/KeyframeAnimation.js';
 import { CustomAnimation } from '../animations/CustomAnimation.js';
 import { AnimationType } from '../types/enums.js';
+import { ElementType } from '../types/enums.js';
 import { getPresetAnimation } from '../animations/preset-animations.js';
 import paper from 'paper';
 import got from 'got';
@@ -1075,6 +1076,11 @@ export class BaseElement {
    * 销毁元素
    */
   destroy() {
+    // 视频元素需要先 close（kill FFmpeg 进程）
+    if (this.type === ElementType.VIDEO && typeof this.close === 'function') {
+      this.close();
+    }
+    // Spine 元素有 destroy 方法会处理自己的清理
     try { if (this._paperItem && typeof this._paperItem.remove === 'function') this._paperItem.remove(); } catch (_) {}
     if (Array.isArray(this.segments)) {
       for (const s of this.segments) { try { if (s && typeof s.destroy === 'function') s.destroy(); } catch (_) {} }

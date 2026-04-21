@@ -3,7 +3,7 @@ import { DEFAULT_TEXT_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
 import { toPixels } from '../utils/unit-converter.js';
-import { getDefaultFontFamily, isFontRegistered } from '../utils/font-manager.js';
+import { getDefaultFontFamily, isFontRegistered, getFontFallbackChain } from '../utils/font-manager.js';
 import { TextSplitter } from '../utils/text-splitter.js';
 import { TransformAnimation } from '../animations/TransformAnimation.js';
 import { createCanvas, Image } from 'canvas';
@@ -54,16 +54,18 @@ export class TextElement extends BaseElement {
     // 暂时使用默认上下文，实际渲染时会重新计算
     const context = { width: 1920, height: 1080, baseFontSize: 16 };
     const fontSize = this.convertFontSize(this.config.fontSize, context, 24);
-    
-    const fontFamily = this.config.fontFamily || getDefaultFontFamily();
-    
+
+    const rawFontFamily = this.config.fontFamily || getDefaultFontFamily();
+    // 应用字体回退链，确保文本测量和渲染使用相同的字体
+    const fontFamily = getFontFallbackChain(rawFontFamily);
+
     // 创建分割器
     this.splitter = new TextSplitter(this.config.text, {
       fontSize,
       fontFamily,
       fontWeight: this.config.fontWeight || 'normal',
       fontStyle: this.config.fontStyle || 'normal',
-      dynamicSpacing: true,
+      dynamicSpacing: true, // 启用动态间距，调整窄字符对之间的间距
     });
     
     // 获取分割后的片段
@@ -291,15 +293,13 @@ export class TextElement extends BaseElement {
       y = position.y;
     }
 
-    // 构建字体字符串
+// 构建字体字符串
     const fontStyle = state.fontStyle || 'normal';
     const fontWeight = state.fontWeight || 'normal';
     let fontFamily = state.fontFamily || getDefaultFontFamily();
-    
-    // 如果指定的字体未注册，使用默认字体
-    if (!isFontRegistered(fontFamily)) {
-      fontFamily = getDefaultFontFamily();
-    }
+
+    // 使用字体回退链，确保 Emoji 等特殊字符能正确显示
+    fontFamily = getFontFallbackChain(fontFamily);
 
     // 使用 Paper.js 的 PointText 渲染文本
     const pointText = new p.PointText(new p.Point(x, y));
@@ -321,18 +321,32 @@ export class TextElement extends BaseElement {
       pointText.justification = 'left';
     }
 
-    // 位置对齐：根据文本实际边界和 anchor 调整，使 x/y 表示边界中心
-    // 注意：PointText 的 position 表示边界中心，point 表示文本锚点
+    // 位置对齐：计算锚点位置
+    // Paper.js PointText 的 position 行为：
+    // - 当 justification='center' 时，position.x = bounds.center
+    // - 当 justification='left' 时，position.x = bounds.x
+    // 所以需要根据 justification 调整 position 使文本正确对齐
     const boundsForAlign = pointText.bounds;
     const textW = boundsForAlign.width;
     const textH = boundsForAlign.height;
     const anchor = state.anchor || [0.5, 0.5];
+
+    let finalX, finalY;
     if (anchor[0] === 0.5 && anchor[1] === 0.5) {
-      pointText.position = new p.Point(x, y);
+      finalX = x;
+      finalY = y;
     } else {
-      const centerX = x + textW * (0.5 - anchor[0]);
-      const centerY = y + textH * (0.5 - anchor[1]);
-      pointText.position = new p.Point(centerX, centerY);
+      finalX = x + textW * (0.5 - anchor[0]);
+      finalY = y + textH * (0.5 - anchor[1]);
+    }
+
+    // 调整 position 使 x 表示的字符中心位置正确
+    // 当 justification='left' 时，需要 position.x = finalX + width/2
+    // 当 justification='center' 时，position.x = finalX
+    if (state.textAlign === 'left') {
+      pointText.position = new p.Point(finalX + textW / 2, finalY);
+    } else {
+      pointText.position = new p.Point(finalX, finalY);
     }
     
     // 应用渐变或普通颜色

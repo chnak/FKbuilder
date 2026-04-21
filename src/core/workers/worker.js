@@ -31,9 +31,15 @@ async function renderSegment() {
     useRaw = true, // 是否使用 raw 格式（默认 true，如果有转场则为 false）
   } = workerData;
 
+  console.log(`[Worker ${segmentIndex}] 开始渲染，范围: [${startFrame}, ${endFrame}), FPS: ${fps}, 尺寸: ${width}x${height}`);
+
   try {
+    // 初始化默认字体（包括系统字体回退链）
+    initDefaultFont();
+
     // 在 Worker 中注册字体（必须在创建 Renderer 之前）
     if (fontInfo && fontInfo.length > 0) {
+      console.log(`[Worker ${segmentIndex}] 注册 ${fontInfo.length} 个字体...`);
       for (const font of fontInfo) {
         try {
           registerFontFile(font.path, font.fontFamily, font.options || {});
@@ -42,14 +48,16 @@ async function renderSegment() {
         }
       }
     }
-    
+
     // 创建独立的 Renderer 实例（每个 Worker 有自己的 Paper.js Project）
+    console.log(`[Worker ${segmentIndex}] 创建 Renderer...`);
     const renderer = new Renderer({
       width,
       height,
       fps,
     });
     await renderer.init();
+    console.log(`[Worker ${segmentIndex}] Renderer 初始化完成`);
 
     // 重建 composition 对象（从序列化的数据）
     const composition = new VideoMaker(compositionData.config);
@@ -419,19 +427,20 @@ async function renderSegment() {
 
     // 检查帧是否在转场范围内
     const isFrameInTransition = (frame) => {
-      return transitionRanges.some(range => 
+      return transitionRanges.some(range =>
         frame >= range.startFrame && frame < range.endFrame
       );
     };
 
-    // 渲染该段的所有帧
+    console.log(`[Worker ${segmentIndex}] 开始渲染 ${totalFrames} 帧，范围 [${startFrame}, ${endFrame})`);
+
     for (let frame = startFrame; frame < endFrame; frame++) {
       try {
         // 跳过转场帧（转场帧在主线程预处理）
         if (isFrameInTransition(frame)) {
           continue;
         }
-        
+
         const time = startTime + (frame - startFrame) / fps;
         const localFrameIndex = frame - startFrame;
 
@@ -468,13 +477,17 @@ async function renderSegment() {
       }
     }
 
+    console.log(`[Worker ${segmentIndex}] 渲染完成，共 ${frames.length} 帧，准备发送结果`);
+
     // 清理
     renderer.destroy();
     try {
       if (composition && typeof composition.destroy === 'function') {
         composition.destroy();
       }
-    } catch (_) {}
+    } catch (destroyError) {
+      console.warn(`[Worker ${segmentIndex}] composition.destroy() 失败:`, destroyError.message);
+    }
 
     // 发送结果（不进行零拷贝传输，避免 @napi-rs/canvas 的 Buffer 传输问题）
     parentPort.postMessage({
@@ -482,6 +495,14 @@ async function renderSegment() {
       segmentIndex,
       frames,
     });
+
+    // 发送完成后再清理大对象引用
+    compositionData = null;
+    fontInfo = null;
+    // frames 数组已经在 postMessage 时传出了，不需要再清理
+    frames = null;
+    renderer = null;
+    composition = null;
   } catch (error) {
     parentPort.postMessage({
       success: false,

@@ -542,7 +542,9 @@ export class VideoElement extends BaseElement {
       const frameCanvas = createCanvas(this.finalWidth, this.finalHeight);
       const ctx = frameCanvas.getContext('2d');
       const imageData = ctx.createImageData(this.finalWidth, this.finalHeight);
-      imageData.data.set(rgba);
+      // Node.js Buffer 转换为 Uint8Array 以兼容 Uint8ClampedArray.set()
+      const uint8Data = new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.byteLength);
+      imageData.data.set(uint8Data);
       ctx.putImageData(imageData, 0, 0);
       
       // 缓存 Canvas 对象
@@ -830,18 +832,48 @@ export class VideoElement extends BaseElement {
   }
 
   /**
+   * 销毁元素，释放资源
+   */
+  destroy() {
+    // 先关闭视频，kill FFmpeg 进程
+    this.close();
+    // 清理帧缓存
+    this.clearFrameCache?.();
+    this.frameBuffer = [];
+    this.frameIterator = null;
+    this.preloadNextFrame = null;
+    this.videoInfo = null;
+    this.audioStream = null;
+    this.audioPath = null;
+    this.initialized = false;
+    this._initializingPromise = null;
+    super.destroy();
+  }
+
+  /**
    * 关闭视频元素，清理资源
    */
   async close() {
+    // 终止 FFmpeg 进程
+    if (this.ps) {
+      try {
+        this.ps.kill?.('SIGTERM');
+      } catch (_) {}
+      this.ps = null;
+    }
+
     if (this.controller) {
       this.controller.abort();
+      this.controller = null;
     }
-    
+
     // 关闭音频流
     if (this.audioStream && typeof this.audioStream.close === 'function') {
-      await this.audioStream.close();
+      try {
+        await this.audioStream.close();
+      } catch (_) {}
     }
-    
+
     this.frameBuffer = [];
     this.frameIterator = null;
     this.audioStream = null;

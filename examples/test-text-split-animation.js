@@ -1,6 +1,6 @@
 /**
  * 测试文本拆分动画
- * 详细测试 split 功能是否正常工作
+ * 使用预设动画（preset animations）
  */
 import { VideoBuilder } from '../src/index.js';
 import fs from 'fs-extra';
@@ -33,8 +33,8 @@ async function testTextSplitAnimation() {
 
   const mainTrack = builder.createTrack({ zIndex: 1, name: '测试轨道' });
 
-  // ========== 测试场景1：无动画的拆分文本（应该使用默认淡入）==========
-  console.log('📝 测试场景1：无动画的拆分文本（默认淡入）...');
+  // ========== 测试场景1：zoomIn 预设动画 ==========
+  console.log('📝 测试场景1：zoomIn 预设动画...');
   const scene1 = mainTrack.createScene({
     duration: 5,
     startTime: 0,
@@ -43,7 +43,7 @@ async function testTextSplitAnimation() {
   scene1.addBackground({ color: colors.ebony });
 
   scene1.addText({
-    text: '测试1：无动画',
+    text: '测试1：zoomIn 缩放动画',
     x: '50%',
     y: '20%',
     fontSize: 60,
@@ -72,27 +72,21 @@ async function testTextSplitAnimation() {
     zIndex: 9,
     split: 'letter',
     splitDelay: 0.1,
-    splitDuration: 0.3,
-    // 不指定 animations，应该使用默认淡入
+    splitDuration: 0.5,
+    animations: ['zoomIn'], // 使用预设动画名称
   });
 
-  // ========== 测试场景2：有 fadeIn 动画的拆分文本 ==========
-  console.log('📝 测试场景2：有 fadeIn 动画的拆分文本...');
+  // ========== 测试场景2：fadeInUp 预设动画 ==========
+  console.log('📝 测试场景2：fadeInUp 预设动画...');
   const scene2 = mainTrack.createScene({
     duration: 5,
-    startTime: 5 - 0.5, // 重叠0.5秒用于转场
-  });
-
-  mainTrack.addTransition({
-    name: 'fade',
-    duration: 0.5,
-    startTime: 5 - 0.5,
+    startTime: 5,
   });
 
   scene2.addBackground({ color: colors.blueGrottoDark });
 
   scene2.addText({
-    text: '测试2：fadeIn 动画',
+    text: '测试2：fadeInUp 动画',
     x: '50%',
     y: '20%',
     fontSize: 60,
@@ -121,29 +115,21 @@ async function testTextSplitAnimation() {
     zIndex: 9,
     split: 'letter',
     splitDelay: 0.1,
-    splitDuration: 0.3,
-    animations: [
-      { type: 'fade', fromOpacity: 0, toOpacity: 1, duration: 0.5 },
-    ],
+    splitDuration: 0.5,
+    animations: ['fadeInUp'], // 使用预设动画名称
   });
 
-  // ========== 测试场景3：有 transform 动画的拆分文本 ==========
-  console.log('📝 测试场景3：有 transform 动画的拆分文本...');
+  // ========== 测试场景3：bigIn 预设动画（放大进入） ==========
+  console.log('📝 测试场景3：bigIn 放大进入...');
   const scene3 = mainTrack.createScene({
     duration: 5,
-    startTime: 10 - 0.5,
-  });
-
-  mainTrack.addTransition({
-    name: 'fade',
-    duration: 0.5,
-    startTime: 10 - 0.5,
+    startTime: 10,
   });
 
   scene3.addBackground({ color: colors.ebony });
 
   scene3.addText({
-    text: '测试3：transform 动画',
+    text: '测试3：bigIn 放大进入',
     x: '50%',
     y: '20%',
     fontSize: 60,
@@ -171,30 +157,22 @@ async function testTextSplitAnimation() {
     startTime: 0,
     zIndex: 9,
     split: 'letter',
-    splitDelay: 0.15,
-    splitDuration: 0.5,
-    animations: [
-      { type: 'transform', fromScaleX: 0.3, fromScaleY: 0.3, toScaleX: 1, toScaleY: 1, duration: 0.8, easing: 'easeOut' },
-    ],
+    splitDelay: 0.1,
+    splitDuration: 0.6,
+    animations: ['bigIn'], // 使用预设动画名称
   });
 
-  // ========== 测试场景4：有 onFrame 的拆分文本 ==========
-  console.log('📝 测试场景4：有 onFrame 的拆分文本...');
+  // ========== 测试场景4：rotateIn 旋转进入 ==========
+  console.log('📝 测试场景4：rotateIn 旋转进入...');
   const scene4 = mainTrack.createScene({
     duration: 5,
-    startTime: 15 - 0.5,
-  });
-
-  mainTrack.addTransition({
-    name: 'fade',
-    duration: 0.5,
-    startTime: 15 - 0.5,
+    startTime: 15,
   });
 
   scene4.addBackground({ color: colors.blueGrottoDark });
 
   scene4.addText({
-    text: '测试4：onFrame 动画',
+    text: '测试4：rotateIn 旋转进入',
     x: '50%',
     y: '20%',
     fontSize: 60,
@@ -222,40 +200,26 @@ async function testTextSplitAnimation() {
     startTime: 0,
     zIndex: 9,
     split: 'letter',
-    splitDelay: 0.12,
+    splitDelay: 0.1,
     splitDuration: 0.5,
-    animations: [
-      { type: 'fade', fromOpacity: 0, toOpacity: 1, duration: 0.5 },
-    ],
-    onFrame: (element, event, paperItem) => {
-      if (!paperItem) return;
-      const pivot = paperItem.position || paperItem.center;
-      if (pivot && event.time > 2) {
-        // 在所有字母出现后添加呼吸效果
-        const breath = 1 + Math.sin((event.time - 2) * 1.5) * 0.04;
-        const currentScale = paperItem.scaling ? paperItem.scaling.x : 1;
-        paperItem.scale(breath / currentScale, pivot);
-      }
-    },
+    textShadow: true,
+    textShadowColor: colors.babyBlue,
+    textShadowBlur: 15,
+    textShadowOpacity: 0.8,
+    animations: ['rotateIn'], // 使用预设动画名称
   });
 
-  // ========== 测试场景5：word 拆分 ==========
-  console.log('📝 测试场景5：word 拆分...');
+  // ========== 测试场景5：zoomInLeft 左侧缩放 ==========
+  console.log('📝 测试场景5：zoomInLeft 左侧缩放...');
   const scene5 = mainTrack.createScene({
     duration: 5,
-    startTime: 20 - 0.5,
-  });
-
-  mainTrack.addTransition({
-    name: 'fade',
-    duration: 0.5,
-    startTime: 20 - 0.5,
+    startTime: 20,
   });
 
   scene5.addBackground({ color: colors.ebony });
 
   scene5.addText({
-    text: '测试5：word 拆分',
+    text: '测试5：zoomInLeft 左侧缩放',
     x: '50%',
     y: '20%',
     fontSize: 60,
@@ -270,6 +234,49 @@ async function testTextSplitAnimation() {
   });
 
   scene5.addText({
+    text: 'FKbuilder',
+    x: '50%',
+    y: '40%',
+    fontSize: 120,
+    color: colors.babyBlue,
+    fontFamily: '微软雅黑',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    anchor: [0.5, 0.5],
+    duration: 5,
+    startTime: 0,
+    zIndex: 9,
+    split: 'letter',
+    splitDelay: 0.1,
+    splitDuration: 0.5,
+    animations: ['zoomInLeft'], // 使用预设动画名称
+  });
+
+  // ========== 测试场景6：word 拆分 + zoomIn ==========
+  console.log('📝 测试场景6：word 拆分 + zoomIn...');
+  const scene6 = mainTrack.createScene({
+    duration: 5,
+    startTime: 25,
+  });
+
+  scene6.addBackground({ color: colors.blueGrottoDark });
+
+  scene6.addText({
+    text: '测试6：word 拆分动画',
+    x: '50%',
+    y: '20%',
+    fontSize: 60,
+    color: colors.pewter,
+    fontFamily: '微软雅黑',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    anchor: [0.5, 0.5],
+    duration: 5,
+    startTime: 0,
+    zIndex: 10,
+  });
+
+  scene6.addText({
     text: 'Hello World',
     x: '50%',
     y: '40%',
@@ -284,10 +291,97 @@ async function testTextSplitAnimation() {
     zIndex: 9,
     split: 'word',
     splitDelay: 0.2,
+    splitDuration: 0.5,
+    animations: ['zoomIn'], // 使用预设动画名称
+  });
+
+  // ========== 测试场景7：多个动画组合 ==========
+  console.log('📝 测试场景7：bigIn + bigOut 组合...');
+  const scene7 = mainTrack.createScene({
+    duration: 5,
+    startTime: 30,
+  });
+
+  scene7.addBackground({ color: colors.ebony });
+
+  scene7.addText({
+    text: '测试7：进入 + 退出动画',
+    x: '50%',
+    y: '20%',
+    fontSize: 60,
+    color: colors.pewter,
+    fontFamily: '微软雅黑',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    anchor: [0.5, 0.5],
+    duration: 5,
+    startTime: 0,
+    zIndex: 10,
+  });
+
+  scene7.addText({
+    text: 'FKbuilder',
+    x: '50%',
+    y: '40%',
+    fontSize: 120,
+    color: colors.babyBlue,
+    fontFamily: '微软雅黑',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    anchor: [0.5, 0.5],
+    duration: 5,
+    startTime: 0,
+    zIndex: 9,
+    split: 'letter',
+    splitDelay: 0.08,
+    splitDuration: 0.5,
+    animations: ['bigIn', 'bigOut'], // 进入 + 退出动画
+  });
+
+  // ========== 测试场景8：描边 + zoomIn ==========
+  console.log('📝 测试场景8：描边 + zoomIn...');
+  const scene8 = mainTrack.createScene({
+    duration: 5,
+    startTime: 35,
+  });
+
+  scene8.addBackground({ color: '#000000' });
+
+  scene8.addText({
+    text: '测试8：描边 + 缩放',
+    x: '50%',
+    y: '20%',
+    fontSize: 60,
+    color: colors.pewter,
+    fontFamily: '微软雅黑',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    anchor: [0.5, 0.5],
+    duration: 5,
+    startTime: 0,
+    zIndex: 10,
+  });
+
+  scene8.addText({
+    text: 'FKbuilder',
+    x: '50%',
+    y: '40%',
+    fontSize: 120,
+    color: '#ffffff',
+    fontFamily: '微软雅黑',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    anchor: [0.5, 0.5],
+    duration: 5,
+    startTime: 0,
+    zIndex: 9,
+    split: 'letter',
+    splitDelay: 0.1,
     splitDuration: 0.4,
-    animations: [
-      { type: 'fade', fromOpacity: 0, toOpacity: 1, duration: 0.5 },
-    ],
+    stroke: true,
+    strokeWidth: 3,
+    strokeColor: colors.babyBlue,
+    animations: ['zoomIn'], // 使用预设动画名称
   });
 
   // ========== 导出视频 ==========
@@ -297,15 +391,15 @@ async function testTextSplitAnimation() {
 
   try {
     console.log('\n🎬 开始渲染测试视频...');
-    console.log(`总时长: 25 秒`);
-    console.log(`总帧数: ${Math.ceil(25 * 30)} 帧\n`);
-    
+    console.log(`总时长: 40 秒`);
+    console.log(`总帧数: ${Math.ceil(40 * 30)} 帧\n`);
+
     const resultPath = await builder.render(outputPath);
-    
+
     console.log('\n✅ 测试视频渲染完成！');
     console.log(`📁 输出文件: ${resultPath}`);
-    console.log(`⏱️  视频时长: 25 秒`);
-    
+    console.log(`⏱️  视频时长: 40 秒`);
+
   } catch (error) {
     console.error('❌ 测试失败:', error.message);
     console.error('详细错误:', error);
@@ -315,4 +409,3 @@ async function testTextSplitAnimation() {
 
 // 执行
 testTextSplitAnimation().catch(console.error);
-

@@ -536,6 +536,10 @@ track.addTransition({ name: 'CrossZoom', duration: 0.5, startTime: 2.5 });
 - `toScene` 的 startTime 会被覆盖为 `transitionEndTime`（转场结束时间）
 - 转场期间（transitionStartTime ~ transitionEndTime），两个场景元素都不在主时间轴显示，由预渲染帧负责视觉混合
 
+**预渲染帧时间点**：
+- `fromFrame` 在 `transitionStartTime - 0.001s` 渲染（确保 fromScene 元素仍可见）
+- `toFrame` 在 `transitionEndTime` 渲染（此时 toScene 元素已可见）
+
 ### 转场位置计算
 
 当不指定 `startTime` 时：
@@ -614,7 +618,31 @@ isActiveAtTime(time) {
 - `element.duration`: 元素的持续时间
 - `element.endTime`: 元素的结束时间 = sceneStartTime + elementStartTime + duration
 
-### 3. 百分比坐标
+### 3. 元素时间不能超过场景时间
+
+**重要**：元素的 endTime 不能超过场景的结束时间。超过的部分会被自动截断，并输出警告。
+
+```javascript
+// 错误示例：元素的 endTime 超过了场景的结束时间
+const scene = track.createScene({ duration: 3, startTime: 0 });
+scene.addText({
+  text: 'Hello',
+  duration: 5,  // 错误！元素持续时间超过场景时间
+});
+
+// 正确示例：元素的 endTime 应在场景范围内
+const scene = track.createScene({ duration: 3, startTime: 0 });
+scene.addText({
+  text: 'Hello',
+  duration: 3,  // 正确：元素持续时间等于场景时间
+});
+```
+
+转场时，系统以**转场调整后的场景结束时间**为准：
+- 转场会缩短 fromScene 的 duration，使其在 transitionStartTime 结束
+- 因此 fromScene 元素的 endTime 不能超过 transitionStartTime
+
+### 4. 百分比坐标
 
 坐标支持 "50%" 形式，表示画布中心：
 ```javascript
@@ -623,12 +651,12 @@ x: '0%', y: '0%'    // 左上角
 x: '100%', y: '100%' // 右下角
 ```
 
-### 4. Scene.startTime 的影响
+### 5. Scene.startTime 的影响
 
 - 如果不设置 `scene.startTime`，系统会基于前一个场景的结束时间自动推断
 - 当添加转场时，`toScene.startTime` 会被强制覆盖为 `transitionEndTime`
 
-### 5. 音频需要特殊处理
+### 6. 音频需要特殊处理
 
 音频元素通常应该添加到独立的音频轨道，或者在场景外添加：
 ```javascript
@@ -639,7 +667,7 @@ composition.addAudio({ src: './music.mp3', startTime: 0, volume: 0.5 });
 builder.audioTracks = [{ src: './music.mp3', startTime: 0, volume: 0.5 }];
 ```
 
-### 6. SVG 异步加载
+### 7. SVG 异步加载
 
 SVG 元素需要异步加载，如果渲染时 SVG 还未加载完成，会导致问题。使用 `initialize()` 预加载：
 ```javascript
@@ -647,7 +675,7 @@ await builder.initialize();  // 预加载所有资源
 await builder.render(outputPath);
 ```
 
-### 7. 字体注册
+### 8. 字体注册
 
 如果使用自定义字体，需要先注册：
 ```javascript

@@ -469,22 +469,25 @@ export class VideoExporter {
    * @returns {Promise<{fromFrame: Buffer, toFrame: Buffer}>} 预渲染的帧
    */
   async preRenderTransitionFrames(composition, transition, backgroundColor) {
-    // 在转场开始时间渲染 fromFrame（此时 fromScene 还在显示）
-    // transition.startTime = sceneEndTime - duration/2
+    // 渲染时间稍微偏离转场时间点，确保捕获正确的场景状态
+    // 因为 isActiveAtTime 使用 time < endTime，所以 atTime = transitionStartTime - epsilon 时 fromScene 仍可见
     const fromScene = transition.fromScene;
     const fromBackgroundColor = fromScene.backgroundLayer?.config?.backgroundColor || backgroundColor;
-    await this.renderer.renderFrame(composition.timeline.getLayers(), transition.startTime, fromBackgroundColor);
+    // 在转场开始时间稍微之前渲染 fromFrame，确保 fromScene 元素仍可见
+    const fromRenderTime = Math.max(0, transition.startTime - 0.001);
+    await this.renderer.renderFrame(composition.timeline.getLayers(), fromRenderTime, fromBackgroundColor);
     // 转场帧使用原始 RGBA 数据（与转场函数兼容）
     const fromBuffer = this.renderer.getCanvasBuffer('raw');
-    
-    // 在转场结束时间渲染 toFrame（此时 toScene 已经完全显示）
-    // transition.endTime = sceneEndTime + duration/2
+
+    // 在转场结束时间稍微之后渲染 toFrame，确保 toScene 元素已可见
+    // toScene.startTime = transition.endTime，所以 atTime = transition.endTime 时 toScene 已可见
     const toScene = transition.toScene;
     const toBackgroundColor = toScene.backgroundLayer?.config?.backgroundColor || backgroundColor;
-    await this.renderer.renderFrame(composition.timeline.getLayers(), transition.endTime, toBackgroundColor);
+    const toRenderTime = transition.endTime;
+    await this.renderer.renderFrame(composition.timeline.getLayers(), toRenderTime, toBackgroundColor);
     // 转场帧使用原始 RGBA 数据（与转场函数兼容）
     const toBuffer = this.renderer.getCanvasBuffer('raw');
-    
+
     return {
       fromFrame: fromBuffer,
       toFrame: toBuffer,

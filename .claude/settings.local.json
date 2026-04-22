@@ -33,7 +33,9 @@
       "Bash(cd D:/code/FKbuilder && node examples/render-foliko-video.mjs 2>&1 | head -50)",
       "Bash(cd D:/code/FKbuilder && timeout 180 node examples/render-foliko-video.mjs 2>&1)",
       "Bash(cd D:/code/FKbuilder && node examples/render-foliko-video.mjs 2>&1 | head -30)",
-      "Bash(cd D:/code/FKbuilder && node examples/render-foliko-simple.mjs 2>&1)"
+      "Bash(cd D:/code/FKbuilder && node examples/render-foliko-simple.mjs 2>&1)",
+      "Bash(node examples/render-transition-test.mjs 2>&1)",
+      "Bash(node examples/render-foliko-simple.mjs 2>&1)"
     ]
   }
 }

@@ -1,0 +1,366 @@
+{
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "output": "output/demo-json.mp4",
+  "audio": "../assets/cotton-clouds.mp3",
+  "audioVolume": 0.5,
+  "tracks": [
+    {
+      "zIndex": 1,
+      "scenes": [
+        {
+          "startTime": 0,
+          "duration": 5,
+          "background": "#0a0a0f",
+          "elements": [
+            {
+              "type": "circle",
+              "x": "50%",
+              "y": "50%",
+              "radius": 200,
+              "bgcolor": "#6366f1",
+              "opacity": 0.15,
+              "duration": 5,
+              "startTime": 0,
+              "animations": ["zoomIn"]
+            },
+            {
+              "type": "text",
+              "text": "FOLIKO",
+              "x": "50%",
+              "y": "45%",
+              "fontSize": 180,
+              "color": "#ffffff",
+              "fontFamily": "Arial",
+              "fontWeight": "bold",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0,
+              "animations": ["bigIn"],
+              "textShadow": true,
+              "textShadowColor": "#6366f1",
+              "textShadowBlur": 60
+            },
+            {
+              "type": "text",
+              "text": ".com",
+              "x": "58%",
+              "y": "45%",
+              "fontSize": 70,
+              "color": "#06b6d4",
+              "fontFamily": "Arial",
+              "textAlign": "left",
+              "anchor": [0, 0.5],
+              "duration": 5,
+              "startTime": 0.3,
+              "animations": ["fadeInUp"]
+            },
+            {
+              "type": "text",
+              "text": "简约的插件化 Agent 框架",
+              "x": "50%",
+              "y": "70%",
+              "fontSize": 36,
+              "color": "#ffffff",
+              "fontFamily": "微软雅黑",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "opacity": 0.7,
+              "duration": 5,
+              "startTime": 0.8,
+              "animations": ["fadeInUp"]
+            }
+          ]
+        }
+      ],
+      "transitions": []
+    },
+    {
+      "zIndex": 1,
+      "scenes": [
+        {
+          "startTime": 5,
+          "duration": 5,
+          "background": "#0d1b2a",
+          "elements": [
+            {
+              "type": "text",
+              "text": "核心特性",
+              "x": "50%",
+              "y": "15%",
+              "fontSize": 72,
+              "color": "#ffffff",
+              "fontFamily": "微软雅黑",
+              "fontWeight": "bold",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0,
+              "animations": ["fadeInUp"]
+            },
+            {
+              "type": "rect",
+              "x": "20%",
+              "y": "50%",
+              "width": 300,
+              "height": 220,
+              "bgcolor": "#1a1a2e",
+              "borderRadius": 20,
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.2,
+              "animations": ["fadeInUp"],
+              "borderWidth": 2,
+              "borderColor": "#6366f1",
+              "shadowBlur": 25,
+              "shadowColor": "#6366f1"
+            },
+            {
+              "type": "text",
+              "text": "🔌",
+              "x": "20%",
+              "y": "42%",
+              "fontSize": 60,
+              "color": "#6366f1",
+              "fontFamily": "Arial",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.3,
+              "animations": ["zoomIn"]
+            },
+            {
+              "type": "text",
+              "text": "插件系统",
+              "x": "20%",
+              "y": "58%",
+              "fontSize": 36,
+              "color": "#ffffff",
+              "fontFamily": "微软雅黑",
+              "fontWeight": "bold",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.4,
+              "animations": ["fadeInUp"]
+            },
+            {
+              "type": "rect",
+              "x": "42%",
+              "y": "50%",
+              "width": 300,
+              "height": 220,
+              "bgcolor": "#1a1a2e",
+              "borderRadius": 20,
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.3,
+              "animations": ["fadeInUp"],
+              "borderWidth": 2,
+              "borderColor": "#8b5cf6",
+              "shadowBlur": 25,
+              "shadowColor": "#8b5cf6"
+            },
+            {
+              "type": "text",
+              "text": "🤖",
+              "x": "42%",
+              "y": "42%",
+              "fontSize": 60,
+              "color": "#8b5cf6",
+              "fontFamily": "Arial",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.4,
+              "animations": ["zoomIn"]
+            },
+            {
+              "type": "text",
+              "text": "多 AI 支持",
+              "x": "42%",
+              "y": "58%",
+              "fontSize": 36,
+              "color": "#ffffff",
+              "fontFamily": "微软雅黑",
+              "fontWeight": "bold",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.5,
+              "animations": ["fadeInUp"]
+            },
+            {
+              "type": "rect",
+              "x": "64%",
+              "y": "50%",
+              "width": 300,
+              "height": 220,
+              "bgcolor": "#1a1a2e",
+              "borderRadius": 20,
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.4,
+              "animations": ["fadeInUp"],
+              "borderWidth": 2,
+              "borderColor": "#06b6d4",
+              "shadowBlur": 25,
+              "shadowColor": "#06b6d4"
+            },
+            {
+              "type": "text",
+              "text": "⚡",
+              "x": "64%",
+              "y": "42%",
+              "fontSize": 60,
+              "color": "#06b6d4",
+              "fontFamily": "Arial",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.5,
+              "animations": ["zoomIn"]
+            },
+            {
+              "type": "text",
+              "text": "流式输出",
+              "x": "64%",
+              "y": "58%",
+              "fontSize": 36,
+              "color": "#ffffff",
+              "fontFamily": "微软雅黑",
+              "fontWeight": "bold",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.6,
+              "animations": ["fadeInUp"]
+            },
+            {
+              "type": "rect",
+              "x": "86%",
+              "y": "50%",
+              "width": 300,
+              "height": 220,
+              "bgcolor": "#1a1a2e",
+              "borderRadius": 20,
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.5,
+              "animations": ["fadeInUp"],
+              "borderWidth": 2,
+              "borderColor": "#ec4899",
+              "shadowBlur": 25,
+              "shadowColor": "#ec4899"
+            },
+            {
+              "type": "text",
+              "text": "🌐",
+              "x": "86%",
+              "y": "42%",
+              "fontSize": 60,
+              "color": "#ec4899",
+              "fontFamily": "Arial",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.6,
+              "animations": ["zoomIn"]
+            },
+            {
+              "type": "text",
+              "text": "子 Agent",
+              "x": "86%",
+              "y": "58%",
+              "fontSize": 36,
+              "color": "#ffffff",
+              "fontFamily": "微软雅黑",
+              "fontWeight": "bold",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.7,
+              "animations": ["fadeInUp"]
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        { "name": "CrossZoom", "duration": 1 }
+      ]
+    },
+    {
+      "zIndex": 1,
+      "scenes": [
+        {
+          "startTime": 10,
+          "duration": 5,
+          "background": "#0a0a0f",
+          "elements": [
+            {
+              "type": "circle",
+              "x": "50%",
+              "y": "50%",
+              "radius": 400,
+              "bgcolor": "#6366f1",
+              "opacity": 0.1,
+              "duration": 5,
+              "startTime": 0,
+              "animations": ["zoomIn"]
+            },
+            {
+              "type": "text",
+              "text": "40+",
+              "x": "50%",
+              "y": "35%",
+              "fontSize": 280,
+              "color": "#6366f1",
+              "fontFamily": "Arial",
+              "fontWeight": "bold",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.2,
+              "animations": ["bigIn"],
+              "textShadow": true,
+              "textShadowColor": "#8b5cf6",
+              "textShadowBlur": 80
+            },
+            {
+              "type": "text",
+              "text": "插件生态",
+              "x": "50%",
+              "y": "58%",
+              "fontSize": 100,
+              "color": "#ffffff",
+              "fontFamily": "微软雅黑",
+              "fontWeight": "bold",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 0.8,
+              "animations": ["fadeInUp"]
+            },
+            {
+              "type": "text",
+              "text": "开箱即用 · 自由扩展 · 持续更新",
+              "x": "50%",
+              "y": "72%",
+              "fontSize": 36,
+              "color": "#ffbe0b",
+              "fontFamily": "微软雅黑",
+              "textAlign": "center",
+              "anchor": [0.5, 0.5],
+              "duration": 5,
+              "startTime": 1.2,
+              "animations": ["fadeInUp"]
+            }
+          ]
+        }
+      ],
+      "transitions": []
+    }
+  ]
+}

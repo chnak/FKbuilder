@@ -434,7 +434,7 @@ export class BaseElement {
    * @returns {boolean}
    */
   isActiveAtTime(time) {
-    return this.visible && time >= this.startTime && time <= this.endTime;
+    return this.visible && time >= this.startTime && time < this.endTime;
   }
 
   /**

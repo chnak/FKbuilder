@@ -87,7 +87,7 @@ export class BaseLayer {
    * 判断图层在指定时间是否激活
    */
   isActiveAtTime(time) {
-    return this.visible && time >= this.startTime && time <= this.endTime;
+    return this.visible && time >= this.startTime && time < this.endTime;
   }
 
   /**

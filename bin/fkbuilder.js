@@ -107,7 +107,7 @@ JSON 配置文件格式:
 
 元素类型 (type):
   text, image, video, rect, circle, svg, audio
-  spine, sprite, subtitles, code, echarts, oscilloscope, json, path
+  sprite, subtitles, code, echarts, oscilloscope, json, path
 
 预设动画:
   fadeIn, fadeOut, fadeInUp, fadeInDown, fadeOutUp, fadeOutDown
@@ -343,7 +343,7 @@ function createElement(scene, config, inputFile) {
   }
 
   // 处理相对路径
-  if (props.src && (type === 'image' || type === 'video' || type === 'audio' || type === 'spine' || type === 'sprite')) {
+  if (props.src && (type === 'image' || type === 'video' || type === 'audio' || type === 'sprite')) {
     if (!path.isAbsolute(props.src)) {
       baseProps.src = path.resolve(path.dirname(inputFile), props.src);
     }
@@ -370,9 +370,6 @@ function createElement(scene, config, inputFile) {
 
     case 'audio':
       return scene.addAudio(baseProps);
-
-    case 'spine':
-      return scene.addSpine(baseProps);
 
     case 'sprite':
       return scene.addSprite(baseProps);

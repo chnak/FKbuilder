@@ -52,7 +52,6 @@ export { Component } from './builder/Component.js';
 export { Transition } from './builder/Transition.js';
 export { CodeElement } from './elements/CodeElement.js';
 export { EChartsElement } from './elements/EChartsElement.js';
-export { SpineElement } from './elements/SpineElement.js';
 
 // 工具函数
 export * from './utils/helpers.js';

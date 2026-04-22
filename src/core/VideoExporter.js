@@ -559,13 +559,13 @@ export class VideoExporter {
       toBuffer = this.renderer.getCanvasBuffer('raw');
     }
     
-    // 使用转场函数混合两个场景
+// 使用转场函数混合两个场景
     const resultBuffer = transitionFunction({
       fromFrame: fromBuffer,
       toFrame: toBuffer,
       progress: progress,
     });
-    
+
     // 复用 Canvas（避免每次创建新的 Canvas）
     let resultCanvas;
     if (transitionCanvasCache && transitionCanvasCache.canvas) {

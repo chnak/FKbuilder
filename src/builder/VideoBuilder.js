@@ -98,26 +98,23 @@ export class VideoBuilder {
     // 收集所有转场信息
     const allTransitions = [];
     for (const track of sortedTracks) {
-      // Track.build() 现在直接创建 Layer 并添加元素到 VideoMaker
-      track.build(mainComposition);
-      
-      // 收集转场信息
+      // 先收集转场信息并扩展 fromScene 的 duration
+      // 这样 track.build() 时会使用扩展后的 duration
+      const sortedScenes = [...track.scenes].sort((a, b) => {
+        const aStartTime = a.startTime !== undefined ? a.startTime : 0;
+        const bStartTime = b.startTime !== undefined ? b.startTime : 0;
+        return aStartTime - bStartTime;
+      });
+
       for (let i = 0; i < track.transitions.length; i++) {
         const transition = track.transitions[i];
         const transitionDuration = transition.duration || 0.5;
-        
-        // 查找转场对应的场景
-        const sortedScenes = [...track.scenes].sort((a, b) => {
-          const aStartTime = a.startTime !== undefined ? a.startTime : 0;
-          const bStartTime = b.startTime !== undefined ? b.startTime : 0;
-          return aStartTime - bStartTime;
-        });
-        
+
         // 找到转场对应的from和to场景
         let fromScene = null;
         let toScene = null;
         let transitionStartTime = transition.startTime;
-        
+
         // 如果transition.startTime未定义，尝试从场景推断
         if (transitionStartTime === undefined) {
           // 遍历场景，找到转场应该插入的位置
@@ -127,12 +124,28 @@ export class VideoBuilder {
             const scene = sortedScenes[sceneIndex];
             const nextScene = sortedScenes[sceneIndex + 1];
             const sceneEndTime = (scene.startTime || 0) + scene.duration;
-            
+
             // 转场居中在两个场景的交界处
-            // 转场开始时间 = 场景结束时间 - duration/2
+            // 转场开始时间 = sceneEndTime - transitionDuration/2
+            // 转场结束时间 = sceneEndTime + transitionDuration/2
+            // 这样在 sceneEndTime 时正好是转场的 50% 位置
             fromScene = scene;
             toScene = nextScene;
             transitionStartTime = sceneEndTime - transitionDuration / 2;
+
+            // 计算实际的 transition 时间
+            const transitionActualEndTime = transitionStartTime + transitionDuration;
+
+            // 缩短 fromScene 的 duration，让其元素在转场开始时结束显示
+            // 转场使用预渲染帧进行混合，不需要依赖主时间轴上的元素
+            // 元素 endTime = fromSceneStart + (transitionStartTime - fromSceneStart) = transitionStartTime
+            fromScene.duration = transitionStartTime - (fromScene.startTime || 0);
+
+            // 调整 toScene.startTime，让它在 transition 结束后开始
+            // 同时调整 duration，保持 scene.endTime 不变
+            const originalToSceneEndTime = (toScene.startTime || 0) + toScene.duration;
+            toScene.startTime = transitionActualEndTime;
+            toScene.duration = originalToSceneEndTime - transitionActualEndTime;
           }
         } else {
           // 转场有指定的startTime，查找对应的场景
@@ -142,7 +155,7 @@ export class VideoBuilder {
             const sceneStartTime = scene.startTime !== undefined ? scene.startTime : 0;
             
             // 找到在转场开始时间之后的场景（转场的目标场景）
-            if (sceneStartTime > transitionStartTime) {
+            if (sceneStartTime >= transitionStartTime) {
               // 找到目标场景，源场景是其前一个场景
               if (j > 0) {
                 fromScene = sortedScenes[j - 1];
@@ -159,12 +172,12 @@ export class VideoBuilder {
           // 转场结束时间 = startTime + duration
           const transitionActualStartTime = transitionStartTime;
           const transitionActualEndTime = transitionStartTime + transitionDuration;
-          
+
           // 确保计算正确
           if (transitionActualStartTime >= transitionActualEndTime) {
             console.warn(`转场 ${transition.name} 时间计算错误: startTime=${transitionActualStartTime}, endTime=${transitionActualEndTime}, transitionStartTime=${transitionStartTime}, duration=${transitionDuration}`);
           }
-          
+
           const transitionObj = {
             name: transition.name,
             duration: transitionDuration,
@@ -175,14 +188,17 @@ export class VideoBuilder {
             fromScene: fromScene,
             toScene: toScene,
           };
-          
+
           allTransitions.push(transitionObj);
         } else {
           console.warn(`转场 ${transition.name} 无法找到对应的场景，startTime: ${transitionStartTime}, fromScene: ${fromScene}, toScene: ${toScene}`);
         }
       }
+
+      // Track.build() 现在直接创建 Layer 并添加元素到 VideoMaker
+      track.build(mainComposition);
     }
-    
+
     // 将转场信息保存到composition
     mainComposition.transitions = allTransitions;
 

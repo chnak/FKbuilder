@@ -47,7 +47,7 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "@napi-rs/canvas": "^0.1.99",
+    "canvas": "npm:@napi-rs/canvas@^0.1.99",
     "cheerio": "1.0.0",
     "echarts": "^6.0.0",
     "execa": "^5.1.1",
@@ -64,15 +64,15 @@
     "jsdom": "^16.2.2",
     "lrc-kit": "^1.1.1",
     "nanoid": "^5.0.4",
-    "paper": "^0.12.18",
+    "@chnak/paper": "^1.0.8",
     "zod": "^4.1.13"
   },
   "overrides": {
-    "canvas": "@napi-rs/canvas@^0.1.99",
+    "canvas": "npm:@napi-rs/canvas@^0.1.99",
     "gl": "^8.1.6"
   },
   "resolutions": {
-    "**/canvas": "@napi-rs/canvas@^0.1.99",
+    "**/canvas": "npm:@napi-rs/canvas@^0.1.99",
     "**/gl": "^8.1.6"
   },
   "devDependencies": {

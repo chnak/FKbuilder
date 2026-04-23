@@ -15,12 +15,12 @@ license: MIT
 
 ### 安装
 ```bash
-npm install fkbuilder
+npm install @chnak/poster
 ```
 
 ### 代码渲染
 ```javascript
-import { VideoBuilder } from 'fkbuilder';
+import { VideoBuilder } from '@chnak/poster';
 
 const builder = new VideoBuilder({
   width: 1280,

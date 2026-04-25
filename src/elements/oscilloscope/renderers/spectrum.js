@@ -1,4 +1,4 @@
-import paper from 'paper';
+import paper from '@chnak/paper';
 
 /**
  * 频谱样式默认配置

@@ -1,4 +1,4 @@
-import paper from 'paper';
+import paper from '@chnak/paper';
 
 /**
  * 瀑布图样式默认配置

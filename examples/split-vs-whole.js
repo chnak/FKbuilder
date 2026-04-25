@@ -2,7 +2,7 @@
  * 可视化测试：分割渲染 vs 整体渲染
  */
 import { createCanvas } from 'canvas';
-import paper from 'paper';
+import paper from '@chnak/paper';
 import fs from 'fs';
 import { initDefaultFont } from '../src/index.js';
 import { TextElement } from '../src/elements/TextElement.js';

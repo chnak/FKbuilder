@@ -5,7 +5,7 @@ import { BaseElement } from './BaseElement.js';
 import { DEFAULT_ELEMENT_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
-import paper from 'paper';
+import paper from '@chnak/paper';
 
 /**
  * 场景组元素类

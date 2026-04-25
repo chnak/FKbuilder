@@ -1,4 +1,4 @@
-import paper from 'paper';
+import paper from '@chnak/paper';
 
 /**
  * 波形编织样式默认配置

@@ -2,7 +2,7 @@
  * 完整渲染测试 - 验证 Fubuilder 分割渲染
  */
 import { createCanvas } from 'canvas';
-import paper from 'paper';
+import paper from '@chnak/paper';
 import fs from 'fs';
 import { initDefaultFont, getFontFallbackChain } from '../src/index.js';
 import { TextSplitter } from '../src/utils/text-splitter.js';

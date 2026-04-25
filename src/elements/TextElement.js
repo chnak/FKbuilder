@@ -7,7 +7,7 @@ import { getDefaultFontFamily, isFontRegistered, getFontFallbackChain } from '..
 import { TextSplitter } from '../utils/text-splitter.js';
 import { TransformAnimation } from '../animations/TransformAnimation.js';
 import { createCanvas, Image } from 'canvas';
-import paper from 'paper';
+import paper from '@chnak/paper';
 
 /**
  * 文本元素

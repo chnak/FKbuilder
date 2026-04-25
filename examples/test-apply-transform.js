@@ -1,5 +1,5 @@
 import { createCanvas } from 'canvas';
-import paper from 'paper';
+import paper from '@chnak/paper';
 import { initDefaultFont } from '../src/index.js';
 import { TextElement } from '../src/elements/TextElement.js';
 initDefaultFont();

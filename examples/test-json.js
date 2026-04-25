@@ -2,7 +2,7 @@ import { VideoBuilder } from '../src/index.js';
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import paper from 'paper';
+import paper from '@chnak/paper';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

@@ -3,7 +3,7 @@ import { DEFAULT_TEXT_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { toPixels } from '../utils/unit-converter.js';
 import {createCanvas} from 'canvas'
-import paper from 'paper';
+import paper from '@chnak/paper';
 // 内置代码主题（从 CodeBlock 复制过来，便于 CodeElement 独立使用）
 const CODE_THEMES = {
   dark: {

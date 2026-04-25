@@ -2,7 +2,7 @@
  * 简单字符位置测试 - 直接渲染到 canvas 检查
  */
 import { createCanvas } from 'canvas';
-import paper from 'paper';
+import paper from '@chnak/paper';
 import { initDefaultFont, getFontFallbackChain } from '../src/index.js';
 import fs from 'fs';
 

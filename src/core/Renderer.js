@@ -1,4 +1,4 @@
-import paper from 'paper';
+import paper from '@chnak/paper';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs-extra';
@@ -32,7 +32,7 @@ export class Renderer {
 
     // 创建离屏 Canvas（用于最终输出）
     this.canvas = paper.createCanvas(this.width, this.height);
-    
+
     // 创建新的 Paper.js Project（实例化）
     // 每个 Renderer 都有自己独立的 project
     this.project = new paper.Project(this.canvas);

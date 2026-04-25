@@ -2,7 +2,7 @@
  * 测试分割后的间距（窄字符 vs 宽字符）
  */
 import { createCanvas } from 'canvas';
-import paper from 'paper';
+import paper from '@chnak/paper';
 import fs from 'fs';
 import { initDefaultFont, getFontFallbackChain } from '../src/index.js';
 import { TextSplitter } from '../src/utils/text-splitter.js';

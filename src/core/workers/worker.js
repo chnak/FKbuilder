@@ -8,7 +8,7 @@ import { VideoMaker } from '../VideoMaker.js';
 import { ElementLayer } from '../../layers/ElementLayer.js';
 import { BackgroundLayer } from '../../layers/BackgroundLayer.js';
 import { registerFontFile,initDefaultFont } from '../../utils/font-manager.js';
-import paper from 'paper';
+import paper from '@chnak/paper';
 import path from 'path';
 import { fileURLToPath } from 'url';
 

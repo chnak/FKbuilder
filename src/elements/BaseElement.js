@@ -8,7 +8,7 @@ import { CustomAnimation } from '../animations/CustomAnimation.js';
 import { AnimationType } from '../types/enums.js';
 import { ElementType } from '../types/enums.js';
 import { getPresetAnimation } from '../animations/preset-animations.js';
-import paper from 'paper';
+import paper from '@chnak/paper';
 import got from 'got';
 import path from 'path';
 import fs from 'fs';

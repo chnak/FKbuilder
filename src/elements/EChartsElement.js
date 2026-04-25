@@ -1,7 +1,7 @@
 import { BaseElement } from './BaseElement.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
-import paper from 'paper';
+import paper from '@chnak/paper';
 import { createCanvas, loadImage } from 'canvas';
 import fs from 'fs';
 import path from 'path';

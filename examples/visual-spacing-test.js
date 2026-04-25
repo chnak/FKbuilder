@@ -2,7 +2,7 @@
  * 视觉化测试 - 直接渲染文本检查间距
  */
 import { createCanvas } from 'canvas';
-import paper from 'paper';
+import paper from '@chnak/paper';
 import fs from 'fs';
 import { initDefaultFont, getFontFallbackChain } from '../src/index.js';
 

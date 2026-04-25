@@ -2,7 +2,7 @@
  * 检查 i 和 d 之间的间距
  */
 import { createCanvas } from 'canvas';
-import paper from 'paper';
+import paper from '@chnak/paper';
 import fs from 'fs';
 import { initDefaultFont, getFontFallbackChain } from '../src/index.js';
 import { TextSplitter } from '../src/utils/text-splitter.js';

@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@chnak/paper@^1.0.14":
-  version "1.0.14"
-  resolved "https://registry.yarnpkg.com/@chnak/paper/-/paper-1.0.14.tgz#05b25353265644bf2a2bfb28596583dc0637a864"
-  integrity sha512-Aa5xvRLfgRQlfwvYYAiY0GwgQNbx9tN3Xi5vxyXq2TryEr/J1BwxidUTuuNikXKNnQ54GA2R44XeUUOabmDG2w==
+"@chnak/paper@^1.0.13":
+  version "1.0.16"
+  resolved "https://registry.yarnpkg.com/@chnak/paper/-/paper-1.0.16.tgz#3cb0c52fd6c6d6752687842f9dc06d5f81cd5455"
+  integrity sha512-xKsNcw66/b+WiaD8Z5CB+YmH4ky6BV1IdCyr5jUVs5WBNC6rkFSTQ0nopWPGKOYBociZPTwexx4ilE+B+4qScQ==
   dependencies:
     canvas "npm:@napi-rs/canvas@^0.1.99"
 
@@ -622,7 +622,7 @@ callsites@^3.0.0:
 
 "canvas@npm:@napi-rs/canvas@^0.1.99":
   version "0.1.99"
-  resolved "https://registry.yarnpkg.com/@napi-rs/canvas/-/canvas-0.1.99.tgz#a0410d40a2c38afa8806f92ebb7715bc3846d12c"
+  resolved "https://registry.npmjs.org/@napi-rs/canvas/-/canvas-0.1.99.tgz"
   integrity sha512-zN4eQlK3eBf7aJBcTHZilpBH3tDekBzPMIWC8r0s94Ecl73XfOyFi4w7yKFMRVUT0lvNQjtOL8YSrwqQj6mZFg==
   optionalDependencies:
     "@napi-rs/canvas-android-arm64" "0.1.99"
@@ -1715,9 +1715,9 @@ js-yaml@^4.1.0:
   dependencies:
     argparse "^2.0.1"
 
-jsdom@^16.2.2:
+jsdom@^16.7.0:
   version "16.7.0"
-  resolved "https://registry.npmjs.org/jsdom/-/jsdom-16.7.0.tgz"
+  resolved "https://registry.yarnpkg.com/jsdom/-/jsdom-16.7.0.tgz#918ae71965424b197c819f8183a754e18977b710"
   integrity sha512-u9Smc2G1USStM+s/x1ru5Sxrl6mPYCbByG1U/hUmqaVsm4tbNyS7CicOSRyuGQYZhTu0h84qkZZQ/I+dzizSVw==
   dependencies:
     abab "^2.0.5"

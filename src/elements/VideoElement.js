@@ -2,7 +2,7 @@ import { BaseElement } from './BaseElement.js';
 import { DEFAULT_IMAGE_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
-import { Image, loadImage, createCanvas } from 'canvas';
+import { Image, loadImage, createCanvas } from '@napi-rs/canvas';
 import { toPixels } from '../utils/unit-converter.js';
 import execa from 'execa';
 import { rawVideoToFrames, calculateVideoScale, getInputCodec, buildVideoFFmpegArgs, readFileStreams, createAudioStream } from '../utils/video-utils.js';

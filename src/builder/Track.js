@@ -192,7 +192,7 @@ export class Track {
           // 验证：元素的 endTime 不能超过场景的结束时间
           const sceneEndTime = sceneStartTime + scene.duration;
           if (element.endTime !== undefined && element.endTime > sceneEndTime) {
-            console.warn(`元素 ${element.type} 的 endTime (${element.endTime}) 超过场景结束时间 (${sceneEndTime})，已截断`);
+            // console.warn(`元素 ${element.type} 的 endTime (${element.endTime}) 超过场景结束时间 (${sceneEndTime})，已截断`);
             element.endTime = sceneEndTime;
           }
           

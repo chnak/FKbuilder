@@ -65,7 +65,8 @@ export class Scene {
     ];
     
     // 如果没有指定颜色，随机选择一个预设颜色
-    let backgroundColor = config.color || config.backgroundColor;
+    // 处理 config 是字符串的情况（即直接传入颜色值）
+    let backgroundColor = typeof config === 'string' ? config : (config.color || config.backgroundColor);
     if (!backgroundColor) {
       const randomIndex = Math.floor(Math.random() * presetColors.length);
       backgroundColor = presetColors[randomIndex];
@@ -77,14 +78,14 @@ export class Scene {
         type: 'background',
         config: {
           backgroundColor: backgroundColor,
-          ...config,
+          ...(typeof config === 'object' && config ? config : {}),
         },
       };
     } else {
       this.backgroundLayer.config = {
         ...this.backgroundLayer.config,
         backgroundColor: backgroundColor,
-        ...config,
+        ...(typeof config === 'object' && config ? config : {}),
       };
     }
     

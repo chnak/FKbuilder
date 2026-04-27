@@ -6,7 +6,7 @@ import { toPixels } from '../utils/unit-converter.js';
 import { getDefaultFontFamily, isFontRegistered, getFontFallbackChain } from '../utils/font-manager.js';
 import { TextSplitter } from '../utils/text-splitter.js';
 import { TransformAnimation } from '../animations/TransformAnimation.js';
-import { createCanvas, Image } from 'canvas';
+import { createCanvas, Image } from '@napi-rs/canvas';
 import paper from '@chnak/paper';
 
 /**

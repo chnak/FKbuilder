@@ -1,7 +1,7 @@
 /**
  * 字体管理器
  */
-import { GlobalFonts } from 'canvas';
+import { GlobalFonts } from '@napi-rs/canvas';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs-extra';

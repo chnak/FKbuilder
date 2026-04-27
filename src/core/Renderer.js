@@ -2,7 +2,7 @@ import paper from '@chnak/paper';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs-extra';
-import { createCanvas } from 'canvas';
+import { createCanvas } from '@napi-rs/canvas';
 import {initDefaultFont,registerFontFile} from '../utils/font-manager.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

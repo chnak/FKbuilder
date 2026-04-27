@@ -2,7 +2,7 @@ import { BaseElement } from './BaseElement.js';
 import { DEFAULT_IMAGE_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { ElementType } from '../types/enums.js';
-import { loadImage } from 'canvas';
+import { loadImage } from '@napi-rs/canvas';
 import { toPixels } from '../utils/unit-converter.js';
 import paper from '@chnak/paper';
 import { calculateImageFit } from '../utils/image-fit.js';

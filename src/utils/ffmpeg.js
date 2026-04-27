@@ -292,11 +292,22 @@ export class FFmpegUtil {
       }
     };
 
+    // 强制终止 FFmpeg 进程（用于错误恢复）
+    const kill = () => {
+      console.log(`[FFmpeg] 终止进程（已写入 ${framesWrittenCount} 帧）`);
+      if (ffmpegProcess && !ffmpegProcess.killed) {
+        try {
+          ffmpegProcess.kill('SIGTERM');
+        } catch (_) {}
+      }
+    };
+
     return {
       process: ffmpegProcess,
       writeFrame,
       addStream,
       end,
+      kill,
       finish: finishPromise,
     };
   }

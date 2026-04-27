@@ -404,6 +404,7 @@ export class VideoExporter {
             await pipe.writeFrame(buffer);
           } catch (writeError) {
             console.error(`写入第 ${frame + 1} 帧失败:`, writeError.message);
+            pipe.kill(); // 强制终止 FFmpeg，避免进程僵死
             throw writeError;
           }
 
@@ -415,8 +416,10 @@ export class VideoExporter {
         } catch (error) {
           console.error(`渲染第 ${frame + 1} 帧时出错:`, error);
           console.error('错误堆栈:', error.stack);
-          // 关闭管道
-          pipe.end();
+          // 终止 FFmpeg 进程
+          if (pipe && pipe.kill) {
+            pipe.kill();
+          }
           throw error;
         }
       }
@@ -442,11 +445,13 @@ export class VideoExporter {
         throw error;
       }
     } catch (error) {
-      // 确保关闭管道
+      // 确保终止 FFmpeg 进程
       try {
-        pipe.end();
+        if (pipe && pipe.kill) {
+          pipe.kill();
+        }
       } catch (e) {
-        // 忽略关闭错误
+        // 忽略错误
       }
       throw error;
     } finally {

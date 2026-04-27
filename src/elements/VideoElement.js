@@ -34,7 +34,9 @@ export class VideoElement extends BaseElement {
     // 视频处理相关
     this.videoProcessor = null;
     this.frameIterator = null;
-    this.frameBuffer = [];
+    this.frameBuffer = new Map(); // Map<frameIndex, Buffer> 有界缓冲，防止 OOM
+    this.maxFrameBufferSize = config.maxFrameBufferSize || 150; // 默认150帧，1080p约1.2GB
+    this.totalBufferedFrames = 0; // 已提取的总帧数（含已被淘汰的）
     this.currentFrameIndex = 0;
     this.videoInfo = null;
     this.initialized = false;
@@ -368,8 +370,13 @@ export class VideoElement extends BaseElement {
                 break;
               }
               if (value) {
-                this.frameBuffer.push(Buffer.from(value));
+                this.frameBuffer.set(frameCount, Buffer.from(value));
                 frameCount++;
+                // FIFO 淘汰：超过上限时移除最旧帧
+                while (this.frameBuffer.size > this.maxFrameBufferSize) {
+                  const oldestKey = Math.min(...this.frameBuffer.keys());
+                  this.frameBuffer.delete(oldestKey);
+                }
               }
             } catch (iterError) {
               if (frameCount === 0) {
@@ -394,9 +401,8 @@ export class VideoElement extends BaseElement {
           throw new Error(errorMsg);
         }
         
-        // 重新创建迭代器（如果需要的话，但通常不需要了）
-        // 注意：由于我们已经缓冲了所有帧，frameIterator 已经用完了
-        // 后续访问都从 frameBuffer 中获取
+        // 保存总帧数（用于进度计算），即使部分帧已被淘汰
+        this.totalBufferedFrames = frameCount;
 
         // 如果不禁音，提取视频中的音频
         if (!this.mute) {
@@ -428,7 +434,7 @@ export class VideoElement extends BaseElement {
         
         const isWorker = typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope;
         const threadInfo = isWorker ? '[Worker]' : '[Main]';
-        console.log(`${threadInfo} [VideoElement] 初始化完成: ${this.videoPath}, 缓冲了 ${this.frameBuffer.length} 帧`);
+        console.log(`${threadInfo} [VideoElement] 初始化完成: ${this.videoPath}, 缓冲了 ${this.frameBuffer.size} 帧 (最大 ${this.maxFrameBufferSize})`);
         
         // 调用 onLoaded 回调（注意：此时还没有 paperItem，所以传递 null）
         this._callOnLoaded(this.startTime || 0, null, null);
@@ -481,44 +487,45 @@ export class VideoElement extends BaseElement {
       let rgba = null;
       let frameIndex = 0;
 
-      if (this.frameBuffer.length > 0 && this.videoInfo) {
+      if (this.frameBuffer.size > 0 && this.videoInfo) {
         // frameBuffer 现在只包含元素 duration 对应的帧
         const elementDuration = this.duration || 0;
         const videoFps = this.videoInfo.fps || 30;
-        
+
         // 计算帧索引
         if (elementDuration > 0) {
           const videoTime = progress * elementDuration;
           frameIndex = Math.floor(videoTime * videoFps);
         } else {
-          frameIndex = Math.floor(progress * this.frameBuffer.length);
+          frameIndex = Math.floor(progress * this.totalBufferedFrames);
         }
-        
+
         // 处理循环播放
-        if (this.loop && this.frameBuffer.length > 0) {
+        if (this.loop && this.totalBufferedFrames > 0) {
           // 循环模式：使用取模运算，允许超出范围的索引循环回开头
-          frameIndex = ((frameIndex % this.frameBuffer.length) + this.frameBuffer.length) % this.frameBuffer.length;
+          frameIndex = ((frameIndex % this.totalBufferedFrames) + this.totalBufferedFrames) % this.totalBufferedFrames;
         } else {
           // 非循环模式：限制帧索引在有效范围内
-          frameIndex = Math.max(0, Math.min(frameIndex, this.frameBuffer.length - 1));
+          frameIndex = Math.max(0, Math.min(frameIndex, this.totalBufferedFrames - 1));
         }
-        
-        // 获取帧，如果无效则尝试使用相邻帧
-        rgba = this.frameBuffer[frameIndex];
-        
+
+        // 获取帧（从 Map 中），如果无效则尝试使用相邻帧
+        rgba = this.frameBuffer.get(frameIndex);
+
         // 如果当前帧无效，尝试使用相邻帧
         if (!rgba || !Buffer.isBuffer(rgba) || rgba.length === 0) {
           // 尝试使用前一帧
           if (frameIndex > 0) {
-            rgba = this.frameBuffer[frameIndex - 1];
+            rgba = this.frameBuffer.get(frameIndex - 1);
           }
           // 如果前一帧也无效，尝试使用后一帧
-          if ((!rgba || !Buffer.isBuffer(rgba) || rgba.length === 0) && frameIndex < this.frameBuffer.length - 1) {
-            rgba = this.frameBuffer[frameIndex + 1];
+          if ((!rgba || !Buffer.isBuffer(rgba) || rgba.length === 0) && frameIndex < this.totalBufferedFrames - 1) {
+            rgba = this.frameBuffer.get(frameIndex + 1);
           }
           // 如果都无效，使用第一帧
-          if ((!rgba || !Buffer.isBuffer(rgba) || rgba.length === 0) && this.frameBuffer.length > 0) {
-            rgba = this.frameBuffer[0];
+          if ((!rgba || !Buffer.isBuffer(rgba) || rgba.length === 0) && this.frameBuffer.size > 0) {
+            const firstKey = Math.min(...this.frameBuffer.keys());
+            rgba = this.frameBuffer.get(firstKey);
           }
         }
       } else if (this.frameIterator) {
@@ -839,7 +846,8 @@ export class VideoElement extends BaseElement {
     this.close();
     // 清理帧缓存
     this.clearFrameCache?.();
-    this.frameBuffer = [];
+    this.frameBuffer.clear();
+    this.totalBufferedFrames = 0;
     this.frameIterator = null;
     this.preloadNextFrame = null;
     this.videoInfo = null;
@@ -874,7 +882,8 @@ export class VideoElement extends BaseElement {
       } catch (_) {}
     }
 
-    this.frameBuffer = [];
+    this.frameBuffer.clear();
+    this.totalBufferedFrames = 0;
     this.frameIterator = null;
     this.audioStream = null;
     this.audioPath = null;

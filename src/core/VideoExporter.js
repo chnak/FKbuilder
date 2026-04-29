@@ -71,8 +71,6 @@ export class VideoExporter {
       endTime = composition.timeline.duration,
       parallel = false, // 是否使用 Worker 并行渲染
       maxWorkers = 2, // 最大 Worker 数，默认根据 CPU 核心数
-      autoChunk = true, // 是否自动分块渲染长视频
-      chunkFrames = 2000, // 每块渲染多少帧，超过则自动分块
     } = options;
 
     // 确保输出目录存在
@@ -108,15 +106,6 @@ export class VideoExporter {
         const backgroundColor = composition.backgroundColor || '#000000';
 
         console.log(`开始渲染 ${totalFrames} 帧...`);
-
-        // 检查是否需要自动分块
-        if (autoChunk && totalFrames > chunkFrames) {
-          console.log(`[VideoExporter] 视频过长 (${totalFrames} 帧 > ${chunkFrames} 帧)，自动分块渲染...`);
-          return this._exportWithAutoChunk(composition, outputPath, {
-            fps, format, audioPath, startTime, usePipe, endTime,
-            parallel, maxWorkers, autoChunk, chunkFrames, backgroundColor
-          });
-        }
         
         // 保存 tempDir 引用（用于文件模式）
         let tempDir = null;
@@ -151,12 +140,24 @@ export class VideoExporter {
           }
         } else if (usePipe) {
           // 使用管道模式：直接写入 FFmpeg，不保存中间文件
-          console.log('使用管道模式（不保存中间图片）...');
-          await this.renderFramesWithPipe(composition, totalFrames, startTime, fps, outputPath, backgroundColor, {
-            fps: fps,
-            width: composition.width,
-            height: composition.height,
-          });
+          // 长视频自动分块渲染，避免内存问题
+          const pipeChunkFrames = options.pipeChunkFrames || 1500;
+          if (totalFrames > pipeChunkFrames) {
+            console.log(`使用管道模式（分块渲染，每块 ${pipeChunkFrames} 帧）...`);
+            await this.renderFramesWithPipeChunked(composition, totalFrames, startTime, fps, outputPath, backgroundColor, {
+              fps: fps,
+              width: composition.width,
+              height: composition.height,
+              chunkFrames: pipeChunkFrames,
+            });
+          } else {
+            console.log('使用管道模式（不保存中间图片）...');
+            await this.renderFramesWithPipe(composition, totalFrames, startTime, fps, outputPath, backgroundColor, {
+              fps: fps,
+              width: composition.width,
+              height: composition.height,
+            });
+          }
         } else {
           // 使用文件模式：串行渲染
           tempDir = path.join(this.cacheDir, `temp_frames_${Date.now()}`);
@@ -331,130 +332,6 @@ export class VideoExporter {
   }
 
   /**
-   * 自动分块导出长视频
-   * @param {VideoMaker} composition - 合成对象
-   * @param {string} outputPath - 输出路径
-   * @param {Object} options - 选项
-   */
-  async _exportWithAutoChunk(composition, outputPath, options) {
-    const {
-      fps,
-      format,
-      audioPath,
-      startTime,
-      usePipe,
-      parallel,
-      maxWorkers,
-      backgroundColor
-    } = options;
-
-    const totalFrames = Math.ceil((options.endTime - startTime) * fps);
-    const chunkFrames = options.chunkFrames || 2000;
-
-    // 计算分块数量
-    const numChunks = Math.ceil(totalFrames / chunkFrames);
-    console.log(`[AutoChunk] 总帧数: ${totalFrames}, 每块: ${chunkFrames}, 分块数: ${numChunks}`);
-
-    // 创建临时目录存储分块视频
-    const chunksDir = path.join(this.cacheDir, 'chunks');
-    await fs.ensureDir(chunksDir);
-
-    const chunkPaths = [];
-
-    try {
-      // 分块渲染
-      for (let chunkIndex = 0; chunkIndex < numChunks; chunkIndex++) {
-        const chunkStartFrame = chunkIndex * chunkFrames;
-        const chunkEndFrame = Math.min(chunkStartFrame + chunkFrames, totalFrames);
-        const chunkStartTime = startTime + chunkStartFrame / fps;
-        const chunkEndTime = startTime + chunkEndFrame / fps;
-        const chunkFrameCount = chunkEndFrame - chunkStartFrame;
-
-        console.log(`[AutoChunk] 渲染分块 ${chunkIndex + 1}/${numChunks}: 帧 [${chunkStartFrame}-${chunkEndFrame}), 时间 [${chunkStartTime.toFixed(2)}s-${chunkEndTime.toFixed(2)}s)`);
-
-        // 销毁旧渲染器，创建新渲染器（释放内存）
-        if (this.renderer) {
-          this.renderer.destroy();
-          this.renderer = null;
-        }
-
-        // 重新创建渲染器
-        this.renderer = new Renderer({
-          width: composition.width,
-          height: composition.height,
-          fps: fps,
-          quality: this.config.quality,
-        });
-        await this.renderer.init();
-
-        // 渲染这一块 - 使用文件模式避免管道问题
-        const tempDir = path.join(this.cacheDir, `temp_frames_${chunkIndex}`);
-        await fs.ensureDir(tempDir);
-
-        // 文件模式：渲染帧并保存为PNG，然后编码
-        await this.renderFramesSerial(composition, chunkFrameCount, chunkStartTime, fps, tempDir, backgroundColor);
-
-        // 编码为视频
-        const framePattern = path.join(tempDir, 'frame_%04d.png');
-        const chunkOutputPath = path.join(chunksDir, `chunk_${chunkIndex.toString().padStart(3, '0')}.mp4`);
-        chunkPaths.push(chunkOutputPath);
-
-        await this.ffmpeg.imagesToVideo(framePattern, chunkOutputPath, {
-          fps,
-          width: composition.width,
-          height: composition.height,
-        });
-
-        // 清理临时文件
-        await fs.remove(tempDir).catch(() => {});
-
-        console.log(`[AutoChunk] 分块 ${chunkIndex + 1}/${numChunks} 完成`);
-
-        // 销毁渲染器，释放内存
-        if (this.renderer) {
-          this.renderer.destroy();
-          this.renderer = null;
-        }
-
-        // 通知 GC
-        if (global.gc) {
-          global.gc();
-        }
-      }
-
-      console.log('[AutoChunk] 所有分块渲染完成，开始合并...');
-
-      // 合并所有分块
-      const finalOutputPath = outputPath;
-      await this.ffmpeg.concatVideos(chunkPaths, finalOutputPath, {
-        fps,
-        width: composition.width,
-        height: composition.height,
-      });
-
-      console.log('[AutoChunk] 合并完成，清理分块文件...');
-
-      // 清理分块文件
-      for (const chunkPath of chunkPaths) {
-        await fs.remove(chunkPath).catch(() => {});
-      }
-      await fs.remove(chunksDir).catch(() => {});
-
-      console.log(`[AutoChunk] 视频导出完成: ${finalOutputPath}`);
-      return finalOutputPath;
-
-    } catch (error) {
-      console.error('[AutoChunk] 分块导出失败:', error);
-      // 清理分块文件
-      for (const chunkPath of chunkPaths) {
-        await fs.remove(chunkPath).catch(() => {});
-      }
-      await fs.remove(chunksDir).catch(() => {});
-      throw error;
-    }
-  }
-
-  /**
    * 使用管道模式渲染所有帧（直接写入 FFmpeg，不保存中间文件）
    * 优化：使用原始视频数据格式（raw）和流式渲染，性能提升 5-10倍
    */
@@ -466,8 +343,7 @@ export class VideoExporter {
     // 启动 FFmpeg 管道进程
     // 如果有转场，使用 PNG 格式（因为转场需要图片格式）
     // 否则使用原始数据格式（性能更好）
-    // 用户可以通过 useRaw: false 强制使用 PNG 格式
-    const useRaw = hasTransitions ? false : (ffmpegOptions.useRaw !== false);
+    const useRaw = !hasTransitions;
     const pipe = await this.ffmpeg.imagesToVideoPipe(outputPath, {
       ...ffmpegOptions,
       useRaw, // 使用原始数据格式（如果没有转场）
@@ -592,6 +468,163 @@ export class VideoExporter {
       throw error;
     } finally {
       // 清理转场缓存，释放内存
+      transitionRenderers.clear();
+      transitionFunctions.clear();
+      transitionCanvasCache = {};
+      transitionFrames.clear();
+    }
+  }
+
+  /**
+   * 使用管道模式分块渲染长视频（避免内存溢出）
+   * 每渲染一块后关闭 FFmpeg 进程，释放内存，再继续下一块
+   * @param {VideoMaker} composition - 合成对象
+   * @param {number} totalFrames - 总帧数
+   * @param {number} startTime - 开始时间
+   * @param {number} fps - 帧率
+   * @param {string} outputPath - 输出路径
+   * @param {string} backgroundColor - 背景颜色
+   * @param {Object} options - 选项
+   */
+  async renderFramesWithPipeChunked(composition, totalFrames, startTime, fps, outputPath, backgroundColor, options = {}) {
+    const { chunkFrames = 1500 } = options;
+    const numChunks = Math.ceil(totalFrames / chunkFrames);
+    const chunksDir = path.join(this.cacheDir, 'pipe_chunks');
+    await fs.ensureDir(chunksDir);
+
+    console.log(`[PipeChunked] 总帧数: ${totalFrames}, 每块: ${chunkFrames}, 分块数: ${numChunks}`);
+
+    const chunkPaths = [];
+    const transitions = composition.transitions || [];
+    const hasTransitions = transitions.length > 0;
+
+    // 初始化转场渲染器（如果有转场）
+    const transitionRenderers = new Map();
+    const transitionFunctions = new Map();
+    let transitionCanvasCache = {};
+
+    // 预先渲染所有转场帧
+    const transitionFrames = new Map();
+    if (transitions.length > 0) {
+      console.log(`检测到 ${transitions.length} 个转场，预先渲染转场帧...`);
+      for (const transition of transitions) {
+        const transitionKey = `${transition.startTime}_${transition.endTime}_${transition.name}`;
+        const frames = await this.preRenderTransitionFrames(composition, transition, backgroundColor);
+        transitionFrames.set(transitionKey, frames);
+      }
+    }
+
+    try {
+      for (let chunkIndex = 0; chunkIndex < numChunks; chunkIndex++) {
+        const chunkStartFrame = chunkIndex * chunkFrames;
+        const chunkEndFrame = Math.min(chunkStartFrame + chunkFrames, totalFrames);
+        const chunkStartTime = startTime + chunkStartFrame / fps;
+        const chunkFrameCount = chunkEndFrame - chunkStartFrame;
+
+        console.log(`[PipeChunked] 渲染分块 ${chunkIndex + 1}/${numChunks}: 帧 [${chunkStartFrame}-${chunkEndFrame}), 时间 [${chunkStartTime.toFixed(2)}s)`);
+
+        // 生成分块输出路径
+        const chunkOutputPath = path.join(chunksDir, `chunk_${chunkIndex.toString().padStart(3, '0')}.mp4`);
+        chunkPaths.push(chunkOutputPath);
+
+        // 启动 FFmpeg 管道进程
+        const useRaw = !hasTransitions;
+        const pipe = await this.ffmpeg.imagesToVideoPipe(chunkOutputPath, {
+          fps,
+          width: composition.width,
+          height: composition.height,
+          useRaw,
+        });
+
+        // 渲染这一块的帧
+        for (let frame = chunkStartFrame; frame < chunkEndFrame; frame++) {
+          const time = startTime + frame / fps;
+
+          // 检查是否有转场
+          const activeTransition = transitions.find(t =>
+            time >= t.startTime && time < t.endTime
+          );
+
+          let buffer;
+          if (activeTransition) {
+            const transitionKey = `${activeTransition.startTime}_${activeTransition.endTime}_${activeTransition.name}`;
+            const frames = transitionFrames.get(transitionKey);
+            if (frames) {
+              buffer = await this.renderFrameWithTransition(
+                composition, time, activeTransition, backgroundColor,
+                transitionRenderers, frames, transitionFunctions, transitionCanvasCache
+              );
+            } else {
+              buffer = await this.renderFrameWithTransition(
+                composition, time, activeTransition, backgroundColor,
+                transitionRenderers, null, transitionFunctions, transitionCanvasCache
+              );
+            }
+          } else {
+            await this.renderer.renderFrame(composition.timeline.getLayers(), time, backgroundColor);
+            buffer = this.renderer.getCanvasBuffer(hasTransitions ? 'png' : 'raw');
+          }
+
+          try {
+            await pipe.writeFrame(buffer);
+          } catch (writeError) {
+            console.error(`写入第 ${frame + 1} 帧失败:`, writeError.message);
+            pipe.kill();
+            throw writeError;
+          }
+
+          // 显示进度
+          if (frame % 30 === 0 || frame === totalFrames - 1) {
+            const progress = ((frame + 1) / totalFrames * 100).toFixed(1);
+            console.log(`渲染进度: ${progress}% (${frame + 1}/${totalFrames})`);
+          }
+        }
+
+        // 关闭当前分块的 FFmpeg 进程
+        pipe.end();
+        await pipe.finish;
+        console.log(`[PipeChunked] 分块 ${chunkIndex + 1} 完成，FFmpeg 进程已关闭`);
+
+        // 销毁渲染器并通知 GC 释放内存
+        if (this.renderer) {
+          this.renderer.destroy();
+          this.renderer = new (require('./Renderer.js').Renderer)({
+            width: composition.width,
+            height: composition.height,
+            fps: fps,
+            quality: this.config.quality,
+          });
+          await this.renderer.init();
+        }
+
+        if (global.gc) {
+          global.gc();
+        }
+      }
+
+      // 所有分块渲染完成，合并
+      console.log('[PipeChunked] 所有分块渲染完成，开始合并...');
+      await this.ffmpeg.concatVideos(chunkPaths, outputPath, {
+        fps,
+        width: composition.width,
+        height: composition.height,
+      });
+
+      // 清理分块文件
+      for (const chunkPath of chunkPaths) {
+        await fs.remove(chunkPath).catch(() => {});
+      }
+      await fs.remove(chunksDir).catch(() => {});
+
+      console.log('[PipeChunked] 视频导出完成');
+    } catch (error) {
+      console.error('[PipeChunked] 分块渲染失败:', error);
+      for (const chunkPath of chunkPaths) {
+        await fs.remove(chunkPath).catch(() => {});
+      }
+      await fs.remove(chunksDir).catch(() => {});
+      throw error;
+    } finally {
       transitionRenderers.clear();
       transitionFunctions.clear();
       transitionCanvasCache = {};
@@ -1335,9 +1368,13 @@ export class VideoExporter {
         // 检测写入是否停滞（连续 50 次循环没有写入新帧）
         if (framesWritten === lastFramesWritten) {
           stallCount++;
-          // 写入停滞超过50次时的警告已禁用
+          if (stallCount > 50 && !allWorkersCompleted) {
+            console.warn(`[writeFramesToPipe] 写入停滞！loop=${loopCount}, buffered=${frameBuffer.getBufferedCount()}, allWorkersCompleted=${allWorkersCompleted}, completedWorkers=${completedWorkers}`);
+            printWorkerStatus();
+          }
           // 如果所有 Worker 都完成了但还在循环，强制退出
           if (allWorkersCompleted && stallCount > maxLoopsWithoutProgress) {
+            console.warn(`[writeFramesToPipe] 强制退出！所有 Worker 完成但循环停滞。framesWritten=${framesWritten}`);
             break;
           }
         } else {
@@ -1688,9 +1725,6 @@ export class VideoExporter {
         console.error(`渲染第 ${frame + 1} 帧时出错:`, error);
         console.error('错误堆栈:', error.stack);
         throw error;
-      } finally {
-        // 清理临时 buffer
-        buffer = null;
       }
     }
 
@@ -2126,4 +2160,3 @@ export class VideoExporter {
     }
   }
 }
-

@@ -546,14 +546,32 @@ export class VideoElement extends BaseElement {
       }
 
       // 从 RGBA Buffer 创建 Canvas 对象（与 ImageElement 一致，直接使用 Canvas）
-      const frameCanvas = createCanvas(this.finalWidth, this.finalHeight);
-      const ctx = frameCanvas.getContext('2d');
-      const imageData = ctx.createImageData(this.finalWidth, this.finalHeight);
-      // Node.js Buffer 转换为 Uint8Array 以兼容 Uint8ClampedArray.set()
-      const uint8Data = new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.byteLength);
-      imageData.data.set(uint8Data);
-      ctx.putImageData(imageData, 0, 0);
-      
+      // 添加重试逻辑，Skia surface 失败时清除缓存重试
+      let frameCanvas = null;
+      let retryCount = 0;
+      const maxRetries = 2;
+
+      while (retryCount < maxRetries) {
+        try {
+          frameCanvas = createCanvas(this.finalWidth, this.finalHeight);
+          const ctx = frameCanvas.getContext('2d');
+          const imageData = ctx.createImageData(this.finalWidth, this.finalHeight);
+          // Node.js Buffer 转换为 Uint8Array 以兼容 Uint8ClampedArray.set()
+          const uint8Data = new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.byteLength);
+          imageData.data.set(uint8Data);
+          ctx.putImageData(imageData, 0, 0);
+          break; // 成功则退出循环
+        } catch (canvasError) {
+          retryCount++;
+          console.warn(`[VideoElement] Skia surface 创建失败 (尝试 ${retryCount}/${maxRetries}): ${canvasError.message}`);
+          // 清除所有缓存后重试
+          this.frameImageCache.clear();
+          if (retryCount >= maxRetries) {
+            throw canvasError;
+          }
+        }
+      }
+
       // 缓存 Canvas 对象
       if (this.frameImageCache.size >= this.frameImageCacheSize) {
         // 删除最旧的缓存（FIFO）
@@ -561,7 +579,7 @@ export class VideoElement extends BaseElement {
         this.frameImageCache.delete(firstKey);
       }
       this.frameImageCache.set(cacheKey, frameCanvas);
-      
+
       return frameCanvas;
     } catch (error) {
       console.error('Failed to get video frame:', error);
@@ -720,7 +738,13 @@ export class VideoElement extends BaseElement {
     const progress = this.getProgressAtTime(time);
     
     // 获取当前帧并赋值给 this.imageData（与 ImageElement 一致）
-    const imageData = await this.getFrameAtProgress(progress);
+    let imageData = null;
+    try {
+      imageData = await this.getFrameAtProgress(progress);
+    } catch (frameError) {
+      console.warn(`[VideoElement] 获取视频帧异常 (id: ${this.id}): ${frameError.message}`);
+      return null;
+    }
     if (!imageData) {
       console.warn(`[VideoElement] 无法获取视频帧 (id: ${this.id})`);
       return null;

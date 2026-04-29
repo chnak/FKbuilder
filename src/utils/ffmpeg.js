@@ -109,7 +109,8 @@ export class FFmpegUtil {
         '-pixel_format', 'rgba', // RGBA 像素格式
         '-video_size', size, // 视频尺寸
         '-framerate', fps.toString(),
-        '-i', '-' // 从 stdin 读取
+        '-i', '-', // 从 stdin 读取
+        '-max_muxing_queue_size', '1024', // 增大缓冲区队列
       );
     } else {
       // 使用 PNG 图片格式（向后兼容）

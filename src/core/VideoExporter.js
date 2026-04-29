@@ -71,6 +71,8 @@ export class VideoExporter {
       endTime = composition.timeline.duration,
       parallel = false, // 是否使用 Worker 并行渲染
       maxWorkers = 2, // 最大 Worker 数，默认根据 CPU 核心数
+      autoChunk = true, // 是否自动分块渲染长视频
+      chunkFrames = 2000, // 每块渲染多少帧，超过则自动分块
     } = options;
 
     // 确保输出目录存在
@@ -106,6 +108,15 @@ export class VideoExporter {
         const backgroundColor = composition.backgroundColor || '#000000';
 
         console.log(`开始渲染 ${totalFrames} 帧...`);
+
+        // 检查是否需要自动分块
+        if (autoChunk && totalFrames > chunkFrames) {
+          console.log(`[VideoExporter] 视频过长 (${totalFrames} 帧 > ${chunkFrames} 帧)，自动分块渲染...`);
+          return this._exportWithAutoChunk(composition, outputPath, {
+            fps, format, audioPath, startTime, usePipe, endTime,
+            parallel, maxWorkers, autoChunk, chunkFrames, backgroundColor
+          });
+        }
         
         // 保存 tempDir 引用（用于文件模式）
         let tempDir = null;
@@ -320,6 +331,130 @@ export class VideoExporter {
   }
 
   /**
+   * 自动分块导出长视频
+   * @param {VideoMaker} composition - 合成对象
+   * @param {string} outputPath - 输出路径
+   * @param {Object} options - 选项
+   */
+  async _exportWithAutoChunk(composition, outputPath, options) {
+    const {
+      fps,
+      format,
+      audioPath,
+      startTime,
+      usePipe,
+      parallel,
+      maxWorkers,
+      backgroundColor
+    } = options;
+
+    const totalFrames = Math.ceil((options.endTime - startTime) * fps);
+    const chunkFrames = options.chunkFrames || 2000;
+
+    // 计算分块数量
+    const numChunks = Math.ceil(totalFrames / chunkFrames);
+    console.log(`[AutoChunk] 总帧数: ${totalFrames}, 每块: ${chunkFrames}, 分块数: ${numChunks}`);
+
+    // 创建临时目录存储分块视频
+    const chunksDir = path.join(this.cacheDir, 'chunks');
+    await fs.ensureDir(chunksDir);
+
+    const chunkPaths = [];
+
+    try {
+      // 分块渲染
+      for (let chunkIndex = 0; chunkIndex < numChunks; chunkIndex++) {
+        const chunkStartFrame = chunkIndex * chunkFrames;
+        const chunkEndFrame = Math.min(chunkStartFrame + chunkFrames, totalFrames);
+        const chunkStartTime = startTime + chunkStartFrame / fps;
+        const chunkEndTime = startTime + chunkEndFrame / fps;
+        const chunkFrameCount = chunkEndFrame - chunkStartFrame;
+
+        console.log(`[AutoChunk] 渲染分块 ${chunkIndex + 1}/${numChunks}: 帧 [${chunkStartFrame}-${chunkEndFrame}), 时间 [${chunkStartTime.toFixed(2)}s-${chunkEndTime.toFixed(2)}s)`);
+
+        // 销毁旧渲染器，创建新渲染器（释放内存）
+        if (this.renderer) {
+          this.renderer.destroy();
+          this.renderer = null;
+        }
+
+        // 重新创建渲染器
+        this.renderer = new Renderer({
+          width: composition.width,
+          height: composition.height,
+          fps: fps,
+          quality: this.config.quality,
+        });
+        await this.renderer.init();
+
+        // 渲染这一块 - 使用文件模式避免管道问题
+        const tempDir = path.join(this.cacheDir, `temp_frames_${chunkIndex}`);
+        await fs.ensureDir(tempDir);
+
+        // 文件模式：渲染帧并保存为PNG，然后编码
+        await this.renderFramesSerial(composition, chunkFrameCount, chunkStartTime, fps, tempDir, backgroundColor);
+
+        // 编码为视频
+        const framePattern = path.join(tempDir, 'frame_%04d.png');
+        const chunkOutputPath = path.join(chunksDir, `chunk_${chunkIndex.toString().padStart(3, '0')}.mp4`);
+        chunkPaths.push(chunkOutputPath);
+
+        await this.ffmpeg.imagesToVideo(framePattern, chunkOutputPath, {
+          fps,
+          width: composition.width,
+          height: composition.height,
+        });
+
+        // 清理临时文件
+        await fs.remove(tempDir).catch(() => {});
+
+        console.log(`[AutoChunk] 分块 ${chunkIndex + 1}/${numChunks} 完成`);
+
+        // 销毁渲染器，释放内存
+        if (this.renderer) {
+          this.renderer.destroy();
+          this.renderer = null;
+        }
+
+        // 通知 GC
+        if (global.gc) {
+          global.gc();
+        }
+      }
+
+      console.log('[AutoChunk] 所有分块渲染完成，开始合并...');
+
+      // 合并所有分块
+      const finalOutputPath = outputPath;
+      await this.ffmpeg.concatVideos(chunkPaths, finalOutputPath, {
+        fps,
+        width: composition.width,
+        height: composition.height,
+      });
+
+      console.log('[AutoChunk] 合并完成，清理分块文件...');
+
+      // 清理分块文件
+      for (const chunkPath of chunkPaths) {
+        await fs.remove(chunkPath).catch(() => {});
+      }
+      await fs.remove(chunksDir).catch(() => {});
+
+      console.log(`[AutoChunk] 视频导出完成: ${finalOutputPath}`);
+      return finalOutputPath;
+
+    } catch (error) {
+      console.error('[AutoChunk] 分块导出失败:', error);
+      // 清理分块文件
+      for (const chunkPath of chunkPaths) {
+        await fs.remove(chunkPath).catch(() => {});
+      }
+      await fs.remove(chunksDir).catch(() => {});
+      throw error;
+    }
+  }
+
+  /**
    * 使用管道模式渲染所有帧（直接写入 FFmpeg，不保存中间文件）
    * 优化：使用原始视频数据格式（raw）和流式渲染，性能提升 5-10倍
    */
@@ -331,7 +466,8 @@ export class VideoExporter {
     // 启动 FFmpeg 管道进程
     // 如果有转场，使用 PNG 格式（因为转场需要图片格式）
     // 否则使用原始数据格式（性能更好）
-    const useRaw = !hasTransitions;
+    // 用户可以通过 useRaw: false 强制使用 PNG 格式
+    const useRaw = hasTransitions ? false : (ffmpegOptions.useRaw !== false);
     const pipe = await this.ffmpeg.imagesToVideoPipe(outputPath, {
       ...ffmpegOptions,
       useRaw, // 使用原始数据格式（如果没有转场）
@@ -1199,13 +1335,9 @@ export class VideoExporter {
         // 检测写入是否停滞（连续 50 次循环没有写入新帧）
         if (framesWritten === lastFramesWritten) {
           stallCount++;
-          if (stallCount > 50 && !allWorkersCompleted) {
-            console.warn(`[writeFramesToPipe] 写入停滞！loop=${loopCount}, buffered=${frameBuffer.getBufferedCount()}, allWorkersCompleted=${allWorkersCompleted}, completedWorkers=${completedWorkers}`);
-            printWorkerStatus();
-          }
+          // 写入停滞超过50次时的警告已禁用
           // 如果所有 Worker 都完成了但还在循环，强制退出
           if (allWorkersCompleted && stallCount > maxLoopsWithoutProgress) {
-            console.warn(`[writeFramesToPipe] 强制退出！所有 Worker 完成但循环停滞。framesWritten=${framesWritten}`);
             break;
           }
         } else {

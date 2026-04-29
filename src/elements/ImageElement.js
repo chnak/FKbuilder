@@ -6,6 +6,9 @@ import { loadImage } from '@napi-rs/canvas';
 import { toPixels } from '../utils/unit-converter.js';
 import paper from '@chnak/paper';
 import { calculateImageFit } from '../utils/image-fit.js';
+import { getPresetAnimation } from '../animations/preset-animations.js';
+import { TransformAnimation } from '../animations/TransformAnimation.js';
+import { KeyframeAnimation } from '../animations/KeyframeAnimation.js';
 import fs from 'fs';
 /**
  * 图片元素
@@ -21,8 +24,64 @@ export class ImageElement extends BaseElement {
     this.loaded = false;
     this._warnedMissing = false;
 
+    // 缓存 auto 模式选择的方向
+    this._cachedZoomDirection = null;
+
+    // 自动注入缩放动画（非 auto 模式）
+    this._injectZoomAnimation();
   }
-  
+
+  /**
+   * 自动注入缩放动画到动画系统
+   */
+  _injectZoomAnimation() {
+    const zoomDirection = this.config.zoomDirection || 'none';
+    if (zoomDirection === 'none' || zoomDirection === 'auto') return;
+
+    const animationMap = {
+      'in': 'zoomIn',
+      'out': 'zoomOut',
+      'left': 'zoomInLeft',
+      'right': 'zoomInRight',
+    };
+
+    const presetName = animationMap[zoomDirection];
+    if (presetName) {
+      const preset = getPresetAnimation(presetName);
+      if (preset) {
+        const animConfig = { ...preset };
+
+        if (preset.type === 'keyframe') {
+          if (this.config.zoomAmount !== undefined && this.config.zoomAmount > 0) {
+            const amount = this.config.zoomAmount;
+            for (const kf of animConfig.keyframes) {
+              kf.scaleX = 1 - amount * 0.5;
+              kf.scaleY = 1 - amount * 0.5;
+              if (presetName === 'zoomInLeft') {
+                kf.translateX = -150 * amount * 2;
+              } else if (presetName === 'zoomInRight') {
+                kf.translateX = 150 * amount * 2;
+              }
+            }
+          }
+          const animation = new KeyframeAnimation(animConfig);
+          this.addAnimation(animation);
+        } else {
+          if (this.config.zoomAmount !== undefined && this.config.zoomAmount > 0) {
+            const amount = this.config.zoomAmount;
+            if (presetName === 'zoomIn') {
+              animConfig.from = { scaleX: 1 - amount, scaleY: 1 - amount };
+            } else if (presetName === 'zoomOut') {
+              animConfig.to = { scaleX: 1 - amount, scaleY: 1 - amount };
+            }
+          }
+          const animation = new TransformAnimation(animConfig);
+          this.addAnimation(animation);
+        }
+      }
+    }
+  }
+
 
   /**
    * 初始化方法 - 使用 canvas loadImage 加载图片
@@ -43,11 +102,8 @@ export class ImageElement extends BaseElement {
             }
           } catch (_) {}
         }
-        // 使用 canvas loadImage 加载图片（支持文件路径和 URL）
         this.imageData = await loadImage(this.src);
         this.loaded = true;
-        // 调用 onLoaded 回调（注意：此时还没有 paperItem，所以传递 null）
-        // paperInstance 会在 render 时保存
         this._callOnLoaded(this.startTime || 0, null, null);
       } catch (error) {
         console.error(`Failed to load image: ${this.config.src}`, error);
@@ -72,28 +128,20 @@ export class ImageElement extends BaseElement {
    * 设置图片适配方式
    */
   setFit(fit) {
-    this.config.fit = fit; // cover, contain, fill, none
+    this.config.fit = fit;
   }
 
   /**
    * 应用视觉效果（滤镜、边框、阴影等）
-   * @param {paper.Raster} raster - Paper.js Raster 对象
-   * @param {Object} state - 元素状态
-   * @param {number} width - 元素宽度
-   * @param {number} height - 元素高度
-   * @param {Object} paperInstance - Paper.js 实例 { project, paper }
-   * @returns {paper.Group|paper.Raster} 应用效果后的对象
    */
   applyVisualEffects(raster, state, width, height, paperInstance = null) {
-    // 获取 Paper.js 实例
     const { paper: p } = this.getPaperInstance(paperInstance);
-    // 检查是否有视觉效果
     const hasBorder = state.borderWidth > 0;
     const hasShadow = state.shadowBlur > 0;
     const hasFlip = state.flipX || state.flipY;
     const hasBlendMode = state.blendMode && state.blendMode !== 'normal';
-    const hasFilter = state.filter || 
-      (state.brightness !== 1 || state.contrast !== 1 || state.saturation !== 1 || 
+    const hasFilter = state.filter ||
+      (state.brightness !== 1 || state.contrast !== 1 || state.saturation !== 1 ||
        state.hue !== 0 || state.grayscale > 0);
     const hasGlassEffect = state.glassEffect;
 
@@ -101,40 +149,28 @@ export class ImageElement extends BaseElement {
       return raster;
     }
 
-    // 创建组来包含所有效果
     const group = new p.Group();
-    
-    // 应用翻转
+
     if (hasFlip) {
-      if (state.flipX) {
-        raster.scale(-1, 1, raster.position);
-      }
-      if (state.flipY) {
-        raster.scale(1, -1, raster.position);
-      }
+      if (state.flipX) raster.scale(-1, 1, raster.position);
+      if (state.flipY) raster.scale(1, -1, raster.position);
     }
 
-    // 应用混合模式
     if (hasBlendMode) {
       raster.blendMode = state.blendMode;
     }
 
-    // 应用阴影（通过创建阴影层）
     if (hasShadow) {
       const shadowRaster = raster.clone();
       shadowRaster.position = new p.Point(
         raster.position.x + (state.shadowOffsetX || 0),
         raster.position.y + (state.shadowOffsetY || 0)
       );
-      shadowRaster.opacity = 0.3; // 阴影透明度
-      
-      // 应用阴影颜色（通过 tint）
+      shadowRaster.opacity = 0.3;
       if (state.shadowColor) {
         const shadowColor = new p.Color(state.shadowColor);
         shadowRaster.tint = shadowColor;
       }
-      
-      // 应用模糊（通过降低分辨率模拟）
       if (state.shadowBlur > 0) {
         const blurFactor = Math.max(1, state.shadowBlur / 10);
         shadowRaster.size = new p.Size(
@@ -142,14 +178,11 @@ export class ImageElement extends BaseElement {
           shadowRaster.size.height * (1 + blurFactor * 0.1)
         );
       }
-      
       group.addChild(shadowRaster);
     }
 
-    // 添加主图片
     group.addChild(raster);
 
-    // 应用边框（通过绘制边框路径）
     if (hasBorder) {
       const borderPath = new p.Path.Rectangle({
         rectangle: new p.Rectangle(
@@ -166,7 +199,6 @@ export class ImageElement extends BaseElement {
       group.addChild(borderPath);
     }
 
-    // 毛玻璃效果：添加边框（如果启用）
     if (hasGlassEffect && state.glassBorder) {
       const glassBorderPath = new p.Path.Rectangle({
         rectangle: new p.Rectangle(
@@ -180,7 +212,7 @@ export class ImageElement extends BaseElement {
       glassBorderPath.strokeColor = new p.Color(state.glassBorderColor || '#ffffff');
       glassBorderPath.strokeWidth = state.glassBorderWidth || 1;
       glassBorderPath.fillColor = null;
-      glassBorderPath.opacity = 0.5; // 半透明边框
+      glassBorderPath.opacity = 0.5;
       group.addChild(glassBorderPath);
     }
 
@@ -188,16 +220,32 @@ export class ImageElement extends BaseElement {
   }
 
   /**
-   * 渲染图片元素（使用 Paper.js）
-   * @param {paper.Layer} layer - Paper.js 图层
-   * @param {number} time - 当前时间（秒）
-   * @param {Object} paperInstance - Paper.js 实例 { project, paper }
+   * 计算当前元素进度 (0-1)
+   */
+  _getProgress(time) {
+    const start = this.startTime || 0;
+    const duration = this.duration || 1;
+    return Math.max(0, Math.min(1, (time - start) / duration));
+  }
+
+  /**
+   * 获取 auto 模式的随机方向
+   */
+  _getAutoZoomDirection() {
+    if (!this._cachedZoomDirection) {
+      const directions = ['left', 'right', 'in', 'out'];
+      this._cachedZoomDirection = directions[Math.floor(Math.random() * directions.length)];
+    }
+    return this._cachedZoomDirection;
+  }
+
+  /**
+   * 渲染图片元素
    */
   async render(layer, time, paperInstance = null) {
     if (!this.visible) return null;
     if (!this.isActiveAtTime(time)) return null;
-    
-    // 确保图片已加载（添加超时保护）
+
     if (!this.loaded) {
       try {
         await Promise.race([
@@ -209,7 +257,7 @@ export class ImageElement extends BaseElement {
         return null;
       }
     }
-    
+
     if (!this.loaded || !this.imageData) {
       if (!this._warnedMissing) {
         console.warn(`[ImageElement] 图片未加载 (id: ${this.id})`);
@@ -217,21 +265,21 @@ export class ImageElement extends BaseElement {
       }
       return null;
     }
-  
+
     const { paper: p, project } = this.getPaperInstance(paperInstance);
     const viewSize = project?.view?.viewSize || { width: 1920, height: 1080 };
     const context = { width: viewSize.width, height: viewSize.height };
     const state = this.getStateAtTime(time, context);
-  
-    // 计算容器尺寸（元素的目标尺寸）
+
+    // 计算容器尺寸
     const containerSize = this.convertSize(state.width, state.height, context);
     const containerWidth = containerSize.width || viewSize.width;
     const containerHeight = containerSize.height || viewSize.height;
-  
+
     // 获取图片原始尺寸
     const imageWidth = this.imageData.width || 0;
     const imageHeight = this.imageData.height || 0;
-  
+
     // 根据 fit 参数计算实际显示尺寸
     const fit = state.fit || this.config.fit || 'cover';
     const fitResult = calculateImageFit({
@@ -241,52 +289,101 @@ export class ImageElement extends BaseElement {
       containerHeight,
       fit
     });
-  
-    // 使用适配后的尺寸
+
     const width = fitResult.width;
     const height = fitResult.height;
     const { x, y } = this.calculatePosition(state, context, { width, height });
 
-    // 直接使用 canvas 库的 Image 对象
     if (!this.imageData) {
       console.warn('[ImageElement] 图片数据未加载');
       return null;
     }
 
-    // 直接使用 Image 对象创建 Raster
+    // 创建 Raster
     const raster = new p.Raster(this.imageData);
+    raster.size = new p.Size(width, height);
     raster.position = new p.Point(x, y);
-    
-    // 使用 scale 来设置尺寸，而不是直接设置 size
-    // 这样可以避免 Paper.js 内部的 drawImage 错误
-    const sourceWidth = this.imageData.width || width;
-    const sourceHeight = this.imageData.height || height;
-    
-    if (sourceWidth > 0 && sourceHeight > 0) {
-      const scaleX = width / sourceWidth;
-      const scaleY = height / sourceHeight;
-      raster.scale(scaleX, scaleY, raster.position);
-    } else {
-      // 如果无法获取原始尺寸，直接设置 size
-      raster.size = new p.Size(width, height);
+
+    // 处理 zoomDirection（auto 模式在渲染时处理）
+    const zoomDirection = this.config.zoomDirection || 'none';
+    const zoomAmount = this.config.zoomAmount !== undefined ? this.config.zoomAmount : 0.1;
+
+    if (zoomDirection === 'auto') {
+      // auto 模式：每次渲染时随机选择方向
+      const actualDir = this._getAutoZoomDirection();
+      this._applyZoomEffect(raster, time, actualDir, zoomAmount, x, y, p);
+    } else if (zoomDirection !== 'none') {
+      this._applyZoomEffect(raster, time, zoomDirection, zoomAmount, x, y, p);
     }
-  
-    // 应用变换
+
+    // 应用基础变换
     this.applyTransform(raster, state, {
-      applyPosition: false,
+      applyPosition: true,
       paperInstance: p
     });
-  
+
     // 应用视觉效果
     const finalItem = this.applyVisualEffects(raster, state, width, height, p);
-  
-    // 添加到图层
+
     if (layer) {
       layer.addChild(finalItem);
     }
-  
+
     return finalItem;
   }
 
-}
+  /**
+   * 获取缩放因子（与 editly getZoomParams 一致）
+   */
+  _getZoomFactor(progress, direction, amount) {
+    if (direction === 'left' || direction === 'right') {
+      return 1.3 + amount;
+    }
+    if (direction === 'in') {
+      return 1 + amount * progress;
+    }
+    if (direction === 'out') {
+      return 1 + amount * (1 - progress);
+    }
+    return 1;
+  }
 
+  /**
+   * 获取平移参数（与 editly getTranslationParams 一致）
+   * 注意：editly 的 range = zoomAmount * 1000，是像素值
+   */
+  _getTranslation(progress, direction, amount) {
+    if (direction !== 'left' && direction !== 'right') return 0;
+    const range = amount * 1000;
+    if (direction === 'right') {
+      return progress * range - range / 2;
+    }
+    if (direction === 'left') {
+      return -(progress * range - range / 2);
+    }
+    return 0;
+  }
+
+  /**
+   * 应用缩放效果（与 editly 行为一致）
+   */
+  _applyZoomEffect(raster, time, direction, amount, baseX, baseY, paper) {
+    const progress = this._getProgress(time);
+
+    // 获取缩放因子
+    const scaleFactor = this._getZoomFactor(progress, direction, amount);
+
+    // 获取平移参数
+    const translation = this._getTranslation(progress, direction, amount);
+
+    // 应用缩放（基于 raster 的中心点）
+    if (scaleFactor !== 1) {
+      raster.scale(scaleFactor, scaleFactor, raster.position);
+    }
+
+    // 应用平移
+    if (translation !== 0) {
+      raster.position = new paper.Point(baseX + translation, baseY);
+    }
+  }
+}

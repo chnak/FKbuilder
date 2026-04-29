@@ -116,6 +116,9 @@ export const DEFAULT_IMAGE_CONFIG = {
   glassBorder: true, // 是否显示毛玻璃边框
   glassBorderColor: '#ffffff', // 毛玻璃边框颜色
   glassBorderWidth: 1, // 毛玻璃边框宽度
+  // 缩放动画
+  zoomDirection: 'none', // none, in, out, left, right, auto
+  zoomAmount: 0.1, // 缩放幅度 (0-1)
 };
 
 /**

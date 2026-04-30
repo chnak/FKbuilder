@@ -35,7 +35,15 @@
       "Bash(cd D:/code/FKbuilder && node examples/render-foliko-video.mjs 2>&1 | head -30)",
       "Bash(cd D:/code/FKbuilder && node examples/render-foliko-simple.mjs 2>&1)",
       "Bash(node examples/render-transition-test.mjs 2>&1)",
-      "Bash(node examples/render-foliko-simple.mjs 2>&1)"
+      "Bash(node examples/render-foliko-simple.mjs 2>&1)",
+      "Bash(mkdir -p output)",
+      "Bash(node examples/test-zoom-direction.js)",
+      "Bash(dd if=dist/cjs/core/VideoExporter.cjs bs=1 skip=$\\(\\(1686*60\\)\\) count=200)",
+      "Bash(node -e ' *)",
+      "Bash(cp D:/code/FKbuilder/src/core/VideoExporter.js D:/date/20240805/foliko-videos/node_modules/fkbuilder/src/core/VideoExporter.js)",
+      "Bash(rm -rf dist)",
+      "Bash(ffprobe *)",
+      "Bash(ffplay -v error -autoexit -t 2 \"D:/code/foliko-trade/public/videos/1ycpq008jp50d.mp4\")"
     ]
   }
 }

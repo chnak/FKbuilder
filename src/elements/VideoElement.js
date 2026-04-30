@@ -35,7 +35,7 @@ export class VideoElement extends BaseElement {
     this.videoProcessor = null;
     this.frameIterator = null;
     this.frameBuffer = new Map(); // Map<frameIndex, Buffer> 有界缓冲，防止 OOM
-    this.maxFrameBufferSize = config.maxFrameBufferSize || 150; // 默认150帧，1080p约1.2GB
+    this.maxFrameBufferSize = config.maxFrameBufferSize || 600; // 默认600帧（20秒），1080p约4.8GB
     this.totalBufferedFrames = 0; // 已提取的总帧数（含已被淘汰的）
     this.currentFrameIndex = 0;
     this.videoInfo = null;
@@ -73,6 +73,19 @@ export class VideoElement extends BaseElement {
     }
 
     return true;
+  }
+
+  /**
+   * 设置视频的起始播放时间（用于分块渲染时 seek 到指定位置）
+   * @param {number} seekTime - 起始时间（秒）
+   */
+  setSeekTime(seekTime) {
+    this.cutFrom = seekTime;
+    // 清除 cutTo，因为它相对于视频开头，重新设置 cutFrom 后需要重新计算
+    this.cutTo = undefined;
+    // 清除 actualCutTo 和 actualCutFrom，确保下次 ready() 时重新计算
+    this.actualCutTo = undefined;
+    this.actualCutFrom = undefined;
   }
   /**
    * 设置视频适配方式（与 ImageElement 一致）

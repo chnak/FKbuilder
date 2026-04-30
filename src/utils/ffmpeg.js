@@ -52,12 +52,18 @@ export class FFmpegUtil {
       '-preset', preset,
       '-crf', crf.toString(),
       '-pix_fmt', pixelFormat,
+      // 关键帧设置，解决播放延迟问题
+      '-g', '30', // 每30帧一个关键帧（每秒一个关键帧 @ 30fps）
+      '-keyint_min', '30', // 最小关键帧间隔
+      '-sc_threshold', '0', // 禁用场景切换检测，避免不规则关键帧
     ];
 
     if (width && height) {
       args.push('-s', `${width}x${height}`);
     }
 
+    // faststart：移动 moov atom 到文件开头，支持网页快速播放
+    args.push('-movflags', '+faststart');
     args.push(outputPath);
 
     try {
@@ -127,12 +133,18 @@ export class FFmpegUtil {
       '-preset', preset,
       '-crf', crf.toString(),
       '-pix_fmt', pixelFormat,
+      // 关键帧设置，解决播放延迟问题
+      '-g', '30', // 每30帧一个关键帧（每秒一个关键帧 @ 30fps）
+      '-keyint_min', '30', // 最小关键帧间隔
+      '-sc_threshold', '0', // 禁用场景切换检测
     );
 
     if (width && height && !useRaw) {
       args.push('-s', `${width}x${height}`);
     }
 
+    // faststart：移动 moov atom 到文件开头，支持网页快速播放
+    args.push('-movflags', '+faststart');
     args.push(outputPath);
 
     // 启动 FFmpeg 进程，stdin 作为管道
@@ -365,24 +377,47 @@ export class FFmpegUtil {
    * @param {string[]} videoPaths - 视频路径数组
    * @param {string} outputPath - 输出路径
    */
-  async concatVideos(videoPaths, outputPath) {
+  async concatVideos(videoPaths, outputPath, options = {}) {
     await this.checkFFmpeg();
+
+    const {
+      fps = 30,
+      width,
+      height,
+      codec = this.config.codec || 'libx264',
+      preset = 'fast', // 使用 fast  preset 加速合并
+      crf = this.config.crf || 23,
+    } = options;
 
     // 创建临时文件列表
     const listFile = path.join(path.dirname(outputPath), 'concat_list.txt');
     const listContent = videoPaths.map(p => `file '${path.resolve(p)}'`).join('\n');
     await fs.writeFile(listFile, listContent);
 
+    // 使用重新编码代替 copy，避免关键帧不对齐导致的播放问题
+    // 同时添加关键帧设置确保最终视频播放顺畅
     const args = [
       '-y',
-      '-hide_banner', // 隐藏版本信息横幅
-      '-loglevel', 'error', // 只显示错误信息
+      '-hide_banner',
+      '-loglevel', 'error',
       '-f', 'concat',
       '-safe', '0',
       '-i', listFile,
-      '-c', 'copy',
-      outputPath,
+      '-c:v', codec,
+      '-preset', preset,
+      '-crf', crf.toString(),
+      '-pix_fmt', 'yuv420p',
+      '-g', '30', // 关键帧间隔
+      '-keyint_min', '30',
+      '-sc_threshold', '0',
+      '-movflags', '+faststart', // 快速播放
     ];
+
+    if (width && height) {
+      args.push('-s', `${width}x${height}`);
+    }
+
+    args.push(outputPath);
 
     try {
       await execa('ffmpeg', args);

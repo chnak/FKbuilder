@@ -56,6 +56,50 @@ export class VideoExporter {
   }
 
   /**
+   * 重新初始化视频元素（用于分块渲染时重新缓冲）
+   * @param {VideoMaker} composition - 合成对象
+   * @param {number} chunkStartTime - 分块开始时间
+   */
+  async reInitializeVideoElements(composition, chunkStartTime) {
+    const allElements = new Set();
+
+    // 收集所有 VideoElement
+    const collectVideoElements = (layers) => {
+      for (const layer of layers) {
+        if (layer.elements) {
+          for (const element of layer.elements) {
+            if (element.type === 'video') {
+              allElements.add(element);
+            }
+          }
+        }
+      }
+    };
+
+    collectVideoElements(composition.layers || []);
+
+    if (allElements.size > 0) {
+      console.log(`[PipeChunked] 重新初始化 ${allElements.size} 个视频元素...`);
+      for (const element of allElements) {
+        try {
+          // 设置视频从 chunkStartTime 开始（seek）
+          element.setSeekTime?.(chunkStartTime);
+          // 只关闭视频进程，不销毁配置
+          await element.close?.();
+          // 重置初始化状态，让视频重新开始缓冲
+          element.initialized = false;
+          element._initializingPromise = null;
+          // 重新初始化
+          await element.ready();
+        } catch (e) {
+          console.warn(`[PipeChunked] 视频元素重新初始化失败:`, e.message);
+        }
+      }
+      console.log(`[PipeChunked] 视频元素重新初始化完成`);
+    }
+  }
+
+  /**
    * 导出视频
    * @param {VideoMaker} composition - 合成对象
    * @param {string} outputPath - 输出路径
@@ -522,6 +566,9 @@ export class VideoExporter {
         const chunkFrameCount = chunkEndFrame - chunkStartFrame;
 
         console.log(`[PipeChunked] 渲染分块 ${chunkIndex + 1}/${numChunks}: 帧 [${chunkStartFrame}-${chunkEndFrame}), 时间 [${chunkStartTime.toFixed(2)}s)`);
+
+        // 重新初始化视频元素（因为视频需要从新时间点开始缓冲）
+        await this.reInitializeVideoElements(composition, chunkStartTime);
 
         // 生成分块输出路径
         const chunkOutputPath = path.join(chunksDir, `chunk_${chunkIndex.toString().padStart(3, '0')}.mp4`);

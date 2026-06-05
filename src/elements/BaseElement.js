@@ -434,7 +434,8 @@ export class BaseElement {
    * @returns {boolean}
    */
   isActiveAtTime(time) {
-    return this.visible && time >= this.startTime && time < this.endTime;
+    // 使用 <= 确保动画在结束时刻也能被应用
+    return this.visible && time >= this.startTime && time <= this.endTime;
   }
 
   /**

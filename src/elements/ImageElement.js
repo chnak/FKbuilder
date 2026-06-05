@@ -33,53 +33,130 @@ export class ImageElement extends BaseElement {
 
   /**
    * 自动注入缩放动画到动画系统
+   * 注意：在构造函数中调用时，startTime/endTime 可能还未设置
+   * 所以如果 startTime 无效，延迟到 initialize 时再注入
    */
   _injectZoomAnimation() {
     const zoomDirection = this.config.zoomDirection || 'none';
     if (zoomDirection === 'none' || zoomDirection === 'auto') return;
 
-    const animationMap = {
-      'in': 'zoomIn',
-      'out': 'zoomOut',
-      'left': 'zoomInLeft',
-      'right': 'zoomInRight',
+
+    // 如果 startTime 无效（undefined），延迟到 initialize 时再注入
+    if (this.startTime === undefined || this.startTime === null) {
+      return;
+    }
+
+    this._doInjectZoomAnimation();
+  }
+
+
+  /**
+   * 实际执行 Ken Burns 动画注入
+   * 可在需要时调用以重新计算动画
+   */
+  _doInjectZoomAnimation() {
+    const zoomDirection = this.config.zoomDirection || 'none';
+    if (zoomDirection === 'none' || zoomDirection === 'auto') return;
+
+    // 获取 Ken Burns 参数
+    const zoomAmount = this.config.zoomAmount !== undefined ? this.config.zoomAmount : 0.2;
+    // 动画时长使用元素的有效时长（endTime - startTime），确保动画覆盖整个元素周期
+    const elementDuration = (this.endTime !== undefined && this.endTime !== Infinity) 
+      ? (this.endTime - this.startTime) 
+      : (this.duration || 5);
+    
+    // 设置 this.duration 确保 _getProgress 正确计算进度
+    this.duration = elementDuration;
+
+    // 计算缩放值
+    // zoomAmount = 0.2 → scale 从 1.0 到 1.3
+    const scaleTo = 1 + zoomAmount * 1.5;
+    const scaleFrom = 1.0;
+
+    // 计算最大平移量
+    // 根据时长动态调整：如果场景时长超过5秒，位移按比例增加
+    // 与放大效果保持一致：放大最终值为 1 + zoomAmount * 1.5
+    // 位移最终值 = zoomAmount * zoomPanRatio * (elementDuration / 5)
+    // zoomPanRatio 可配置，默认 300 像素
+    const zoomPanRatio = this.config.zoomPanRatio !== undefined ? this.config.zoomPanRatio : 300;
+    const maxPan = zoomAmount * zoomPanRatio * (elementDuration / 5);
+
+    // 根据方向计算起始和结束位置的平移
+    // 关键：从全屏中心开始，向一个方向缓慢移动
+    let startPanX = 0, startPanY = 0;
+    let endPanX = 0, endPanY = 0;
+
+    if (zoomDirection === 'left') {
+      // 向左移动 → 看到的内容从中心向右移动
+      endPanX = -maxPan;
+    } else if (zoomDirection === 'right') {
+      // 向右移动 → 图片位置增加（向右）
+      endPanX = maxPan;
+    } else if (zoomDirection === 'up') {
+      // 向上移动 → 图片位置减少（向上）
+      endPanY = -maxPan;
+    } else if (zoomDirection === 'down') {
+      // 向下移动 → 图片位置增加（向下）
+      endPanY = maxPan;
+    } else if (zoomDirection === 'diagonal1') {
+      // 左上到右下 → 向右下方向
+      endPanX = maxPan;
+      endPanY = maxPan;
+    } else if (zoomDirection === 'diagonal2') {
+      // 右上到左下 → 向左下方向
+      endPanX = -maxPan;
+      endPanY = maxPan;
+    } else if (zoomDirection === 'diagonal3') {
+      // 左下到右上 → 向右上方向
+      endPanX = maxPan;
+      endPanY = -maxPan;
+    } else if (zoomDirection === 'diagonal4') {
+      // 右下到左上 → 向左上方向
+      endPanX = -maxPan;
+      endPanY = -maxPan;
+    } else if (zoomDirection === 'diagonal5') {
+      // 左上到右下（大角度，更水平）
+      endPanX = maxPan;
+      endPanY = maxPan;
+    } else if (zoomDirection === 'diagonal6') {
+      // 右上到左下（大角度，更水平）
+      endPanX = -maxPan;
+      endPanY = maxPan;
+    }
+
+    // 创建 Ken Burns 关键帧动画
+    // 从全屏中心开始，随着放大有轻微的平移
+    // 使用秒级时间格式（关键帧 time 使用秒）
+    const kenBurnsConfig = {
+      type: 'keyframe',
+      keyframes: [
+        {
+          time: 0,
+          scaleX: scaleFrom,
+          scaleY: scaleFrom,
+          translateX: startPanX,
+          translateY: startPanY,
+        },
+        {
+          time: elementDuration,  // 使用秒级时间
+          scaleX: scaleTo,
+          scaleY: scaleTo,
+          translateX: endPanX,
+          translateY: endPanY,
+        },
+      ],
+      duration: elementDuration,
+      // 设置 startTime 为元素的 startTime，确保动画在元素激活时开始
+      startTime: this.startTime || 0,
+      easing: 'linear',
     };
 
-    const presetName = animationMap[zoomDirection];
-    if (presetName) {
-      const preset = getPresetAnimation(presetName);
-      if (preset) {
-        const animConfig = { ...preset };
-
-        if (preset.type === 'keyframe') {
-          if (this.config.zoomAmount !== undefined && this.config.zoomAmount > 0) {
-            const amount = this.config.zoomAmount;
-            for (const kf of animConfig.keyframes) {
-              kf.scaleX = 1 - amount * 0.5;
-              kf.scaleY = 1 - amount * 0.5;
-              if (presetName === 'zoomInLeft') {
-                kf.translateX = -150 * amount * 2;
-              } else if (presetName === 'zoomInRight') {
-                kf.translateX = 150 * amount * 2;
-              }
-            }
-          }
-          const animation = new KeyframeAnimation(animConfig);
-          this.addAnimation(animation);
-        } else {
-          if (this.config.zoomAmount !== undefined && this.config.zoomAmount > 0) {
-            const amount = this.config.zoomAmount;
-            if (presetName === 'zoomIn') {
-              animConfig.from = { scaleX: 1 - amount, scaleY: 1 - amount };
-            } else if (presetName === 'zoomOut') {
-              animConfig.to = { scaleX: 1 - amount, scaleY: 1 - amount };
-            }
-          }
-          const animation = new TransformAnimation(animConfig);
-          this.addAnimation(animation);
-        }
-      }
-    }
+    const animation = new KeyframeAnimation(kenBurnsConfig);
+    // 标记为 Ken Burns 动画，便于在 render 时识别和更新
+    animation._isKenBurns = true;
+    // 关键：将 Ken Burns 动画添加到数组开头，确保它优先于淡入/淡出动画
+    // 这样 Ken Burns 的初始状态（scaleX=1, translateX=0）能正确覆盖淡入动画的 finalState
+    this.animations.unshift(animation);
   }
 
 
@@ -89,6 +166,14 @@ export class ImageElement extends BaseElement {
   async initialize(loaded) {
     if(!loaded) {
       await super.initialize();
+    }
+
+    // 在 initialize 时，如果 Ken Burns 动画还未注入，则注入
+    // 此时 startTime/endTime 应该已经被父容器设置好了
+    if (!this._kenBurnsInjected && this.config.zoomDirection && 
+        this.config.zoomDirection !== 'none' && this.config.zoomDirection !== 'auto') {
+      this._kenBurnsInjected = true;
+      this._doInjectZoomAnimation();
     }
 
     if (this.src && !this.loaded) {
@@ -221,11 +306,15 @@ export class ImageElement extends BaseElement {
 
   /**
    * 计算当前元素进度 (0-1)
+   * 使用元素的实际时长（endTime - startTime）来计算进度
    */
   _getProgress(time) {
     const start = this.startTime || 0;
-    const duration = this.duration || 1;
-    return Math.max(0, Math.min(1, (time - start) / duration));
+    // 使用实际的元素时长，而不是可能不准确的 this.duration
+    const elementDuration = (this.endTime !== undefined && this.endTime !== Infinity) 
+      ? (this.endTime - start) 
+      : (this.duration || 5);
+    return Math.max(0, Math.min(1, (time - start) / elementDuration));
   }
 
   /**
@@ -317,8 +406,13 @@ export class ImageElement extends BaseElement {
     }
 
     // 应用基础变换
+    // 注意：Ken Burns 效果通过 _applyZoomEffect 设置了 raster 的位置
+    // 这里不应用位置变换，让 Ken Burns 的平移效果保持
     this.applyTransform(raster, state, {
-      applyPosition: true,
+      applyPosition: false,  // 关键：不覆盖 Ken Burns 设置的位置
+      applyOpacity: true,
+      applyRotation: true,
+      applyScale: true,
       paperInstance: p
     });
 
@@ -352,16 +446,50 @@ export class ImageElement extends BaseElement {
    * 获取平移参数（与 editly getTranslationParams 一致）
    * 注意：editly 的 range = zoomAmount * 1000，是像素值
    */
-  _getTranslation(progress, direction, amount) {
-    if (direction !== 'left' && direction !== 'right') return 0;
-    const range = amount * 1000;
-    if (direction === 'right') {
-      return progress * range - range / 2;
-    }
+  _getTranslation(progress, direction, amount, elementDuration = 5) {
+    // 根据时长动态调整位移范围，与 _injectZoomAnimation 中的 maxPan 计算保持一致
+    const zoomPanRatio = this.config.zoomPanRatio !== undefined ? this.config.zoomPanRatio : 300;
+    const range = amount * zoomPanRatio * (elementDuration / 5);
+    let translateX = 0, translateY = 0;
+
     if (direction === 'left') {
-      return -(progress * range - range / 2);
+      translateX = -progress * range;
+    } else if (direction === 'right') {
+      translateX = progress * range;
+    } else if (direction === 'up') {
+      translateY = -progress * range;
+    } else if (direction === 'down') {
+      translateY = progress * range;
+    } else if (direction === 'diagonal1') {
+      // 左上→右下
+      translateX = progress * range * 0.7;
+      translateY = progress * range * 0.7;
+    } else if (direction === 'diagonal2') {
+      // 右上→左下
+      translateX = -progress * range * 0.7;
+      translateY = progress * range * 0.7;
+    } else if (direction === 'diagonal3') {
+      // 左下→右上
+      translateX = progress * range * 0.7;
+      translateY = -progress * range * 0.7;
+    } else if (direction === 'diagonal4') {
+      // 右下→左上
+      translateX = -progress * range * 0.7;
+      translateY = -progress * range * 0.7;
+    } else if (direction === 'diagonal5') {
+      // 左上→右下(更陡)
+      translateX = progress * range * 0.5;
+      translateY = progress * range * 0.8;
+    } else if (direction === 'diagonal6') {
+      // 右上→左下(更陡)
+      translateX = -progress * range * 0.5;
+      translateY = progress * range * 0.8;
     }
-    return 0;
+
+    // 返回 translateX，translateY 在 _applyZoomEffect 中单独处理
+    this._currentTranslateX = translateX;
+    this._currentTranslateY = translateY;
+    return translateX;
   }
 
   /**
@@ -373,17 +501,24 @@ export class ImageElement extends BaseElement {
     // 获取缩放因子
     const scaleFactor = this._getZoomFactor(progress, direction, amount);
 
+    // 获取时长用于计算位移
+    const elementDuration = (this.endTime !== undefined && this.endTime !== Infinity) 
+      ? (this.endTime - this.startTime) 
+      : (this.duration || 5);
+
     // 获取平移参数
-    const translation = this._getTranslation(progress, direction, amount);
+    this._getTranslation(progress, direction, amount, elementDuration);
+    const translateX = this._currentTranslateX || 0;
+    const translateY = this._currentTranslateY || 0;
 
     // 应用缩放（基于 raster 的中心点）
     if (scaleFactor !== 1) {
       raster.scale(scaleFactor, scaleFactor, raster.position);
     }
 
-    // 应用平移
-    if (translation !== 0) {
-      raster.position = new paper.Point(baseX + translation, baseY);
+    // 应用平移（X 和 Y 方向）
+    if (translateX !== 0 || translateY !== 0) {
+      raster.position = new paper.Point(baseX + translateX, baseY + translateY);
     }
   }
 }

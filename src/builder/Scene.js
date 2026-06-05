@@ -111,6 +111,11 @@ export class Scene {
    * @returns {Scene} 返回自身以支持链式调用
    */
   addImage(config = {}) {
+    // 跳过没有 src 的图片元素
+    if (!config.src || !config.src.trim()) {
+      //console.warn(`[Scene] addImage: 跳过空的图片元素 ${config.id || 'unknown'}`);
+      return this;
+    }
     const imageElement = new ImageElement(config);
     // 如果提供了src，异步加载图片
     this.elements.push({
@@ -135,6 +140,11 @@ export class Scene {
    * @returns {Scene} 返回自身以支持链式调用
    */
   addVideo(config = {}) {
+    // 跳过没有 src 的视频元素
+    if (!config.src || !config.src.trim()) {
+      //console.warn(`[Scene] addVideo: 跳过空的视频元素 ${config.id || 'unknown'}`);
+      return this;
+    }
     const videoElement = new VideoElement(config);
     // 如果提供了src，异步初始化视频
     this.elements.push({
@@ -347,7 +357,20 @@ export class Scene {
    * @returns {Array}
    */
   getElements() {
-    return this.elements.map(e => e.element);
+    // 过滤掉没有 src 的图片和没有 videoPath/src 的视频元素
+    return this.elements
+      .filter(e => {
+        if (e.type === 'image' && !e.element.src) {
+          //console.warn(`[Scene] getElements 跳过无效元素: ${e.type} 缺少 src`);
+          return false;
+        }
+        if (e.type === 'video' && !e.element.videoPath) {
+          //console.warn(`[Scene] getElements 跳过无效元素: ${e.type} 缺少 videoPath`);
+          return false;
+        }
+        return true;
+      })
+      .map(e => e.element);
   }
 
   /**
@@ -408,9 +431,18 @@ export class Scene {
     }
 
     // 添加所有元素实例
-    for (const { element } of this.elements) {
+    for (const { element, type } of this.elements) {
       // 元素的时间是相对于场景的，需要确保正确设置
       if (element) {
+        // 过滤没有 src 的图片和没有 videoPath 的视频元素
+        if (type === 'image' && !element.src) {
+          //console.warn(`[Scene] 跳过无效元素: ${type} 缺少 src`);
+          continue;
+        }
+        if (element.type === 'video' && !element.videoPath) {
+          //console.warn(`[Scene] 跳过无效元素: ${type} 缺少 videoPath`);
+          continue;
+        }
         // 如果元素没有设置 startTime，默认为 0（相对于场景开始）
         if (element.startTime === undefined) {
           element.startTime = 0;

@@ -167,6 +167,11 @@ export class Track {
       
       // 将所有元素添加到 Layer 或 VideoMaker（音频元素特殊处理）
       for (const element of sceneElements) {
+        // 过滤无效元素（只检查 videoPath）
+        if (element.type === 'video' && !element.videoPath) {
+          //console.warn(`[Track] 跳过无效元素: video 缺少 videoPath`);
+          continue;
+        }
         // 如果元素来自组件，时间已经是绝对时间，不需要再次转换
         if (element._fromComponent) {
           // 元素时间已经是绝对时间，直接使用

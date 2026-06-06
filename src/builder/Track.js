@@ -27,9 +27,15 @@ export class Track {
    * @returns {Scene} 场景实例
    */
   createScene(config = {}) {
+    // 自动计算 startTime（如果未指定，则使用当前轨道时长）
+    const startTime = config.startTime !== undefined 
+      ? config.startTime 
+      : this.getTotalDuration();
+    
     const scene = new Scene({
       ...config,
       track: this,
+      startTime: startTime,
       duration: config.duration || 5,
     });
     

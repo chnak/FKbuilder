@@ -34,6 +34,7 @@ export class Scene {
     this.elements = [];
     this.backgroundLayer = null;
     this.components = []; // 组件列表
+    this.subtitleCursor = 0; // 字幕自动播放游标，未指定 startTime 时按累加顺序播放
   }
 
   /**
@@ -240,14 +241,32 @@ export class Scene {
 
   /**
    * 添加字幕元素
+   * 同一场景内多次调用 addSubtitle 且未指定 startTime 时，会按调用顺序自动顺序播放；
+   * 场景的 duration 也会自动延长到能容纳所有字幕。
    * @param {Object} config - 字幕配置
    * @returns {Scene} 返回自身以支持链式调用
    */
   addSubtitle(config = {}) {
+    const hasExplicitStartTime = config.startTime !== undefined && config.startTime !== null;
+    const resolvedStartTime = hasExplicitStartTime ? config.startTime : this.subtitleCursor;
+    const resolvedDuration = config.duration || 0;
+
     this.elements.push({
       type: 'subtitle',
-      element: new SubtitleElement(config),
+      element: new SubtitleElement({
+        ...config,
+        startTime: resolvedStartTime,
+      }),
     });
+
+    // 推进游标：取 (当前游标) 与 (本次字幕结束时间) 的较大值
+    this.subtitleCursor = Math.max(this.subtitleCursor, resolvedStartTime + resolvedDuration);
+
+    // 自动延长场景时长以容纳所有字幕
+    if (this.subtitleCursor > this.duration) {
+      this.duration = this.subtitleCursor;
+    }
+
     return this;
   }
 

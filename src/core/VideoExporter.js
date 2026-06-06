@@ -635,7 +635,7 @@ export class VideoExporter {
         // 销毁渲染器并通知 GC 释放内存
         if (this.renderer) {
           this.renderer.destroy();
-          this.renderer = new (require('./Renderer.js').Renderer)({
+          this.renderer = new Renderer({
             width: composition.width,
             height: composition.height,
             fps: fps,
@@ -1405,7 +1405,7 @@ export class VideoExporter {
         }
 
         if (loopCount % 100 === 0) {
-          console.log(`[writeFramesToPipe] loop=${loopCount}, elapsed=${elapsedSeconds.toFixed(1)}s, isComplete=${frameBuffer.isComplete()}, buffered=${frameBuffer.getBufferedCount()}, transitionPreprocessCompleted=${transitionPreprocessCompleted}, transitionFramesAdded=${transitionFramesAdded}, transitionFrames.size=${transitionFrames.size}, allWorkersCompleted=${allWorkersCompleted}`);
+          //console.log(`[writeFramesToPipe] loop=${loopCount}, elapsed=${elapsedSeconds.toFixed(1)}s, isComplete=${frameBuffer.isComplete()}, buffered=${frameBuffer.getBufferedCount()}, transitionPreprocessCompleted=${transitionPreprocessCompleted}, transitionFramesAdded=${transitionFramesAdded}, transitionFrames.size=${transitionFrames.size}, allWorkersCompleted=${allWorkersCompleted}`);
         }
         // 检查是否已取消
         if (isCancelled) {
@@ -1416,12 +1416,12 @@ export class VideoExporter {
         if (framesWritten === lastFramesWritten) {
           stallCount++;
           if (stallCount > 50 && !allWorkersCompleted) {
-            console.warn(`[writeFramesToPipe] 写入停滞！loop=${loopCount}, buffered=${frameBuffer.getBufferedCount()}, allWorkersCompleted=${allWorkersCompleted}, completedWorkers=${completedWorkers}`);
+            //console.warn(`[writeFramesToPipe] 写入停滞！loop=${loopCount}, buffered=${frameBuffer.getBufferedCount()}, allWorkersCompleted=${allWorkersCompleted}, completedWorkers=${completedWorkers}`);
             printWorkerStatus();
           }
           // 如果所有 Worker 都完成了但还在循环，强制退出
           if (allWorkersCompleted && stallCount > maxLoopsWithoutProgress) {
-            console.warn(`[writeFramesToPipe] 强制退出！所有 Worker 完成但循环停滞。framesWritten=${framesWritten}`);
+            //console.warn(`[writeFramesToPipe] 强制退出！所有 Worker 完成但循环停滞。framesWritten=${framesWritten}`);
             break;
           }
         } else {
@@ -1455,9 +1455,9 @@ export class VideoExporter {
           }
         } else if (allWorkersCompleted && transitionPreprocessCompleted && transitionFramesAdded) {
           // 所有 Worker 和转场预处理都已完成，转场帧已添加，检查是否还有帧
-          console.log(`[writeFramesToPipe] allWorkersCompleted=${allWorkersCompleted}, transitionPreprocessCompleted=${transitionPreprocessCompleted}, transitionFramesAdded=${transitionFramesAdded}, frameBuffer.isComplete()=${frameBuffer.isComplete()}, bufferedCount=${frameBuffer.getBufferedCount()}`);
+          //console.log(`[writeFramesToPipe] allWorkersCompleted=${allWorkersCompleted}, transitionPreprocessCompleted=${transitionPreprocessCompleted}, transitionFramesAdded=${transitionFramesAdded}, frameBuffer.isComplete()=${frameBuffer.isComplete()}, bufferedCount=${frameBuffer.getBufferedCount()}`);
           if (frameBuffer.isComplete() && frameBuffer.getBufferedCount() === 0) {
-            console.log(`[writeFramesToPipe] 写入循环结束条件满足，退出循环`);
+            //console.log(`[writeFramesToPipe] 写入循环结束条件满足，退出循环`);
             break;
           }
         } else {
@@ -1487,7 +1487,7 @@ export class VideoExporter {
       });
       
       workers.push(worker);
-      console.log(`[VideoExporter] Worker ${segment.segmentIndex} 已创建并加入 workers 数组`);
+      //console.log(`[VideoExporter] Worker ${segment.segmentIndex} 已创建并加入 workers 数组`);
 
       const promise = new Promise((resolve, reject) => {
         worker.on('message', async (result) => {

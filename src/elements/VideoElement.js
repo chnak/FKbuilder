@@ -30,6 +30,7 @@ export class VideoElement extends BaseElement {
     this.loop = config.loop || false; // 是否循环播放
     this.mute = config.mute !== undefined ? config.mute : true; // 默认静音
     this.volume = config.volume !== undefined ? config.volume : 1.0; // 音量
+    // 响度归一化统一在 mergeAudios 中处理，避免双重压缩导致音频"闷/慢"
     
     // 视频处理相关
     this.videoProcessor = null;
@@ -429,7 +430,7 @@ export class VideoElement extends BaseElement {
               cutTo: this.actualCutTo,
               speedFactor: this.speedFactor,
               volume: this.volume,
-              outputDir: outputDir
+              outputDir: outputDir,
             });
             
             if (this.audioStream && this.audioStream.path) {

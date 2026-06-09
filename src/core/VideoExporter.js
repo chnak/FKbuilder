@@ -272,6 +272,8 @@ export class VideoExporter {
           outputDir: outputDir,
           duration: endTime - startTime,
           audioMode: options.audioMode || composition.config?.audioMode || 'standard',
+          loudnessNormalization: options.loudnessNormalization !== false,
+          loudnessPreset: options.loudnessPreset || 'shortvideo',
         }).then(async mergedAudioPath => {
           if (mergedAudioPath && await fs.pathExists(mergedAudioPath)) {
             console.log('音频处理完成');

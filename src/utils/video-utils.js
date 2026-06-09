@@ -278,7 +278,10 @@ export async function createAudioStream({
   cutTo,
   speedFactor = 1,
   volume = 1,
-  outputDir = './output'
+  outputDir = './output',
+  // 兼容旧参数但不再使用：响度归一化统一在 mergeAudios 单点处理，避免双重压缩导致闷/慢
+  loudnessNormalization = false,
+  loudnessPreset = 'shortvideo',
 }) {
   // 首先检查输入文件是否有音频流
   const streams = await readFileStreams(source);
@@ -299,12 +302,10 @@ export async function createAudioStream({
   // 生成临时音频文件路径
   const tempAudioPath = path.join(outputDir, `temp-video-audio-${nanoid()}.flac`);
   
-  // 默认混合所有音频轨道
-  let filterComplex = '[0:a]amix=inputs=1';
-  if (volume !== 1) {
-    filterComplex += `,volume=${volume}`;
-  }
-  filterComplex += '[aout]';
+  // 仅做裁剪和音量调整，不在此处做响度归一化（统一在 mergeAudios 中处理）
+  // 这样可以避免"双重 loudnorm"导致的瞬态损失和听感闷/慢
+  // 不强制重采样，保留源采样率，避免重采样带来的高频损失
+  let filterComplex = volume !== 1 ? `[0:a]volume=${volume}[aout]` : '[0:a]acopy[aout]';
   
   // 计算实际裁剪时长
   let duration = undefined;

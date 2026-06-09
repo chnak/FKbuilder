@@ -56,12 +56,13 @@ async function testVideoSimple() {
       src: videoPath,
       x: "50%",
       y: "50%",
-      width: "80%",
-      height: "60%",
+      width: "100%",
+      height: "100%",
       anchor: [0.5, 0.5],
       duration: 5, // 元素duration为5秒，应该只提取5秒的帧
-      fit: 'contain',
-      mute: false, // 启用视频音频
+      fit: 'cover',
+      mute: true, // 启用视频音频
+      loop:true,
       volume: 1.0, // 音量 100%
     });
 

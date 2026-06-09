@@ -847,7 +847,7 @@ async function createDiNvFangHunVideo() {
     console.log(`  - 总计: ${starCount + petalCount + 15 + 12 + 4 + 2 + 1 + cloudCount + 30 + 5} 个视觉元素\n`);
     
     await videoMaker.export(outputPath, {
-      parallel: true,
+      parallel: false,
       usePipe: true,
       maxWorkers: 4,
     });

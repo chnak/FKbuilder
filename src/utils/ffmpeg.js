@@ -1,6 +1,9 @@
 import execa from 'execa';
 import path from 'path';
+import os from 'os';
 import fs from 'fs-extra';
+import { nanoid } from 'nanoid';
+import { readFileStreams } from './video-utils.js';
 import { DEFAULT_FFMPEG_CONFIG } from '../types/constants.js';
 
 /**
@@ -483,17 +486,21 @@ export class FFmpegUtil {
       outputDir = './output',
       duration, // 总时长（秒）
       audioMode = 'standard', // 混音模式：'standard' | 'fkvideo'
+      loudnessNormalization = true, // 是否对最终输出应用响度归一化
+      loudnessPreset = 'shortvideo', // 响度预设：'broadcast' | 'shortvideo' | 'podcast'
     } = options;
 
     if (!audioConfigs || audioConfigs.length === 0) {
       return null;
     }
 
-    // 如果只有一个音频，直接返回
+    // 单音频快路径 A：所有参数都是默认值
+    // 仍然走一次 loudnorm，避免原始音频响度不均
     if (audioConfigs.length === 1) {
       const audio = audioConfigs[0];
       if (audio.fadeIn === 0 && audio.fadeOut === 0 && audio.volume === 1.0 && audio.startTime === 0) {
-        return audio.path;
+        if (!loudnessNormalization) return audio.path;
+        return await this.normalizeLoudness(audio.path, { preset: loudnessPreset });
       }
     }
 
@@ -593,9 +600,11 @@ export class FFmpegUtil {
         return null;
       }
 
-      // 如果只有一个处理后的音频，直接返回
+      // 单音频快路径 B：处理后只有 1 个音频且没有延迟
+      // 处理后的文件只应用了 volume/afade，没做响度归一化
       if (processedAudios.length === 1 && processedAudios[0].startTime === 0) {
-        return processedAudios[0].path;
+        if (!loudnessNormalization) return processedAudios[0].path;
+        return await this.normalizeLoudness(processedAudios[0].path, { preset: loudnessPreset });
       }
 
       // 创建音频混合脚本
@@ -620,14 +629,31 @@ export class FFmpegUtil {
 
       // 混合所有音频
       const mixInputs = processedAudios.map((_, i) => `[a${i}]`).join('');
+      // 选择目标响度参数
+      const target = {
+        broadcast:  { I: -23, LRA: 7,  TP: -2.0 },
+        shortvideo: { I: -16, LRA: 11, TP: -1.5 },
+        podcast:    { I: -19, LRA: 9,  TP: -2.0 },
+      }[loudnessPreset] || { I: -16, LRA: 11, TP: -1.5 };
+
       if (audioMode === 'fkvideo') {
         const weights = processedAudios.map(a => (a.mixVolume !== undefined ? a.mixVolume : 1)).join(' ');
-        filterComplex.push(`${mixInputs}amix=inputs=${processedAudios.length}:duration=longest:dropout_transition=0:normalize=0:weights=${weights}[out]`);
+        filterComplex.push(`${mixInputs}amix=inputs=${processedAudios.length}:duration=longest:dropout_transition=0:normalize=0:weights=${weights}[out0]`);
+        // fkvideo 模式也补上响度归一化（可通过 loudnessNormalization=false 关闭）
+        if (loudnessNormalization) {
+          filterComplex.push(`[out0]loudnorm=I=${target.I}:LRA=${target.LRA}:TP=${target.TP}[out]`);
+        } else {
+          filterComplex.push(`[out0]acopy[out]`);
+        }
       } else {
         // 使用 normalize=0 保持输入素材的原始能量，不因输入数量被等分
         filterComplex.push(`${mixInputs}amix=inputs=${processedAudios.length}:duration=longest:dropout_transition=0:normalize=0[out0]`);
         // 默认仅应用响度规范（EBU R128）
-        filterComplex.push(`[out0]loudnorm=I=-23:LRA=7:TP=-2[out]`);
+        if (loudnessNormalization) {
+          filterComplex.push(`[out0]loudnorm=I=${target.I}:LRA=${target.LRA}:TP=${target.TP}[out]`);
+        } else {
+          filterComplex.push(`[out0]acopy[out]`);
+        }
       }
 
       const args = [
@@ -638,7 +664,7 @@ export class FFmpegUtil {
         '-filter_complex', filterComplex.join(';'),
         '-map', '[out]',
         '-ac', '2', // 立体声
-        '-ar', '44100', // 采样率
+        // 保留源采样率，避免 48kHz → 44.1kHz 重采样带来的高频损失和"闷/慢"感
         outputPath,
       ];
 
@@ -660,6 +686,62 @@ export class FFmpegUtil {
     } catch (error) {
       console.error('合并音频失败:', error);
       return null;
+    }
+  }
+
+  /**
+   * 对音频应用响度归一化（EBU R128 loudnorm）
+   * 默认目标适合短视频/自媒体；可选 preset: 'broadcast' (I=-23) | 'shortvideo' (I=-16) | 'podcast' (I=-19)
+   * @param {string} inputPath - 输入音频路径
+   * @param {Object} [options]
+   * @param {string} [options.outputPath] - 输出路径，不传则写到临时目录
+   * @param {string} [options.preset='shortvideo'] - 响度预设
+   * @param {boolean} [options.linear=false] - loudnorm 线性相位模式（true 会引入群延迟，听感"闷/慢"）
+   * @returns {Promise<string>} 处理后的音频路径
+   */
+  async normalizeLoudness(inputPath, options = {}) {
+    await this.checkFFmpeg();
+
+    const {
+      preset = 'shortvideo',
+      linear = false,  // 最小相位模式，无群延迟，听感更自然
+    } = options;
+    const target = {
+      broadcast:  { I: -23, LRA: 7,  TP: -2.0 },
+      shortvideo: { I: -16, LRA: 11, TP: -1.5 },
+      podcast:    { I: -19, LRA: 9,  TP: -2.0 },
+    }[preset] || { I: -16, LRA: 11, TP: -1.5 };
+
+    const outputPath = options.outputPath
+      || path.join(os.tmpdir(), `fknew-loudnorm-${nanoid()}.wav`);
+
+    // 探测源采样率，保持一致；不显式指定会让 WAV/pcm_s16le 默认输出 192kHz，
+    // 后续 AAC 编码又降到 96kHz，两次重采样是听感"闷/慢"的元凶
+    let sourceRate = 48000;
+    try {
+      const streams = await readFileStreams(inputPath);
+      const audioStream = streams.find(s => s.codec_type === 'audio');
+      if (audioStream && audioStream.sample_rate) {
+        sourceRate = parseInt(audioStream.sample_rate, 10) || 48000;
+      }
+    } catch (_) {}
+
+    const args = [
+      '-y',
+      '-hide_banner',
+      '-loglevel', 'error',
+      '-i', inputPath,
+      '-af', `loudnorm=I=${target.I}:LRA=${target.LRA}:TP=${target.TP}:linear=${linear ? 1 : 0}`,
+      '-ar', sourceRate.toString(),
+      outputPath,
+    ];
+
+    try {
+      await execa('ffmpeg', args);
+      return outputPath;
+    } catch (error) {
+      console.warn(`[FFmpeg] loudnorm 失败，降级使用原文件: ${error.message}`);
+      return inputPath;
     }
   }
 }

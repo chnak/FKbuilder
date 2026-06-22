@@ -371,17 +371,30 @@ export class ImageElement extends BaseElement {
 
     // 根据 fit 参数计算实际显示尺寸
     const fit = state.fit || this.config.fit || 'cover';
-    const fitResult = calculateImageFit({
-      imageWidth,
-      imageHeight,
-      containerWidth,
-      containerHeight,
-      fit
-    });
 
-    const width = fitResult.width;
-    const height = fitResult.height;
-    const { x, y } = this.calculatePosition(state, context, { width, height });
+    let width;
+    let height;
+    let coverClipRect = null;
+
+    if (fit === 'cover') {
+      // cover：图片尺寸超过容器，使用 Group+clipMask 裁剪
+      const coverFit = calculateImageFit({
+        imageWidth, imageHeight, containerWidth, containerHeight, fit: 'cover'
+      });
+      width = coverFit.width;
+      height = coverFit.height;
+      // 记录需要的 clip 矩形（后面创建组时使用，使用容器的绝对坐标）
+      coverClipRect = { x: 0, y: 0, width: containerWidth, height: containerHeight };
+    } else {
+      const fitResult = calculateImageFit({
+        imageWidth, imageHeight, containerWidth, containerHeight, fit
+      });
+      width = fitResult.width;
+      height = fitResult.height;
+    }
+
+    // 先按容器尺寸计算位置，得到容器的 top-left (x, y)
+    const { x, y } = this.calculatePosition(state, context, { elementWidth: containerWidth, elementHeight: containerHeight });
 
     if (!this.imageData) {
       console.warn('[ImageElement] 图片数据未加载');
@@ -389,9 +402,16 @@ export class ImageElement extends BaseElement {
     }
 
     // 创建 Raster
+    // 对于 cover 模式：raster 大于容器，需要后续裁剪到容器区域
     const raster = new p.Raster(this.imageData);
     raster.size = new p.Size(width, height);
-    raster.position = new p.Point(x, y);
+    // 对于 cover：raster 居中显示在容器中心（即 x + containerWidth/2, y + containerHeight/2）
+    // 对于其他模式：raster 位置即为容器位置
+    if (fit === 'cover') {
+      raster.position = new p.Point(x + containerWidth / 2, y + containerHeight / 2);
+    } else {
+      raster.position = new p.Point(x, y);
+    }
 
     // 处理 zoomDirection（auto 模式在渲染时处理）
     const zoomDirection = this.config.zoomDirection || 'none';
@@ -417,7 +437,60 @@ export class ImageElement extends BaseElement {
     });
 
     // 应用视觉效果
-    const finalItem = this.applyVisualEffects(raster, state, width, height, p);
+    // 对于 cover 模式：边框/阴影应基于容器尺寸（而不是 cover-fit 尺寸），否则会偏大
+    const effectWidth = fit === 'cover' ? containerWidth : width;
+    const effectHeight = fit === 'cover' ? containerHeight : height;
+    const visualItem = this.applyVisualEffects(raster, state, effectWidth, effectHeight, p);
+
+    // cover 模式：使用 Group + clipMask 实现裁剪
+    // 关键思路：把 Group 当作"中心容器"，其 position = 元素的中心点（x + containerW/2, y + containerH/2），
+    // raster 在 group 局部坐标中以 (0,0) 为中心、cover-fit 尺寸渲染，
+    // 裁剪矩形在 group 局部坐标 (-containerW/2, -containerH/2) 处，从而实现以元素中心对齐的 cover
+    let finalItem = visualItem;
+    if (fit === 'cover' && coverClipRect) {
+      // 元素的中心点（世界坐标）—— 通过 x/y + 容器尺寸计算
+      // (x, y) 是已经根据 anchor 调整后的 top-left
+      const centerX = x + containerWidth / 2;
+      const centerY = y + containerHeight / 2;
+
+      // 1) 把 raster 重新放回 group 局部坐标的 (0,0) 中心
+      raster.position = new p.Point(0, 0);
+
+      // 2) 在 group 局部坐标 ( -containerW/2, -containerH/2 ) 创建裁剪矩形
+      const clipPath = new p.Path.Rectangle({
+        rectangle: new p.Rectangle(
+          -containerWidth / 2,
+          -containerHeight / 2,
+          containerWidth,
+          containerHeight
+        ),
+      });
+
+      // 3) 把视觉项放进 group
+      const clipGroup = new p.Group();
+      clipGroup.addChild(clipPath);
+      clipPath.clipMask = true;
+      clipGroup.clipped = true;
+      if (visualItem === raster) {
+        clipGroup.addChild(visualItem);
+      } else {
+        // 把 visualItem 内部子项的 position 从"世界"坐标系转为"group 局部"坐标系
+        // 后面会再设置 group.position = (centerX, centerY)，将局部坐标转为世界坐标
+        const children = visualItem.children ? [...visualItem.children] : [visualItem];
+        for (const child of children) {
+          if (child.position) {
+            child.position = new p.Point(child.position.x - centerX, child.position.y - centerY);
+          }
+        }
+        clipGroup.addChild(visualItem);
+      }
+
+      // 4) 关键：必须在添加完所有子项后，再设置 group.position
+      // 否则 Paper.js 会在 addChild 时把 position 重置为子项 bounds 的中心
+      clipGroup.position = new p.Point(centerX, centerY);
+
+      finalItem = clipGroup;
+    }
 
     if (layer) {
       layer.addChild(finalItem);

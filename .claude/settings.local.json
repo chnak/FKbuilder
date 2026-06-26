@@ -84,7 +84,8 @@
       "Bash(node examples/test-cover-center.js)",
       "Bash(ffmpeg -i output/test-cover-center.mp4 -vf \"select='eq\\(n,30\\)'\" -update 1 -y output/cover-center-frame.png)",
       "Bash(node examples/debug-clip.js)",
-      "Bash(node -e \"import\\('./src/elements/ImageElement.js'\\).then\\(m => { const i = new m.ImageElement\\({src: 'test.jpg', zoomDirection: 'in', zoomAmount: 0.1, fit: 'cover'}\\); console.log\\('✅ ImageElement loaded OK'\\); console.log\\('zoomDirection:', i.config.zoomDirection\\); console.log\\('zoomAmount:', i.config.zoomAmount\\); console.log\\('fit:', i.config.fit\\); }\\).catch\\(e => console.error\\('❌', e.message\\)\\)\")"
+      "Bash(node -e \"import\\('./src/elements/ImageElement.js'\\).then\\(m => { const i = new m.ImageElement\\({src: 'test.jpg', zoomDirection: 'in', zoomAmount: 0.1, fit: 'cover'}\\); console.log\\('✅ ImageElement loaded OK'\\); console.log\\('zoomDirection:', i.config.zoomDirection\\); console.log\\('zoomAmount:', i.config.zoomAmount\\); console.log\\('fit:', i.config.fit\\); }\\).catch\\(e => console.error\\('❌', e.message\\)\\)\")",
+      "Bash(node examples/subtitle-demo.js)"
     ]
   }
 }

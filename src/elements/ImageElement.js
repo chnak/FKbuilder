@@ -413,50 +413,48 @@ export class ImageElement extends BaseElement {
       raster.position = new p.Point(x, y);
     }
 
-    // 处理 zoomDirection（auto 模式在渲染时处理）
+    // 处理 zoomDirection
     const zoomDirection = this.config.zoomDirection || 'none';
     const zoomAmount = this.config.zoomAmount !== undefined ? this.config.zoomAmount : 0.1;
 
-    if (zoomDirection === 'auto') {
-      // auto 模式：每次渲染时随机选择方向
-      const actualDir = this._getAutoZoomDirection();
-      this._applyZoomEffect(raster, time, actualDir, zoomAmount, x, y, p);
-    } else if (zoomDirection !== 'none') {
-      this._applyZoomEffect(raster, time, zoomDirection, zoomAmount, x, y, p);
-    }
+    const isCover = fit === 'cover';
 
-    // 应用基础变换
-    // 注意：Ken Burns 效果通过 _applyZoomEffect 设置了 raster 的位置
-    // 这里不应用位置变换，让 Ken Burns 的平移效果保持
-    this.applyTransform(raster, state, {
-      applyPosition: false,  // 关键：不覆盖 Ken Burns 设置的位置
-      applyOpacity: true,
-      applyRotation: true,
-      applyScale: true,
-      paperInstance: p
-    });
+    // 非 cover 模式：在 clipGroup 包装前直接对 raster 应用 zoom 效果
+    if (!isCover) {
+      if (zoomDirection === 'auto') {
+        const actualDir = this._getAutoZoomDirection();
+        this._applyZoomEffect(raster, time, actualDir, zoomAmount, x, y, p);
+      } else if (zoomDirection !== 'none') {
+        this._applyZoomEffect(raster, time, zoomDirection, zoomAmount, x, y, p);
+      }
+
+      // 应用基础变换（Ken Burns 缩放等）
+      this.applyTransform(raster, state, {
+        applyPosition: false,
+        applyOpacity: true,
+        applyRotation: true,
+        applyScale: true,
+        paperInstance: p
+      });
+    }
 
     // 应用视觉效果
     // 对于 cover 模式：边框/阴影应基于容器尺寸（而不是 cover-fit 尺寸），否则会偏大
-    const effectWidth = fit === 'cover' ? containerWidth : width;
-    const effectHeight = fit === 'cover' ? containerHeight : height;
+    const effectWidth = isCover ? containerWidth : width;
+    const effectHeight = isCover ? containerHeight : height;
     const visualItem = this.applyVisualEffects(raster, state, effectWidth, effectHeight, p);
 
     // cover 模式：使用 Group + clipMask 实现裁剪
-    // 关键思路：把 Group 当作"中心容器"，其 position = 元素的中心点（x + containerW/2, y + containerH/2），
-    // raster 在 group 局部坐标中以 (0,0) 为中心、cover-fit 尺寸渲染，
-    // 裁剪矩形在 group 局部坐标 (-containerW/2, -containerH/2) 处，从而实现以元素中心对齐的 cover
     let finalItem = visualItem;
-    if (fit === 'cover' && coverClipRect) {
-      // 元素的中心点（世界坐标）—— 通过 x/y + 容器尺寸计算
-      // (x, y) 是已经根据 anchor 调整后的 top-left
+    if (isCover && coverClipRect) {
+      // 元素的中心点（世界坐标）
       const centerX = x + containerWidth / 2;
       const centerY = y + containerHeight / 2;
 
       // 1) 把 raster 重新放回 group 局部坐标的 (0,0) 中心
       raster.position = new p.Point(0, 0);
 
-      // 2) 在 group 局部坐标 ( -containerW/2, -containerH/2 ) 创建裁剪矩形
+      // 2) 在 group 局部坐标创建裁剪矩形
       const clipPath = new p.Path.Rectangle({
         rectangle: new p.Rectangle(
           -containerWidth / 2,
@@ -466,7 +464,7 @@ export class ImageElement extends BaseElement {
         ),
       });
 
-      // 3) 把视觉项放进 group
+      // 3) 组装 clipGroup
       const clipGroup = new p.Group();
       clipGroup.addChild(clipPath);
       clipPath.clipMask = true;
@@ -474,8 +472,6 @@ export class ImageElement extends BaseElement {
       if (visualItem === raster) {
         clipGroup.addChild(visualItem);
       } else {
-        // 把 visualItem 内部子项的 position 从"世界"坐标系转为"group 局部"坐标系
-        // 后面会再设置 group.position = (centerX, centerY)，将局部坐标转为世界坐标
         const children = visualItem.children ? [...visualItem.children] : [visualItem];
         for (const child of children) {
           if (child.position) {
@@ -485,9 +481,26 @@ export class ImageElement extends BaseElement {
         clipGroup.addChild(visualItem);
       }
 
-      // 4) 关键：必须在添加完所有子项后，再设置 group.position
-      // 否则 Paper.js 会在 addChild 时把 position 重置为子项 bounds 的中心
+      // 4) 设置 group.position（必须在添加完所有子项后）
       clipGroup.position = new p.Point(centerX, centerY);
+
+      // 5) cover 模式：在 clipGroup 局部坐标系中对 raster 应用 zoom 效果
+      //    此时 raster.position = (0,0) 对应局部坐标系中心，scale/pivot 以局部中心为轴
+      if (zoomDirection === 'auto') {
+        const actualDir = this._getAutoZoomDirection();
+        this._applyZoomEffect(raster, time, actualDir, zoomAmount, 0, 0, p);
+      } else if (zoomDirection !== 'none') {
+        this._applyZoomEffect(raster, time, zoomDirection, zoomAmount, 0, 0, p);
+      }
+
+      // 6) 在局部坐标系中应用 Ken Burns 状态变换（缩放、透明度、旋转）
+      this.applyTransform(raster, state, {
+        applyPosition: false,
+        applyOpacity: true,
+        applyRotation: true,
+        applyScale: true,
+        paperInstance: p
+      });
 
       finalItem = clipGroup;
     }

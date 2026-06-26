@@ -74,7 +74,17 @@
       "Bash(ffmpeg -hide_banner -i /d/code/FKbuilder/output/loudness-with-norm.mp4 -af \"ebur128=peak=true\" -f null -)",
       "Bash(ffmpeg -hide_banner -i /d/code/FKbuilder/output/loudness-no-norm.mp4 -af \"ebur128=peak=true\" -f null -)",
       "Bash(ffmpeg -hide_banner -i /d/code/FKbuilder/assets/tts_1780889989503_ufrh67.mp3 -af \"ebur128=peak=true\" -f null -)",
-      "Bash(node examples/test-tts-loudness.js)"
+      "Bash(node examples/test-tts-loudness.js)",
+      "Bash(node D:/code/FKbuilder/examples/_test-cover4.js)",
+      "Bash(node examples/test-cover-vs-fill.js)",
+      "Bash(ffmpeg -i output/test-cover-vs-fill.mp4 -vf \"select='eq\\(n,45\\)+eq\\(n,135\\)+eq\\(n,225\\)',tile=1x3\" -y output/cover-vs-fill-frames.png)",
+      "Bash(ffmpeg -i output/test-cover-vs-fill.mp4 -vf \"select='eq\\(n,45\\)+eq\\(n,135\\)+eq\\(n,225\\)',tile=1x3\" -frames:v 1 -y output/cover-vs-fill-frames.png)",
+      "Bash(ffmpeg -i output/test-cover-vs-fill.mp4 -vf \"select='eq\\(n,45\\)+eq\\(n,135\\)+eq\\(n,225\\)',tile=3x1\" -update 1 -y output/cover-vs-fill-frames.png)",
+      "Bash(node examples/test-image.js)",
+      "Bash(node examples/test-cover-center.js)",
+      "Bash(ffmpeg -i output/test-cover-center.mp4 -vf \"select='eq\\(n,30\\)'\" -update 1 -y output/cover-center-frame.png)",
+      "Bash(node examples/debug-clip.js)",
+      "Bash(node -e \"import\\('./src/elements/ImageElement.js'\\).then\\(m => { const i = new m.ImageElement\\({src: 'test.jpg', zoomDirection: 'in', zoomAmount: 0.1, fit: 'cover'}\\); console.log\\('✅ ImageElement loaded OK'\\); console.log\\('zoomDirection:', i.config.zoomDirection\\); console.log\\('zoomAmount:', i.config.zoomAmount\\); console.log\\('fit:', i.config.fit\\); }\\).catch\\(e => console.error\\('❌', e.message\\)\\)\")"
     ]
   }
 }

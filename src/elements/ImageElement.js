@@ -419,24 +419,22 @@ export class ImageElement extends BaseElement {
 
     const isCover = fit === 'cover';
 
-    // 非 cover 模式：在 clipGroup 包装前直接对 raster 应用 zoom 效果
-    if (!isCover) {
-      if (zoomDirection === 'auto') {
-        const actualDir = this._getAutoZoomDirection();
-        this._applyZoomEffect(raster, time, actualDir, zoomAmount, x, y, p);
-      } else if (zoomDirection !== 'none') {
-        this._applyZoomEffect(raster, time, zoomDirection, zoomAmount, x, y, p);
-      }
-
-      // 应用基础变换（Ken Burns 缩放等）
-      this.applyTransform(raster, state, {
-        applyPosition: false,
-        applyOpacity: true,
-        applyRotation: true,
-        applyScale: true,
-        paperInstance: p
-      });
+    // 在 clipGroup 包装前对 raster 应用 zoom 效果（非 cover 和 cover 都适用）
+    if (zoomDirection === 'auto') {
+      const actualDir = this._getAutoZoomDirection();
+      this._applyZoomEffect(raster, time, actualDir, zoomAmount, x, y, p);
+    } else if (zoomDirection !== 'none') {
+      this._applyZoomEffect(raster, time, zoomDirection, zoomAmount, x, y, p);
     }
+
+    // 应用基础变换（Ken Burns 缩放等；不应用位置以保留 zoom 的 translate）
+    this.applyTransform(raster, state, {
+      applyPosition: false,
+      applyOpacity: true,
+      applyRotation: true,
+      applyScale: true,
+      paperInstance: p
+    });
 
     // 应用视觉效果
     // 对于 cover 模式：边框/阴影应基于容器尺寸（而不是 cover-fit 尺寸），否则会偏大
@@ -451,10 +449,13 @@ export class ImageElement extends BaseElement {
       const centerX = x + containerWidth / 2;
       const centerY = y + containerHeight / 2;
 
-      // 1) 把 raster 重新放回 group 局部坐标的 (0,0) 中心
-      raster.position = new p.Point(0, 0);
+      // 1) 关键：raster 经过 zoom + applyTransform 后位置/缩放都已就位，
+      //    此时它仍处于 world 坐标系。要放进 clipGroup 的局部坐标系，
+      //    必须把 raster 的位置从 world 转为 group 局部坐标（减去 group.position）。
+      //    visualItem 的所有子项（raster/shadow/border）相对于 visualItem 也有偏移，
+      //    一并转换。
 
-      // 2) 在 group 局部坐标创建裁剪矩形
+      // 2) 在 group 局部坐标 (-containerW/2, -containerH/2) 创建裁剪矩形
       const clipPath = new p.Path.Rectangle({
         rectangle: new p.Rectangle(
           -containerWidth / 2,
@@ -469,13 +470,25 @@ export class ImageElement extends BaseElement {
       clipGroup.addChild(clipPath);
       clipPath.clipMask = true;
       clipGroup.clipped = true;
+
+      // 把 visualItem 放进 clipGroup，并把 visualItem 内所有子项的坐标从 world 转为 group 局部
+      // （包括 raster 已应用的 zoom translate 和 Ken Burns scale 矩阵）
       if (visualItem === raster) {
+        // 简单情况：raster 的 position 是 world 坐标，需要转为局部
+        raster.position = new p.Point(
+          raster.position.x - centerX,
+          raster.position.y - centerY
+        );
         clipGroup.addChild(visualItem);
       } else {
+        // 视觉特效情况：visualItem 是 Group，遍历其子项转换坐标
         const children = visualItem.children ? [...visualItem.children] : [visualItem];
         for (const child of children) {
           if (child.position) {
-            child.position = new p.Point(child.position.x - centerX, child.position.y - centerY);
+            child.position = new p.Point(
+              child.position.x - centerX,
+              child.position.y - centerY
+            );
           }
         }
         clipGroup.addChild(visualItem);
@@ -483,24 +496,6 @@ export class ImageElement extends BaseElement {
 
       // 4) 设置 group.position（必须在添加完所有子项后）
       clipGroup.position = new p.Point(centerX, centerY);
-
-      // 5) cover 模式：在 clipGroup 局部坐标系中对 raster 应用 zoom 效果
-      //    此时 raster.position = (0,0) 对应局部坐标系中心，scale/pivot 以局部中心为轴
-      if (zoomDirection === 'auto') {
-        const actualDir = this._getAutoZoomDirection();
-        this._applyZoomEffect(raster, time, actualDir, zoomAmount, 0, 0, p);
-      } else if (zoomDirection !== 'none') {
-        this._applyZoomEffect(raster, time, zoomDirection, zoomAmount, 0, 0, p);
-      }
-
-      // 6) 在局部坐标系中应用 Ken Burns 状态变换（缩放、透明度、旋转）
-      this.applyTransform(raster, state, {
-        applyPosition: false,
-        applyOpacity: true,
-        applyRotation: true,
-        applyScale: true,
-        paperInstance: p
-      });
 
       finalItem = clipGroup;
     }

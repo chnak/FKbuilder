@@ -112,14 +112,17 @@ export class SubtitleElement extends BaseElement {
     // 为每个段落创建 TextElement
     this.textElements = [];
 
-    // 所有分割段落共享同一个时间范围（文本分割仅用于显示换行，不是时序分割）
-    const segmentStartTime = this.startTime || 0;
-    const segmentEndTime = (this.endTime !== undefined && this.endTime !== Infinity && this.endTime !== null)
-      ? this.endTime
-      : (segmentStartTime + (this.duration || 5));
-    const segmentDuration = segmentEndTime - segmentStartTime;
+    // 如果配置中有明确的 startTime（如 LRC 歌词），使用它；否则使用累计时间
+    const hasExplicitStartTime = this.startTime !== undefined && this.startTime !== null;
+    let currentStartTime = this.startTime || 0;
 
     for (const segment of subtitleSegments) {
+      // 如果只有一个段落且有明确的 startTime（LRC 歌词），使用配置的 startTime
+      // 否则使用累计时间
+      const segmentStartTime = (hasExplicitStartTime && subtitleSegments.length === 1)
+        ? this.startTime
+        : currentStartTime;
+
       const textElement = new TextElement({
         text: segment.text,
         x: this.config.x || (this.position === 'center' ? '50%' : this.config.x),
@@ -129,10 +132,10 @@ export class SubtitleElement extends BaseElement {
         color: this.textColor,
         textAlign: this.textAlign,
         anchor: this.config.anchor || [0.5, 0.5],
-        // 时间范围：所有段落共享字幕的完整时间
+        // 时间范围
         startTime: segmentStartTime,
-        duration: segmentDuration,
-        endTime: segmentEndTime,
+        duration: segment.duration,
+        endTime: segmentStartTime + segment.duration,
         // 分割配置
         split: this.split,
         splitDelay: this.splitDelay,
@@ -188,6 +191,7 @@ export class SubtitleElement extends BaseElement {
       });
 
       this.textElements.push(textElement);
+      currentStartTime += segment.duration;
     }
     
     this.initialized = true;

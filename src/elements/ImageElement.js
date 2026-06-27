@@ -402,16 +402,11 @@ export class ImageElement extends BaseElement {
     }
 
     // 创建 Raster
-    // 对于 cover 模式：raster 大于容器，需要后续裁剪到容器区域
+    // calculatePosition 返回容器左上角（根据 anchor 调整过）
+    // Paper.js 的 raster.position 是中心点 → 偏移 containerWidth/2, containerHeight/2
     const raster = new p.Raster(this.imageData);
     raster.size = new p.Size(width, height);
-    // 对于 cover：raster 居中显示在容器中心（即 x + containerWidth/2, y + containerHeight/2）
-    // 对于其他模式：raster 位置即为容器位置
-    if (fit === 'cover') {
-      raster.position = new p.Point(x + containerWidth / 2, y + containerHeight / 2);
-    } else {
-      raster.position = new p.Point(x, y);
-    }
+    raster.position = new p.Point(x + containerWidth / 2, y + containerHeight / 2);
 
     // 处理 zoomDirection
     const zoomDirection = this.config.zoomDirection || 'none';

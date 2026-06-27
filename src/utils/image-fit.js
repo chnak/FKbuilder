@@ -25,12 +25,13 @@ export function calculateImageFit({ imageWidth, imageHeight, containerWidth, con
   switch (fit) {
     case 'cover':
       // 覆盖：保持宽高比，完全填满容器，超出部分被裁剪
-      if (containerAspectRatio > imageAspectRatio) {
-        // 容器更宽 → 以高度为基准（左右溢出裁剪）
+      // 选择较大的缩放比例，确保完全覆盖容器
+      if (imageAspectRatio > containerAspectRatio) {
+        // 图片更宽 → 以高度为基准（左右溢出裁剪）
         height = containerHeight;
         width = containerHeight * imageAspectRatio;
       } else {
-        // 容器更高或相等 → 以宽度为基准（上下溢出裁剪）
+        // 容器更宽或相等 → 以宽度为基准（上下溢出裁剪）
         width = containerWidth;
         height = containerWidth / imageAspectRatio;
       }

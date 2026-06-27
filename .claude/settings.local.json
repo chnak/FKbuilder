@@ -87,7 +87,8 @@
       "Bash(node -e \"import\\('./src/elements/ImageElement.js'\\).then\\(m => { const i = new m.ImageElement\\({src: 'test.jpg', zoomDirection: 'in', zoomAmount: 0.1, fit: 'cover'}\\); console.log\\('✅ ImageElement loaded OK'\\); console.log\\('zoomDirection:', i.config.zoomDirection\\); console.log\\('zoomAmount:', i.config.zoomAmount\\); console.log\\('fit:', i.config.fit\\); }\\).catch\\(e => console.error\\('❌', e.message\\)\\)\")",
       "Bash(node examples/subtitle-demo.js)",
       "Bash(node examples/test-builder-lrc.js)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(git -C \"D:/Code/FKbuilder\" status --short)"
     ]
   }
 }

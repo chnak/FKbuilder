@@ -597,9 +597,13 @@ export class ImageElement extends BaseElement {
       raster.scale(scaleFactor, scaleFactor, raster.position);
     }
 
-    // 应用平移（X 和 Y 方向）
+    // 应用平移（X 和 Y 方向）- 在 raster 当前位置基础上偏移
+    // 不直接用 baseX/baseY，因为 cover 模式下 raster.position 已被设为容器中心
     if (translateX !== 0 || translateY !== 0) {
-      raster.position = new paper.Point(baseX + translateX, baseY + translateY);
+      raster.position = new paper.Point(
+        raster.position.x + translateX,
+        raster.position.y + translateY
+      );
     }
   }
 }

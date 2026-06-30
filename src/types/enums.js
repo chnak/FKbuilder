@@ -31,6 +31,7 @@ export const ElementType = {
   TRANSITION: 'transition',
   AUDIO: 'audio',
   OSCILLOSCOPE: 'oscilloscope',
+  HTML: 'html',
 };
 
 /**

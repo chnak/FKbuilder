@@ -15,6 +15,7 @@ import { OscilloscopeElement } from '../elements/OscilloscopeElement.js';
 import { CodeElement } from '../elements/CodeElement.js';
 import { EChartsElement } from '../elements/EChartsElement.js';
 import { SpriteElement } from '../elements/SpriteElement.js';
+import { HTMLElement } from '../elements/HTMLElement.js';
 import { LRCSubtitleBuilder } from '../utils/lrcSubtitleBuilder.js';
 import { Component } from './Component.js';
 
@@ -338,6 +339,21 @@ export class Scene {
   addECharts(config = {}) {
     const el = new EChartsElement(config);
     this.elements.push({ type: 'echarts', element: el });
+    return this;
+  }
+
+  /**
+   * 添加 HTML 元素(由 Takumi 渲染)
+   * @param {Object} config - 至少包含 html | node,以及 x/y/width/height
+   * @returns {Scene} 返回自身以支持链式调用
+   */
+  addHtml(config = {}) {
+    if (!config.html && !config.node) {
+      console.warn('[Scene.addHtml] 必须提供 html 或 node 字段');
+      return this;
+    }
+    const el = new HTMLElement({ ...config });
+    this.elements.push({ type: 'html', element: el });
     return this;
   }
 

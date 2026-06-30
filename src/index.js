@@ -29,6 +29,7 @@ export { PathElement } from './elements/PathElement.js';
 export { SVGElement } from './elements/SVGElement.js';
 export { SpriteElement } from './elements/SpriteElement.js';
 export { OscilloscopeElement } from './elements/OscilloscopeElement.js';
+export { HTMLElement } from './elements/HTMLElement.js';
 
 // 动画类
 export { Animation } from './animations/Animation.js';
@@ -39,6 +40,13 @@ export { PRESET_ANIMATIONS, getPresetAnimation, getPresetAnimationNames } from '
 // 工具类
 export { FFmpegUtil } from './utils/ffmpeg.js';
 export { ImageLoader, imageLoader } from './utils/image-loader.js';
+export {
+  getTakumiRenderer,
+  destroyTakumiRenderer,
+  renderHtmlFrame,
+  registerFontsToTakumi,
+  parseHtml,
+} from './utils/takumi-renderer.js';
 
 // 类型和常量
 export * from './types/enums.js';

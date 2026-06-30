@@ -32,7 +32,7 @@ export class VideoBuilder {
     const track = new Track({
       ...config,
       builder: this,
-      zIndex: config.zIndex || this.tracks.length,
+      zIndex: config.zIndex !== undefined ? config.zIndex : this.tracks.length,
     });
     
     this.tracks.push(track);

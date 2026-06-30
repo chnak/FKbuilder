@@ -174,7 +174,7 @@ export class BaseElement {
     this.startTime = config.startTime !== undefined ? config.startTime : 0;
     this.endTime = config.endTime !== undefined ? config.endTime : Infinity;
     this.duration = config.duration !== undefined ? config.duration : undefined;
-    
+
     // 如果指定了duration但没有endTime，自动计算endTime
     if (this.duration !== undefined && this.endTime === Infinity) {
       this.endTime = this.startTime + this.duration;

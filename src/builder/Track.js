@@ -184,20 +184,27 @@ export class Track {
           delete element._fromComponent; // 清理标记
         } else {
           // 设置元素的绝对时间（相对于视频开始）
-          const relativeStartTime = element.startTime || 0;
-          const absoluteStartTime = sceneStartTime + relativeStartTime;
-          
-          // 如果是分割文本，需要在更新父元素的 startTime 之前保存相对开始时间
-          const parentRelativeStartTime = relativeStartTime;
-          
-          element.startTime = absoluteStartTime;
-          
-          // 更新元素的 endTime（基于绝对时间）
-          if (element.duration !== undefined) {
-            element.endTime = absoluteStartTime + element.duration;
-          } else if (element.endTime !== Infinity) {
-            // 如果 endTime 不是 Infinity，也需要转换为绝对时间
-            element.endTime = sceneStartTime + (element.endTime - relativeStartTime);
+          // 注意：如果元素已经被处理过（标记为 _absoluteTimeSet），说明是 Track.build 第二次调用
+          // 此时直接跳过，避免重复累加时间
+          if (!element._absoluteTimeSet) {
+            const relativeStartTime = element.startTime || 0;
+            const absoluteStartTime = sceneStartTime + relativeStartTime;
+
+            // 如果是分割文本，需要在更新父元素的 startTime 之前保存相对开始时间
+            const parentRelativeStartTime = relativeStartTime;
+
+            element.startTime = absoluteStartTime;
+
+            // 更新元素的 endTime（基于绝对时间）
+            if (element.duration !== undefined) {
+              element.endTime = absoluteStartTime + element.duration;
+            } else if (element.endTime !== Infinity) {
+              // 如果 endTime 不是 Infinity，也需要转换为绝对时间
+              element.endTime = sceneStartTime + (element.endTime - relativeStartTime);
+            }
+
+            // 标记元素已经被处理过，防止 Track.build 多次调用时重复累加时间
+            element._absoluteTimeSet = true;
           }
 
           // 验证：元素的 endTime 不能超过场景的结束时间

@@ -61,7 +61,7 @@ async function renderSegment() {
 
     // 重建 composition 对象（从序列化的数据）
     const composition = new VideoMaker(compositionData.config);
-    
+
     // 重建函数（从字符串）
     const deserializeFunctions = (obj) => {
       if (obj === null || obj === undefined) {
@@ -223,7 +223,8 @@ async function renderSegment() {
                 'oscilloscope': 'Oscilloscope',
                 'subtitle': 'Subtitle',
                 'echarts': 'ECharts',
-                'code': 'Code'
+                'code': 'Code',
+                'html': 'HTML'
               };
               
               const className = elementTypeMap[elementData.type] || 

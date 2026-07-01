@@ -14,19 +14,39 @@ import fs from 'fs-extra';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BUNDLED_CSS_PATH = path.resolve(__dirname, '..', 'assets', 'tailwind-defaults.css');
+
+/**
+ * 多个候选路径,按优先级查找(应对 dev/dist/打包后不同位置):
+ *   1. <this>/../assets/tailwind-defaults.css        (dist/esm/utils/ → dist/esm/assets/)
+ *   2. <this>/../../src/assets/...                     (dist/esm/utils/ → src/assets/,build 没复制时回退)
+ *   3. <this>/../../assets/...                         (src/utils/ → src/assets/, dev 模式)
+ */
+function resolveBundledCssPath() {
+  const candidates = [
+    path.resolve(__dirname, '..', 'assets', 'tailwind-defaults.css'),
+    path.resolve(__dirname, '..', '..', 'src', 'assets', 'tailwind-defaults.css'),
+    path.resolve(__dirname, '..', '..', 'assets', 'tailwind-defaults.css'),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return candidates[0]; // fallback,文件找不到时下面的错误信息会用这个路径
+}
 
 let _bundledCache = null;
+let _bundledPath = null;
 
 function getBundledCss() {
   if (!_bundledCache) {
-    if (!fs.existsSync(BUNDLED_CSS_PATH)) {
+    const p = _bundledPath || (_bundledPath = resolveBundledCssPath());
+    if (!fs.existsSync(p)) {
       throw new Error(
-        `[tailwind] 通用 Tailwind CSS 找不到: ${BUNDLED_CSS_PATH}\n` +
-        `请重新安装 fkbuilder,或在 addHtml({tailwind:{input:'./your.css'}}) 指定预编译好的 CSS`
+        `[tailwind] 通用 Tailwind CSS 找不到: ${p}\n` +
+        `请重新安装 fkbuilder (确保 dist/{esm,cjs}/assets/tailwind-defaults.css 存在),` +
+        `或在 addHtml({tailwind:{input:'./your.css'}}) 指定预编译好的 CSS`
       );
     }
-    _bundledCache = fs.readFileSync(BUNDLED_CSS_PATH, 'utf8');
+    _bundledCache = fs.readFileSync(p, 'utf8');
   }
   return _bundledCache;
 }

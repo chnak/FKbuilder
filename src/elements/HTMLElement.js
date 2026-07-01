@@ -119,6 +119,72 @@ function getDefaultFonts() {
 }
 
 /* ============================================================================
+ *  keyframes 选项预处理:自动应用 animation 属性
+ *
+ *  用户的几种格式:
+ *    1. Rich:  { '.badge': { duration:'1s', easing:'ease-out', iteration:'infinite',
+ *                            keyframes:{ '0%': {...}, '50%': {...} } } }
+ *    2. 裸:    { '.badge': { '0%': {...}, '50%': {...} } }
+ *    3. 数组:  [{ name:'foo', keyframes:[{ offsets, declarations }] }]
+ *
+ *  处理:
+ *    - 数组:不动,原样传给 Takumi
+ *    - 裸:   提取 keyframes rule,自动生成 anim 名字,注入 animation CSS
+ *    - Rich: 同上,但用用户指定的 duration/easing/iteration
+ *
+ *  返回 { kf, css }:
+ *    - kf: 给 Takumi 的 keyframes(Map, key 是自动生成的名字)
+ *    - css: 要注入到 HTML 顶部的 <style> 内容
+ * ========================================================================== */
+function preprocessKeyframes(kf) {
+  if (!kf) return { kf: null, css: '' };
+  if (Array.isArray(kf)) return { kf, css: '' }; // 数组格式不动
+
+  const generated = {};   // 给 Takumi 的 keyframes
+  const styleRules = [];  // 要注入的 CSS 规则
+
+  let counter = 0;
+  for (const [selector, value] of Object.entries(kf)) {
+    if (!value || typeof value !== 'object') continue;
+
+    // 区分 rich 格式(有 duration 或 keyframes 字段)和裸格式
+    const isRich = ('duration' in value) || ('easing' in value) ||
+                   ('iteration' in value) || ('keyframes' in value);
+    let kfRule;
+    let animation;
+    if (isRich) {
+      kfRule = value.keyframes || {};
+      animation = {
+        duration: value.duration || '1s',
+        easing: value.easing || 'ease-in-out',
+        iteration: value.iteration || 'infinite',
+        delay: value.delay || '0s',
+        direction: value.direction || 'normal',
+        fill: value.fill || 'none',
+      };
+    } else {
+      kfRule = value;
+      animation = { duration: '1s', easing: 'ease-in-out',
+                    iteration: 'infinite', delay: '0s',
+                    direction: 'normal', fill: 'none' };
+    }
+
+    // 自动生成 animation 名(确定性,基于 selector)
+    const safeName = 'fk-anim-' + selector.replace(/[.#]/g, '') + '-' + (counter++);
+    generated[safeName] = kfRule;
+
+    const animStr = `${safeName} ${animation.duration} ${animation.easing} ${animation.iteration} ${animation.delay} ${animation.direction} ${animation.fill}`
+      .replace(/\s+/g, ' ').trim();
+    styleRules.push(`${selector} { animation: ${animStr}; }`);
+  }
+
+  return {
+    kf: Object.keys(generated).length ? generated : null,
+    css: styleRules.join('\n'),
+  };
+}
+
+/* ============================================================================
  *  默认 font-family 自动注入
  *  - 仅作用于 html 字符串输入(node tree 不处理)
  *  - 在 HTML 顶部注入一条 body 规则,利用继承性覆盖整页
@@ -191,6 +257,13 @@ export class HTMLElement extends BaseElement {
     this.timeOffset = config.timeOffset !== undefined ? config.timeOffset : 0;
 
     // 自定义 keyframes 对象(传给 Takumi)
+    // 支持两种格式:
+    //   1. Rich 格式(推荐): { '.selector': { duration, easing, iteration, delay, direction, fill, keyframes } }
+    //      → 自动注入 animation 属性 + @keyframes 定义
+    //   2. 裸格式:       { '.selector': { '0%': {...}, '50%': {...} } }
+    //      → 只注入 @keyframes 定义(用户需自己写 animation)
+    //   3. 数组格式:     [{ name: 'foo', keyframes: [{ offsets, declarations }] }]
+    //      → 原样传 Takumi(向后兼容)
     this.keyframes = config.keyframes || null;
 
     // devicePixelRatio 缩放
@@ -293,7 +366,16 @@ export class HTMLElement extends BaseElement {
     }
     if (this.stylesheets) renderInput.stylesheets = this.stylesheets;
     if (this.fonts) renderInput.fonts = this.fonts;
-    if (this.keyframes) renderInput.keyframes = this.keyframes;
+
+    // 4c) keyframes 选项预处理(自动应用 animation 属性)
+    if (this.keyframes) {
+      const { kf, css } = preprocessKeyframes(this.keyframes);
+      if (kf) renderInput.keyframes = kf;
+      if (css && renderInput.html) {
+        renderInput.html = `<style>${css}</style>\n` + renderInput.html;
+      }
+    }
+
     if (this.devicePixelRatio) renderInput.devicePixelRatio = this.devicePixelRatio;
 
     // 5) 调 Takumi 渲染

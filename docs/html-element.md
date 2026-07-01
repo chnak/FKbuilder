@@ -274,20 +274,107 @@ h1 {
 
 ## 结构化 Keyframes
 
-除 HTML 里 `@keyframes`,也可通过 `keyframes` 选项：
+通过 `keyframes` 选项声明 CSS 动画。**FKbuilder 自动生成 `@keyframes` 定义 + `animation` 属性**，不用手动写两遍。
+
+### 推荐写法（Rich 格式，自动应用 animation）
 
 ```javascript
 addHtml({
-  html: `<div class="title">Hello</div>`,
+  html: `
+    <div class="w-full h-full flex items-center justify-center">
+      <div class="badge bg-blue-500 text-white text-5xl px-12 py-6 rounded-2xl shadow-lg">
+        弹跳 Badge
+      </div>
+    </div>
+  `,
+  tailwind: true,                          // ← Tailwind 工具类
   keyframes: {
-    '.title': {
-      '0%':   { transform: 'translateY(0)' },
-      '50%':  { transform: 'translateY(-20px)' },
-      '100%': { transform: 'translateY(0)' },
+    '.badge': {                           // ← CSS 选择器
+      duration: '1s',                     // 动画时长(默认 1s)
+      easing: 'ease-in-out',              // 缓动函数(默认 ease-in-out)
+      iteration: 'infinite',              // 播放次数(默认 infinite)
+      delay: '0s',                        // 延迟(默认 0s)
+      direction: 'normal',                // 方向(默认 normal)
+      fill: 'none',                       // 填充模式(默认 none)
+      keyframes: {                        // ← 关键帧定义
+        '0%':   { transform: 'translateY(0)' },
+        '50%':  { transform: 'translateY(-30px)' },
+        '100%': { transform: 'translateY(0)' },
+      },
     },
   },
 })
 ```
+
+**效果**：自动注入 `<style>.badge { animation: fk-anim-badge-0 1s ease-in-out infinite 0s normal none; }</style>` 到 HTML 顶部，并生成对应的 `@keyframes`。开箱即用。
+
+### 简化写法（裸格式）
+
+如果用默认值（1s ease-in-out infinite），可以直接写 keyframes 规则：
+
+```javascript
+keyframes: {
+  '.badge': {
+    '0%':   { transform: 'translateY(0)' },
+    '50%':  { transform: 'translateY(-30px)' },
+    '100%': { transform: 'translateY(0)' },
+  },
+}
+```
+
+同样会自动应用 `animation`。
+
+### 高级写法（多 selector / 自定义 timing）
+
+```javascript
+keyframes: {
+  '.title':   { duration: '2s',  easing: 'ease-out',   iteration: '1',
+                keyframes: { '0%': {opacity: 0, transform: 'translateY(-20px)'}, '100%': {...} } },
+  '.card':    { duration: '.5s', easing: 'ease-in-out', iteration: 'infinite',
+                keyframes: { '0%, 100%': {transform: 'scale(1)'}, '50%': {transform: 'scale(1.05)'} } },
+  '#hero':    { duration: '3s',  iteration: 'infinite', easing: 'linear',
+                keyframes: { '0%': {transform: 'rotate(0deg)'}, '100%': {transform: 'rotate(360deg)'} } },
+}
+```
+
+### 底层数组格式（向后兼容）
+
+如果想完全控制，可直接传 Takumi 原生数组格式：
+
+```javascript
+keyframes: [
+  { name: 'spin', keyframes: [
+    { offsets: [0],   declarations: { transform: 'rotate(0deg)' } },
+    { offsets: [1],   declarations: { transform: 'rotate(360deg)' } },
+  ]},
+],
+```
+
+但要自己写 `<style>.elem { animation: spin ... }</style>`。
+
+### 完全自控（HTML 内写全部）
+
+如果想完全手动控制，写在 HTML `<style>` 里就行：
+
+```javascript
+addHtml({
+  html: `
+    <style>
+      @keyframes myBounce { ... }
+      .badge { animation: myBounce 1s infinite; }
+    </style>
+    <div class="badge">手动</div>
+  `,
+  // 不传 keyframes 选项
+})
+```
+
+### 注意事项
+
+- **Rich 格式下默认值**：duration=1s, easing=ease-in-out, iteration=infinite
+- **selector 可用 `.class`、`#id`、`tag`**（只要是合法 CSS 选择器）
+- **HTML 里写的 `animation:` 会覆盖自动注入的**（CSS 级联，优先级生效）
+- **不会与 `tailwind: true` 冲突**：keyframes 的 CSS 在 Tailwind CSS 之后注入
 
 ## 与 FKbuilder 动画结合
 

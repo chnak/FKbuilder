@@ -117,13 +117,19 @@ async function buildCJS(entryPoints) {
  */
 function copyAssets() {
   console.log('📁 复制资源文件...');
-  
+
   // 复制字体文件
   if (config.assets.fonts.src) {
     copyDir(config.assets.fonts.src, config.assets.fonts.destESM);
     copyDir(config.assets.fonts.src, config.assets.fonts.destCJS);
   }
-  
+
+  // 复制 Tailwind 默认 CSS(通用打包 CSS,运行时 fallback 读取)
+  if (config.assets.tailwind.src) {
+    copyDir(config.assets.tailwind.src, config.assets.tailwind.destESM);
+    copyDir(config.assets.tailwind.src, config.assets.tailwind.destCJS);
+  }
+
   console.log('✅ 资源文件复制完成\n');
 }
 

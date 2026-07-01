@@ -26,6 +26,11 @@ export const config = {
       destESM: join(rootDir, 'dist', 'esm', 'fonts'),
       destCJS: join(rootDir, 'dist', 'cjs', 'fonts'),
     },
+    tailwind: {
+      src: join(rootDir, 'src', 'assets'),
+      destESM: join(rootDir, 'dist', 'esm', 'assets'),
+      destCJS: join(rootDir, 'dist', 'cjs', 'assets'),
+    },
   },
   
   // 外部依赖（不打包）

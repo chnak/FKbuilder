@@ -166,13 +166,22 @@ export class Renderer {
     // Paper.js 在 Node.js 环境中需要调用 view.update() 来更新视图
     // 然后使用 view.draw() 将内容绘制到 canvas
     this.project.view.update();
-    
+
     // 检查 project 中的项目数量
     const itemCount = this.project.activeLayer.children.length;
     if (itemCount > 0) {
       // 强制绘制
       this.project.view.draw();
     }
+
+    // DEBUG
+    const debugCtx = this.canvas.getContext('2d');
+    const data = debugCtx.getImageData(0, 0, this.width, this.height);
+    let count = 0;
+    for (let i = 0; i < data.data.length; i += 4) {
+      if (data.data[i] > 50 || data.data[i+1] > 50 || data.data[i+2] > 50) count++;
+    }
+    console.log('[Renderer] after view.draw() canvas colorful=' + count);
 
     return this.canvas;
   }

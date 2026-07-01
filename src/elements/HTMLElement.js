@@ -17,6 +17,105 @@ import { deepMerge } from '../utils/helpers.js';
 import { toPixels } from '../utils/unit-converter.js';
 import { renderHtmlFrame } from '../utils/takumi-renderer.js';
 import paper from '@chnak/paper';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+
+/**
+ * 获取默认字体配置（跨平台）
+ * 加载顺序:
+ *   1. 微软雅黑（中文首选，所有平台都有对应字体）
+ *   2. 系统其他中文字体（备份）
+ *   3. 系统 Emoji 字体（让 emoji 渲染为彩色图形，如 Segoe UI Emoji / Apple Color Emoji）
+ *   4. 系统英文字体（Latin 字符）
+ */
+function getDefaultFonts() {
+  const fonts = [];
+
+  if (process.platform === 'win32') {
+    // Windows
+    const winFonts = [
+      // === 微软雅黑（中文首选） ===
+      { path: 'C:/Windows/Fonts/msyh.ttc', family: 'Microsoft YaHei' },
+      { path: 'C:/Windows/Fonts/msyhbd.ttc', family: 'Microsoft YaHei', weight: 'bold' },
+      { path: 'C:/Windows/Fonts/msyhl.ttc', family: 'Microsoft YaHei Light' },
+
+      // === 其他中文字体（备份） ===
+      { path: 'C:/Windows/Fonts/simhei.ttf', family: 'SimHei' },
+      { path: 'C:/Windows/Fonts/simsun.ttc', family: 'SimSun' },
+      { path: 'C:/Windows/Fonts/simkai.ttf', family: 'KaiTi' },
+      { path: 'C:/Windows/Fonts/simfang.ttf', family: 'FangSong' },
+
+      // === Emoji 字体（让 🚀🎨 等彩色显示） ===
+      { path: 'C:/Windows/Fonts/seguiemj.ttf', family: 'Segoe UI Emoji' },
+      { path: 'C:/Windows/Fonts/segoeprb.ttf', family: 'Segoe Print' },
+      { path: 'C:/Windows/Fonts/segoesc.ttf', family: 'Segoe Script' },
+
+      // === 英文字体 ===
+      { path: 'C:/Windows/Fonts/segoeui.ttf', family: 'Segoe UI' },
+      { path: 'C:/Windows/Fonts/arial.ttf', family: 'Arial' },
+    ];
+    for (const font of winFonts) {
+      try {
+        if (fs.existsSync(font.path)) {
+          fonts.push(font);
+        }
+      } catch (e) {}
+    }
+  } else if (process.platform === 'darwin') {
+    // macOS
+    const macFonts = [
+      // === 苹方（中文首选） ===
+      { path: '/System/Library/Fonts/PingFang.ttc', family: 'PingFang SC' },
+      { path: '/Library/Fonts/PingFang.ttc', family: 'PingFang SC' },
+
+      // === 华文黑体（备份） ===
+      { path: '/System/Library/Fonts/STHeiti Light.ttc', family: 'STHeiti' },
+      { path: '/System/Library/Fonts/STHeiti Medium.ttc', family: 'STHeiti' },
+      { path: '/Library/Fonts/Songti.ttc', family: 'Songti SC' },
+
+      // === Apple Color Emoji（让 🍎🎉 等彩色显示） ===
+      { path: '/System/Library/Fonts/Apple Color Emoji.ttc', family: 'Apple Color Emoji' },
+
+      // === 英文字体 ===
+      { path: '/System/Library/Fonts/Helvetica.ttc', family: 'Helvetica' },
+      { path: '/Library/Fonts/Arial.ttf', family: 'Arial' },
+    ];
+    for (const font of macFonts) {
+      try {
+        if (fs.existsSync(font.path)) {
+          fonts.push(font);
+        }
+      } catch (e) {}
+    }
+  } else {
+    // Linux
+    const linuxFonts = [
+      // === Noto Sans CJK（中文首选） ===
+      { path: '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', family: 'Noto Sans CJK SC' },
+      { path: '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc', family: 'Noto Sans CJK SC', weight: 'bold' },
+      { path: '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc', family: 'WenQuanYi Micro Hei' },
+      { path: '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc', family: 'WenQuanYi Zen Hei' },
+      { path: '/usr/share/fonts/truetype/arphic/uming.ttc', family: 'AR PL UMing CN' },
+
+      // === Noto Color Emoji（让 🎨🚀 等彩色显示） ===
+      { path: '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf', family: 'Noto Color Emoji' },
+
+      // === 英文字体 ===
+      { path: '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', family: 'DejaVu Sans' },
+      { path: '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf', family: 'Liberation Sans' },
+    ];
+    for (const font of linuxFonts) {
+      try {
+        if (fs.existsSync(font.path)) {
+          fonts.push(font);
+        }
+      } catch (e) {}
+    }
+  }
+
+  return fonts.length > 0 ? fonts : null;
+}
 
 export class HTMLElement extends BaseElement {
   constructor(config = {}) {
@@ -31,7 +130,12 @@ export class HTMLElement extends BaseElement {
     this.jsx = config.jsx || null; // 仅作为占位,实际渲染时建议传入 html 或 node
 
     // 字体 / 样式表
-    this.fonts = config.fonts || null; // 详见 utils/takumi-renderer.js
+    // 如果没有传入 fonts，自动添加默认字体支持（微软雅黑中文 + Emoji + 英文）
+    if (config.fonts && Array.isArray(config.fonts) && config.fonts.length > 0) {
+      this.fonts = config.fonts;
+    } else {
+      this.fonts = getDefaultFonts();
+    }
     this.stylesheets = config.stylesheets || null;
 
     // 节点内 CSS 动画起始偏移(秒)
@@ -142,6 +246,20 @@ export class HTMLElement extends BaseElement {
     const imageData = ctx.createImageData(width, height);
     imageData.data.set(rgba);
     ctx.putImageData(imageData, 0, 0);
+
+    // DEBUG: Check rgba content
+    let colorful = 0;
+    for (let i = 0; i < rgba.length; i += 4) {
+      if (rgba[i] > 50 || rgba[i+1] > 50 || rgba[i+2] > 50) colorful++;
+    }
+    console.log('[HTMLElement] rgba.length=' + rgba.length + ' colorful=' + colorful);
+    // Check _canvas
+    const canvasData = ctx.getImageData(0, 0, width, height);
+    let ccolor = 0;
+    for (let i = 0; i < canvasData.data.length; i += 4) {
+      if (canvasData.data[i] > 50 || canvasData.data[i+1] > 50 || canvasData.data[i+2] > 50) ccolor++;
+    }
+    console.log('[HTMLElement] _canvas after putImageData colorful=' + ccolor);
 
     // 7) 销毁旧 Raster(避免叠层)
     if (this._paperItem) {

@@ -1,0 +1,8 @@
+/* FKbuilder Tailwind CSS 输入文件 */
+/* 编译命令: npx tailwindcss build -i tailwind-input.css -o output/tailwind/tailwind.css --minify */
+
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #FF6B6B;
+}

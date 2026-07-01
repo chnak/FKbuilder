@@ -88,7 +88,12 @@
       "Bash(node examples/subtitle-demo.js)",
       "Bash(node examples/test-builder-lrc.js)",
       "Bash(git checkout *)",
-      "Bash(git -C \"D:/Code/FKbuilder\" status --short)"
+      "Bash(git -C \"D:/Code/FKbuilder\" status --short)",
+      "WebFetch(domain:takumi.kane.tw)",
+      "Bash(curl -sL --max-time 20 https://takumi.kane.tw/llms.txt)",
+      "Bash(curl -sL --max-time 30 https://takumi.kane.tw/llms-full.txt)",
+      "Bash(npm view *)",
+      "Bash(npm install *)"
     ]
   }
 }

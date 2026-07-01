@@ -310,7 +310,280 @@ scene.addSVG({
 
 ---
 
-## 12. 音频元素 (Audio)
+## 12. HTML 元素 (HTMLElement)
+
+使用 [Takumi](https://takumi.kane.tw/) 渲染任意 HTML/CSS 为视频元素，特别适合使用 CSS `@keyframes` 动画。
+
+### 安装依赖
+
+```bash
+npm install @takumi-rs/core @takumi-rs/helpers
+```
+
+### 基础用法
+
+```javascript
+scene.addHtml({
+  x: 0, y: 0, width: 1280, height: 720, anchor: [0, 0],
+  html: `
+    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1e1b4b;">
+      <h1 style="color:white;font-size:64px;">Hello World</h1>
+    </div>
+  `,
+  duration: 5,
+});
+```
+
+### CSS @keyframes 动画
+
+通过 `timeMs` 自动注入，CSS 动画与视频时间轴同步：
+
+```javascript
+scene.addHtml({
+  x: 0, y: 0, width: 1280, height: 720, anchor: [0, 0],
+  html: `
+    <style>
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+      }
+      .spinner {
+        width: 120px; height: 120px;
+        border: 8px solid rgba(255,255,255,0.1);
+        border-top-color: #a78bfa;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      .title {
+        font-family: system-ui;
+        color: white;
+        font-size: 64px;
+        animation: pulse 2s ease-in-out infinite;
+      }
+    </style>
+    <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <div class="spinner"></div>
+      <div class="title">Loading</div>
+    </div>
+  `,
+  duration: 5,
+});
+```
+
+### 中文字体支持（默认开启）
+
+**HTMLElement 默认开启中文字体支持**，无需手动指定 `fonts`：
+
+- **Windows**: 微软雅黑 (Microsoft YaHei)、黑体 (SimHei)、宋体 (SimSun)
+- **macOS**: 苹方 (PingFang SC)、华文黑体 (STHeiti)、宋体 (Songti SC)
+- **Linux**: 文泉驿微米黑、文泉驿正黑、Noto Sans CJK SC
+
+```javascript
+// ✅ 直接使用，默认就有中文支持
+scene.addHtml({
+  html: `<div style="font-size:48px;">你好世界</div>`,
+  duration: 4,
+  // 无需指定 fonts
+});
+
+// ✅ 自定义 fonts 覆盖默认
+scene.addHtml({
+  html: `<div style="font-family:'Microsoft YaHei';font-size:48px;">中文标题</div>`,
+  duration: 4,
+  fonts: [
+    { path: 'C:/Windows/Fonts/msyh.ttc', family: 'Microsoft YaHei' },
+    { path: 'C:/Windows/Fonts/simhei.ttf', family: 'SimHei' },
+  ],
+});
+```
+
+### 多场景示例
+
+每个 Scene 必须在**不同的 track** 上：
+
+```javascript
+// Scene 1: 0-4 秒（loading 动画）
+builder.createTrack()
+  .createScene({ duration: 4 })
+    .addBackground({ color: '#1e1b4b' })
+    .addHtml({ x: 0, y: 0, width: 1280, height: 720, anchor: [0, 0],
+      html: loadingHtml, duration: 4 });
+
+// Scene 2: 4-8 秒（CSS @keyframes 动画）
+builder.createTrack()         // ⚠️ 必须用新 track
+  .createScene({ duration: 4, startTime: 4 })
+    .addBackground({ color: '#0c0a09' })
+    .addHtml({ x: 0, y: 0, width: 1280, height: 720, anchor: [0, 0],
+      html: keyframeHtml, duration: 4,
+      fonts: [{ path: 'C:/Windows/Fonts/msyh.ttc', family: 'Microsoft YaHei' }] });
+
+await builder.render('output/html-keyframes.mp4', { parallel: true });
+```
+
+### 配置选项
+
+| 选项 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `html` | `string` | - | HTML 字符串 |
+| `node` | `object` | - | Takumi node tree |
+| `x` | `number\|string` | `0` | X 坐标 |
+| `y` | `number\|string` | `0` | Y 坐标 |
+| `width` | `number\|string` | `800` | 元素宽度 |
+| `height` | `number\|string` | `600` | 元素高度 |
+| `anchor` | `[number, number]` | `[0.5, 0.5]` | 锚点（左上=0,0；中心=0.5,0.5） |
+| `opacity` | `number` | `1` | 透明度 0-1 |
+| `rotation` | `number` | `0` | 旋转角度（度） |
+| `duration` | `number` | - | 元素显示时长（秒） |
+| `startTime` | `number` | `0` | 元素起始时间（秒） |
+| `timeOffset` | `number` | `0` | CSS 动画起始偏移（秒） |
+| `fonts` | `Array` | - | 字体配置数组 |
+| `stylesheets` | `Array<string>` | - | 外部样式表 URL |
+| `keyframes` | `object` | - | 结构化 keyframe 定义 |
+| `devicePixelRatio` | `number` | - | 设备像素比 |
+
+### 字体配置
+
+```javascript
+// URL 方式
+fonts: ['https://fonts.googleapis.com/css2?family=Roboto']
+
+// 系统字体路径
+fonts: [{ path: 'C:/Windows/Fonts/msyh.ttc', family: 'Microsoft YaHei' }]
+
+// Buffer 方式
+fonts: [{ data: fontBuffer }]
+```
+
+### 与 FKbuilder 动画结合
+
+```javascript
+scene.addHtml({
+  html: '<div style="color:white;font-size:48px;">Welcome</div>',
+  duration: 5,
+  animations: [
+    { type: 'transform', from: { opacity: 0, x: -100 }, to: { opacity: 1, x: 0 }, duration: 1, easing: 'easeOut' },
+    'fadeIn',
+  ],
+});
+```
+
+### 单独渲染帧（导出函数）
+
+```javascript
+import { renderHtmlFrame } from 'fkbuilder';
+
+const rgba = await renderHtmlFrame({
+  html: '<div style="color:red;">Test</div>',
+  width: 1280,
+  height: 720,
+  timeMs: 0,
+});
+// rgba: width * height * 4 的 Buffer（RGBA 格式）
+```
+
+### 集成 Tailwind CSS
+
+```bash
+# 1. 安装 Tailwind v4
+npm install -D tailwindcss @tailwindcss/cli
+
+# 2. 创建 tailwind-input.css
+# @import "tailwindcss";
+# @theme {
+#   --color-brand: #FF6B6B;
+# }
+
+# 3. 编译
+npx tailwindcss build -i tailwind-input.css -o output/tailwind/tailwind.css --minify
+```
+
+```javascript
+import fs from 'fs-extra';
+
+const tailwindCss = fs.readFileSync('output/tailwind/tailwind.css', 'utf8');
+
+scene.addHtml({
+  x: 0, y: 0, width: 1280, height: 720, anchor: [0, 0],
+  html: `
+    <style>${tailwindCss}</style>
+    <style>
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-20px); }
+      }
+      .float { animation: float 3s ease-in-out infinite; }
+    </style>
+    <div class="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center">
+      <h1 class="text-7xl font-bold text-white float">FKbuilder + Tailwind</h1>
+    </div>
+  `,
+  duration: 5,
+});
+```
+
+✅ 完全离线，所有 utility 类生效，自定义 `@keyframes` 正常。
+
+**CDN 方式**（更快但功能受限）：
+```javascript
+html: `<script src="https://cdn.tailwindcss.com"></script>
+<div class="bg-gradient-to-br from-purple-600 to-blue-500 ...">`
+```
+
+⚠️ Takumi 不执行 `<script>`，hover 等 JS 事件不生效，但 CSS 样式和动画正常。
+
+完整示例：`examples/html-element-with-tailwind.js`
+
+### 注意事项
+
+#### 1. 锚点 (anchor) 设置
+
+`anchor` 控制元素"哪个角"对齐到 `(x, y)`：
+- `anchor: [0, 0]` → 元素**左上角**对齐 `(x, y)`
+- `anchor: [0.5, 0.5]` → 元素**中心点**对齐 `(x, y)`
+- `anchor: [1, 1]` → 元素**右下角**对齐 `(x, y)`
+
+**全屏 HTML 必须用 `anchor: [0, 0]` + `x: 0, y: 0`**：
+
+```javascript
+// ✅ 正确：全屏 HTML 左上角对齐画布左上角
+.addHtml({
+  x: 0, y: 0, width: 1280, height: 720, anchor: [0, 0],
+  html: '...',
+})
+
+// ❌ 错误：anchor 默认值 [0.5, 0.5] + x: 0, y: 0
+// 会导致元素偏移 (-640, -360)，元素一半在画布外看不见！
+.addHtml({
+  x: 0, y: 0, width: 1280, height: 720,
+  // anchor 默认为 [0.5, 0.5]，元素中心对齐到 (0, 0)
+  // 元素最终位置: x = 0 - 1280*0.5 = -640 (超出画布)
+  html: '...',
+})
+```
+
+**居中显示元素的两种方式**：
+
+```javascript
+// 方式 1: anchor [0, 0] + x/y 指向画布中心
+.addHtml({ x: 640, y: 360, width: 200, height: 100, anchor: [0, 0], html: '...' })
+
+// 方式 2: anchor [0.5, 0.5] + x/y 指向元素中心（即画布中心 640, 360）
+.addHtml({ x: 640, y: 360, width: 200, height: 100, anchor: [0.5, 0.5], html: '...' })
+```
+
+#### 2. 其它注意事项
+
+1. **必须用不同 track**：多个 HTML 场景必须各自 `createTrack()`，否则会被合并到同一图层导致时间累加错误
+2. **Worker 模式**：`parallel: true` 时正常工作，Takumi 在每个 Worker 中独立初始化
+3. **中文字体默认支持**：HTMLElement 自动加载系统常见中文字体，无需手动指定 `fonts`
+4. **字体名称匹配**：自定义 `fonts` 时，CSS 中 `font-family` 必须和 `fonts` 数组中的 `family` 名称一致
+5. **不要多次调用 build()**：`builder.build()` 后又调用 `builder.render()` 会触发重复构建
+6. **完整示例**：`examples/html-element-basic.js`、`examples/html-element-keyframes.js`、`examples/html-element-with-font.js`、`examples/html-element-with-tailwind.js`
+
+---
+
+## 13. 音频元素 (Audio)
 
 ```javascript
 scene.addAudio({
@@ -328,7 +601,7 @@ scene.addAudio({
 
 ---
 
-## 13. 歌词字幕 (LRC)
+## 14. 歌词字幕 (LRC)
 
 从 LRC 文件加载歌词字幕，支持多时间标签格式 `[03:06.90][02:33.64]歌词内容`。
 
@@ -371,7 +644,7 @@ scene.addSubtitles({
 
 ---
 
-## 14. 示波器元素 (Oscilloscope)
+## 15. 示波器元素 (Oscilloscope)
 
 音频可视化波形显示，支持多种样式。
 
@@ -420,7 +693,7 @@ scene.addOscilloscope({
 
 ---
 
-## 15. 字幕元素 (Subtitles)
+## 16. 字幕元素 (Subtitles)
 
 ```javascript
 scene.addSubtitles({
@@ -442,7 +715,7 @@ scene.addSubtitles({
 
 ---
 
-## 16. 预设动画
+## 17. 预设动画
 
 使用字符串数组形式：
 
@@ -515,7 +788,7 @@ animations: ['bigIn', 'bigOut']  // 多个动画组合
 
 ---
 
-## 17. 转场效果 (Transition)
+## 18. 转场效果 (Transition)
 
 ### 基本用法
 ```javascript
@@ -571,7 +844,7 @@ track.addTransition({ name: 'CrossZoom', duration: 0.5, startTime: 2.5 });
 
 ---
 
-## 18. onFrame 回调
+## 19. onFrame 回调
 
 ```javascript
 scene.addCircle({
@@ -599,7 +872,22 @@ scene.addCircle({
 
 ---
 
-## 19. 重要细节
+## 20. 重要细节
+
+### 0. 多次调用 builder.build() 会导致时间累加错误
+
+`builder.build()` 会修改原始元素的 `startTime` 和 `endTime` 属性。如果先调用 `build()` 查看结构，再调用 `builder.render()`（内部又会调用 `build()`），元素时间会重复累加。
+
+**修复**：`Track.build` 内部使用 `_absoluteTimeSet` 标记防止重复处理，但**最佳实践**是：直接调用 `builder.render()`，不要额外手动调用 `builder.build()`。
+
+```javascript
+// ❌ 错误：先 build 再 render，会导致时间累加
+const vm = builder.build();   // 第一次 build
+await builder.render(path);    // 第二次 build（render 内部调用）
+
+// ✅ 正确：直接 render
+await builder.render(path);
+```
 
 ### 1. 元素可见性判断
 
@@ -685,7 +973,7 @@ registerFont('./fonts/CustomFont.ttf', 'CustomFont');
 
 ---
 
-## 20. 完整示例
+## 21. 完整示例
 
 ### 促销视频
 ```javascript
@@ -743,7 +1031,7 @@ createPromoVideo().catch(console.error);
 
 ---
 
-## 21. 目录结构
+## 22. 目录结构
 
 ```
 project/

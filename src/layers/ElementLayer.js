@@ -41,10 +41,10 @@ export class ElementLayer extends BaseLayer {
               const initStartTime = Date.now();
               const initResult = element.initialize();
               if (initResult && typeof initResult.then === 'function') {
-                // 添加超时保护（10秒）
+                // 添加超时保护（30秒）
                 await Promise.race([
                   initResult,
-                  new Promise((_, reject) => setTimeout(() => reject(new Error(`元素 ${element.type || 'unknown'} 初始化超时（10秒）`)), 10000))
+                  new Promise((_, reject) => setTimeout(() => reject(new Error(`元素 ${element.type || 'unknown'} 初始化超时（30秒）`)), 30000))
                 ]);
               }
               const initDuration = Date.now() - initStartTime;
@@ -60,10 +60,10 @@ export class ElementLayer extends BaseLayer {
             const renderStartTime = Date.now();
             const result = element.render(layer, time, paperInstance);
             if (result && typeof result.then === 'function') {
-              // 添加超时保护（10秒）
+              // 添加超时保护（60秒）
               await Promise.race([
                 result,
-                new Promise((_, reject) => setTimeout(() => reject(new Error(`元素 ${element.type || 'unknown'} 渲染超时（10秒）`)), 10000))
+                new Promise((_, reject) => setTimeout(() => reject(new Error(`元素 ${element.type || 'unknown'} 渲染超时（60秒）`)), 60000))
               ]);
             }
             const renderDuration = Date.now() - renderStartTime;

@@ -269,10 +269,6 @@ export class HTMLElement extends BaseElement {
     // devicePixelRatio 缩放
     this.devicePixelRatio = config.devicePixelRatio || undefined;
 
-    // Takumi 渲染超时(毫秒),默认 30 秒
-    // HTML 内容越复杂需要的时间越长,可以通过此参数调整
-    this.renderTimeoutMs = config.renderTimeoutMs || 30000;
-
     // 当前帧缓存(避免同帧重复渲染)
     this._lastFrameKey = null;
     this._lastRenderErr = null; // 渲染错误去重签名
@@ -382,7 +378,6 @@ export class HTMLElement extends BaseElement {
     }
 
     if (this.devicePixelRatio) renderInput.devicePixelRatio = this.devicePixelRatio;
-    if (this.renderTimeoutMs) renderInput.timeoutMs = this.renderTimeoutMs;
 
     // 5) 调 Takumi 渲染
     let rgba;

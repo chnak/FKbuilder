@@ -16,6 +16,7 @@ import { DEFAULT_ELEMENT_CONFIG } from '../types/constants.js';
 import { deepMerge } from '../utils/helpers.js';
 import { toPixels } from '../utils/unit-converter.js';
 import { renderHtmlFrame } from '../utils/takumi-renderer.js';
+import { getTailwindCss } from '../utils/tailwind.js';
 import paper from '@chnak/paper';
 import fs from 'fs';
 import path from 'path';
@@ -179,6 +180,13 @@ export class HTMLElement extends BaseElement {
     // - 设为 false:保持原 HTML 不动,适合完全自定义字体的场景
     this.autoDefaultFont = config.autoDefaultFont !== false;
 
+    // Tailwind CSS 提供器
+    // - false / null:不启用(默认)
+    // - true:用打包的通用 Tailwind CSS(零配置,158KB)
+    // - { css: '...' }:用传入的 CSS 字符串(自己预编译的)
+    // - { input: '/path/to.css' }:读本地 CSS 文件(自己预编译的)
+    this.tailwind = config.tailwind || null;
+
     // 节点内 CSS 动画起始偏移(秒)
     this.timeOffset = config.timeOffset !== undefined ? config.timeOffset : 0;
 
@@ -254,11 +262,27 @@ export class HTMLElement extends BaseElement {
     // 4) 解析输入
     let renderInput = { width, height, timeMs };
     if (this.html) {
-      // 仅对字符串输入做默认 font-family 注入;
-      // node tree 不做修改(由调用方控制)
-      renderInput.html = this.autoDefaultFont
-        ? injectDefaultFontFamily(this.html)
-        : this.html;
+      let effectiveHtml = this.html;
+
+      // 4a) Tailwind CSS 注入(若开启)
+      //   - 直接读 CSS(同步),无编译开销
+      //   - 失败不阻塞:打 warning,继续渲染
+      if (this.tailwind) {
+        const twConfig = this.tailwind === true ? {} : this.tailwind;
+        try {
+          const tailwindCss = getTailwindCss(twConfig);
+          effectiveHtml = `<style>${tailwindCss}</style>\n` + effectiveHtml;
+        } catch (e) {
+          console.warn(`[HTMLElement] Tailwind CSS 加载失败: ${e.message}`);
+        }
+      }
+
+      // 4b) 默认 font-family 注入
+      effectiveHtml = this.autoDefaultFont
+        ? injectDefaultFontFamily(effectiveHtml)
+        : effectiveHtml;
+
+      renderInput.html = effectiveHtml;
     } else if (this.node) {
       renderInput.node = this.node;
     } else if (this.jsx) {

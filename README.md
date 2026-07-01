@@ -532,6 +532,42 @@ scene.addCode({
 - `paddingBottom` 布局上的底部内边距
 - `scrollPaddingBottom` 打字滚动过程的底部留白
 
+### HTML 元素（任意 HTML/CSS → 视频帧）
+
+用 [Takumi](https://takumi.kane.tw/) 把任意 HTML/CSS 渲染为视频元素，支持 CSS 动画、中文、彩色 Emoji。
+
+```javascript
+import { VideoBuilder } from 'fkbuilder';
+
+builder.createTrack()
+  .createScene({ duration: 5 })
+    .addBackground({ color: '#1e1b4b' })
+    .addHtml({
+      x: 0, y: 0, width: 1280, height: 720, anchor: [0, 0],
+      html: `
+        <style>
+          @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
+          }
+          .title { animation: fadeInUp 1s ease-out forwards; }
+        </style>
+        <h1 class="title" style="color:white;font-size:96px;text-align:center;">Hello HTML</h1>
+      `,
+      duration: 5,
+    });
+```
+
+**亮点**：
+- **CSS 动画与视频时间轴同步**：通过 `timeMs` 自动驱动 `@keyframes`
+- **彩色 Emoji**：自动替换为 Twemoji SVG（CDN 加载，可离线缓存）
+- **中文开箱即用**：自动注入跨平台 CJK 字体栈（微软雅黑 / 苹方 / Noto Sans CJK）
+- **零配置 Tailwind**：`tailwind: true` 直接用，不用装、不用编译
+
+> ⚠️ **中文字重**：微软雅黑只内置 400 / 700。`font-weight: 800 / 900` 会触发 fake-bold 合成，中文笔画会合并、糊掉。用 700（Bold）或换 SimHei 即可。详见 [docs/html-element.md](./docs/html-element.md#️-字重不要用-800900fake-bold-会糊)。
+
+详见 [docs/html-element.md](./docs/html-element.md)。
+
 ## 🎭 转场效果
 
 ```javascript
@@ -1076,6 +1112,12 @@ FKbuilder/
 - `demo-video.js` - 完整功能演示
 - `project-intro-video.js` - 项目简介视频示例
 - `test-worker-parallel-rendering.js` - 并行渲染性能测试
+- `html-element-basic.js` - HTML 元素基础用法
+- `html-element-chinese-default.js` - 默认中文支持（自动注入微软雅黑）
+- `html-element-emoji.js` - 彩色 Emoji 渲染（多场景）
+- `html-element-keyframes.js` - CSS @keyframes 动画
+- `html-element-tailwind-zero.js` - **零配置** Tailwind 集成
+- `html-element-tailwind-custom-theme.js` - 自定义主题（预编译 CSS）
 
 运行示例：
 
@@ -1083,6 +1125,7 @@ FKbuilder/
 node examples/cool-video.js
 node examples/test-component.js
 node examples/demo-video.js
+node examples/html-element-tailwind-zero.js        # 推荐先看这个
 ```
 
 ## 🚀 性能优化

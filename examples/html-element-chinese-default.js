@@ -33,7 +33,7 @@ async function main() {
           </style>
 
           <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a,#1e293b);">
-            <h1 class="title" style="color:white;font-size:96px;font-weight:900;letter-spacing:8px;">默认中文支持</h1>
+            <h1 class="title" style="color:white;font-size:96px;font-weight:700;letter-spacing:8px;">默认中文支持</h1>
             <p class="subtitle" style="color:#94a3b8;font-size:36px;margin-top:32px;letter-spacing:4px;">无需手动指定字体文件</p>
           </div>
         `,

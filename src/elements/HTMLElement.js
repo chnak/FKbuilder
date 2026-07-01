@@ -117,6 +117,42 @@ function getDefaultFonts() {
   return fonts.length > 0 ? fonts : null;
 }
 
+/* ============================================================================
+ *  默认 font-family 自动注入
+ *  - 仅作用于 html 字符串输入(node tree 不处理)
+ *  - 在 HTML 顶部注入一条 body 规则,利用继承性覆盖整页
+ *  - 选择器只命中 body(特异性 0,0,1),容易被用户的元素/类选择器覆盖,
+ *    不会破坏 Tailwind / 自定义 CSS
+ *  - 字体栈按平台优先级:Win 雅黑 → macOS 苹方 → Linux Noto CJK → Emoji → sans-serif
+ * ========================================================================== */
+
+const DEFAULT_FONT_FAMILY_STACK =
+  "'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', " +
+  "'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif";
+
+const DEFAULT_FONT_STYLE_BLOCK =
+  `<style>body { font-family: ${DEFAULT_FONT_FAMILY_STACK}; }</style>`;
+
+/**
+ * 启发式检测:HTML 字符串中是否已经声明了 font-family
+ * 简化策略:只查 `font-family:` 字面模式
+ * - 误判(命中注释 / 字符串字面量)→ 不注入,这是更安全的方向
+ * - 漏判(仅在 JS 字符串中提到、未生效)→ 会注入,可用 autoDefaultFont:false 关闭
+ */
+function htmlDeclaresFontFamily(html) {
+  if (!html || typeof html !== 'string') return false;
+  return /font-family\s*:/i.test(html);
+}
+
+/**
+ * 在 HTML 顶部注入默认 font-family 声明(若未声明)
+ * 返回新字符串,不修改入参
+ */
+function injectDefaultFontFamily(html) {
+  if (htmlDeclaresFontFamily(html)) return html;
+  return DEFAULT_FONT_STYLE_BLOCK + '\n' + html;
+}
+
 export class HTMLElement extends BaseElement {
   constructor(config = {}) {
     super(config);
@@ -137,6 +173,11 @@ export class HTMLElement extends BaseElement {
       this.fonts = getDefaultFonts();
     }
     this.stylesheets = config.stylesheets || null;
+
+    // 自动注入默认 font-family(在 HTML 顶部插 body 规则)
+    // - 默认 true:让"默认字体就是微软雅黑"开箱即用
+    // - 设为 false:保持原 HTML 不动,适合完全自定义字体的场景
+    this.autoDefaultFont = config.autoDefaultFont !== false;
 
     // 节点内 CSS 动画起始偏移(秒)
     this.timeOffset = config.timeOffset !== undefined ? config.timeOffset : 0;
@@ -213,7 +254,11 @@ export class HTMLElement extends BaseElement {
     // 4) 解析输入
     let renderInput = { width, height, timeMs };
     if (this.html) {
-      renderInput.html = this.html;
+      // 仅对字符串输入做默认 font-family 注入;
+      // node tree 不做修改(由调用方控制)
+      renderInput.html = this.autoDefaultFont
+        ? injectDefaultFontFamily(this.html)
+        : this.html;
     } else if (this.node) {
       renderInput.node = this.node;
     } else if (this.jsx) {

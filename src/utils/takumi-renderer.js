@@ -245,9 +245,34 @@ async function runBufferOnce(renderer, buffer, loader) {
  *  - 缓存绑到 renderer(WeakMap),destroy() 后自动失效,无需手动清
  *  - 并发同 URL 复用同一 Promise
  *  - 失败 → 清状态,下次可重试
+ *
+ *  历史:
+ *   1. 旧版 Takumi: renderer.loadImage(url) 一站式预加载
+ *   2. 1.8.x: 重命名为 putPersistentImage({src,data}),需要先把 URL
+ *      下载成 Buffer 再传 data 字段
+ *  这里手动 fetch URL,再调 putPersistentImage。
  * ========================================================================== */
 // renderer → Map<url, true | Promise>
 const _emojiState = new WeakMap();
+
+/**
+ * 从 URL/相对路径/绝对路径读取图片字节
+ * - http(s):// → node fetch
+ * - 其他 → 当文件路径 fs.readFile
+ */
+async function fetchImageBytes(url) {
+  if (/^https?:\/\//i.test(url)) {
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`fetch ${url} failed: ${res.status} ${res.statusText}`);
+    }
+    const ab = await res.arrayBuffer();
+    return new Uint8Array(ab);
+  }
+  // 本地文件路径
+  const fs = await import('fs/promises');
+  return new Uint8Array(await fs.readFile(url));
+}
 
 async function preloadEmojiImage(renderer, url) {
   if (!url) return;
@@ -263,7 +288,16 @@ async function preloadEmojiImage(renderer, url) {
     return;
   }
   const p = (async () => {
-    await renderer.loadImage(url);
+    if (typeof renderer.putPersistentImage === 'function') {
+      // 1.8.x:必须 {src,data} 一起传
+      const data = await fetchImageBytes(url);
+      await renderer.putPersistentImage({ src: url, data });
+    } else if (typeof renderer.loadImage === 'function') {
+      // 旧版本
+      await renderer.loadImage(url);
+    } else {
+      throw new Error('[takumi-renderer] renderer 不支持图片预加载 (无 putPersistentImage / loadImage)');
+    }
     stateMap.set(url, true);
   })().catch((err) => {
     stateMap.delete(url); // 失败 → 允许下次重试

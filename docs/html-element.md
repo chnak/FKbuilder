@@ -102,6 +102,7 @@ builder.createTrack({ zIndex: 0 })
 | `stylesheets` | `Array<string>` | - | 外部样式表 URL |
 | `keyframes` | `object` | - | 结构化 keyframe 定义 |
 | `devicePixelRatio` | `number` | - | 设备像素比 |
+| `autoDefaultFont` | `boolean` | `true` | 当 HTML 中未声明 `font-family` 时,自动在 body 上注入跨平台 CJK 字体栈 |
 
 ### 默认中文字体支持
 
@@ -123,6 +124,40 @@ scene.addHtml({
   html: '<div>使用自定义字体</div>',
   fonts: [{ path: '/custom-font.ttf' }],
 });
+```
+
+### 自动注入默认 font-family
+
+为了实现"开箱即用就能渲染中文"的效果,HTMLElement 在渲染前会扫描 HTML 字符串:
+
+- **若 HTML 中已声明任何 `font-family`** → 保持原样,不注入(尊重用户选择)
+- **若 HTML 中没有 `font-family` 声明** → 自动在 HTML 顶部插入:
+  ```html
+  <style>body { font-family: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif; }</style>
+  ```
+
+注入位置在所有内容**之前**,且只命中 `body`(特异性 0,0,1),用户的元素/类选择器都能覆盖它。
+
+**关闭自动注入**(需要完全自定义字体的场景):
+
+```javascript
+scene.addHtml({
+  html: '<div>完全自定义字体</div>',
+  autoDefaultFont: false,  // 关闭后,Takumi 会回退到自己的默认字体
+});
+```
+
+**注意:此机制不会影响 Tailwind 等 CSS 框架**。Tailwind 编译产物里已经包含 `font-family` 声明,触发"已声明"分支,不会注入。如果你想让 Tailwind 也优先使用微软雅黑,有三种做法:
+
+```javascript
+// 做法 1:在 tailwind-input.css 用 @theme 覆盖
+// @theme { --default-font-family: 'Microsoft YaHei', sans-serif; }
+
+// 做法 2:在 HTML 内手写一条 body 规则覆盖
+// <style>body { font-family: 'Microsoft YaHei', sans-serif; }</style>
+
+// 做法 3:在元素上用 Tailwind 任意值
+// <h1 class="font-['Microsoft_YaHei']">...</h1>
 ```
 
 ### 字体配置

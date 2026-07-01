@@ -267,7 +267,7 @@ export class VideoExporter {
       } else if (audioConfigs.length > 0) {
         // 新方式：多个音频元素，需要合并
         hasAudio = true;
-        console.log('开始处理音频（与视频编码并行）...');
+        //console.log('开始处理音频（与视频编码并行）...');
         audioProcessingPromise = this.ffmpeg.mergeAudios(audioConfigs, {
           outputDir: outputDir,
           duration: endTime - startTime,
@@ -276,12 +276,12 @@ export class VideoExporter {
           loudnessPreset: options.loudnessPreset || 'shortvideo',
         }).then(async mergedAudioPath => {
           if (mergedAudioPath && await fs.pathExists(mergedAudioPath)) {
-            console.log('音频处理完成');
+            //console.log('音频处理完成');
             return mergedAudioPath;
           }
           return null;
         }).catch(async error => {
-          console.warn('音频处理失败:', error.message);
+          //console.warn('音频处理失败:', error.message);
           // 如果合并失败，尝试使用第一个音频
           const firstAudio = audioConfigs[0];
           if (firstAudio && await fs.pathExists(firstAudio.path)) {
@@ -299,7 +299,7 @@ export class VideoExporter {
 
       // 如果有音频，添加到视频
       if (hasAudio) {
-        console.log('将音频添加到视频...');
+        //console.log('将音频添加到视频...');
         // 在管道模式下，视频已经编码完成，需要重命名
         // 在文件模式下，视频编码在 videoEncodingPromise 中完成
         const tempVideoPath = outputPath.replace(/\.(mp4|webm)$/, '_temp.$1');
@@ -345,7 +345,7 @@ export class VideoExporter {
           // 如果音频处理失败，尝试使用第一个音频（原始文件，不删除）
           const firstAudio = audioConfigs[0];
           if (firstAudio && firstAudio.path && await fs.pathExists(firstAudio.path)) {
-            console.log('使用第一个音频文件...');
+            //console.log('使用第一个音频文件...');
             await this.ffmpeg.addAudioToVideo(tempVideoPath, firstAudio.path, outputPath, {
               audioStartTime: firstAudio.startTime || 0,
             });
@@ -483,7 +483,7 @@ export class VideoExporter {
       }
       
       // 所有帧写入完成，关闭管道
-      console.log(`所有 ${totalFrames} 帧已写入，关闭 FFmpeg 输入管道...`);
+      //console.log(`所有 ${totalFrames} 帧已写入，关闭 FFmpeg 输入管道...`);
       
       if (pipe && pipe.end) {
         try {
@@ -494,10 +494,10 @@ export class VideoExporter {
       }
       
       // 等待 FFmpeg 编码完成
-      console.log('等待 FFmpeg 编码完成...');
+      //console.log('等待 FFmpeg 编码完成...');
       try {
         await pipe.finish;
-        console.log('FFmpeg 编码完成');
+        //console.log('FFmpeg 编码完成');
       } catch (error) {
         console.error('FFmpeg 编码失败:', error.message);
         throw error;
@@ -538,7 +538,7 @@ export class VideoExporter {
     const chunksDir = path.join(this.cacheDir, 'pipe_chunks');
     await fs.ensureDir(chunksDir);
 
-    console.log(`[PipeChunked] 总帧数: ${totalFrames}, 每块: ${chunkFrames}, 分块数: ${numChunks}`);
+    //console.log(`[PipeChunked] 总帧数: ${totalFrames}, 每块: ${chunkFrames}, 分块数: ${numChunks}`);
 
     const chunkPaths = [];
     const transitions = composition.transitions || [];
@@ -552,7 +552,7 @@ export class VideoExporter {
     // 预先渲染所有转场帧
     const transitionFrames = new Map();
     if (transitions.length > 0) {
-      console.log(`检测到 ${transitions.length} 个转场，预先渲染转场帧...`);
+      //console.log(`检测到 ${transitions.length} 个转场，预先渲染转场帧...`);
       for (const transition of transitions) {
         const transitionKey = `${transition.startTime}_${transition.endTime}_${transition.name}`;
         const frames = await this.preRenderTransitionFrames(composition, transition, backgroundColor);
@@ -567,7 +567,7 @@ export class VideoExporter {
         const chunkStartTime = startTime + chunkStartFrame / fps;
         const chunkFrameCount = chunkEndFrame - chunkStartFrame;
 
-        console.log(`[PipeChunked] 渲染分块 ${chunkIndex + 1}/${numChunks}: 帧 [${chunkStartFrame}-${chunkEndFrame}), 时间 [${chunkStartTime.toFixed(2)}s)`);
+        //console.log(`[PipeChunked] 渲染分块 ${chunkIndex + 1}/${numChunks}: 帧 [${chunkStartFrame}-${chunkEndFrame}), 时间 [${chunkStartTime.toFixed(2)}s)`);
 
         // 重新初始化视频元素（因为视频需要从新时间点开始缓冲）
         await this.reInitializeVideoElements(composition, chunkStartTime);
@@ -625,14 +625,14 @@ export class VideoExporter {
           // 显示进度
           if (frame % 30 === 0 || frame === totalFrames - 1) {
             const progress = ((frame + 1) / totalFrames * 100).toFixed(1);
-            console.log(`渲染进度: ${progress}% (${frame + 1}/${totalFrames})`);
+            //console.log(`渲染进度: ${progress}% (${frame + 1}/${totalFrames})`);
           }
         }
 
         // 关闭当前分块的 FFmpeg 进程
         pipe.end();
         await pipe.finish;
-        console.log(`[PipeChunked] 分块 ${chunkIndex + 1} 完成，FFmpeg 进程已关闭`);
+        //console.log(`[PipeChunked] 分块 ${chunkIndex + 1} 完成，FFmpeg 进程已关闭`);
 
         // 销毁渲染器并通知 GC 释放内存
         if (this.renderer) {
@@ -652,7 +652,7 @@ export class VideoExporter {
       }
 
       // 所有分块渲染完成，合并
-      console.log('[PipeChunked] 所有分块渲染完成，开始合并...');
+      //console.log('[PipeChunked] 所有分块渲染完成，开始合并...');
       await this.ffmpeg.concatVideos(chunkPaths, outputPath, {
         fps,
         width: composition.width,
@@ -665,7 +665,7 @@ export class VideoExporter {
       }
       await fs.remove(chunksDir).catch(() => {});
 
-      console.log('[PipeChunked] 视频导出完成');
+      //console.log('[PipeChunked] 视频导出完成');
     } catch (error) {
       console.error('[PipeChunked] 分块渲染失败:', error);
       for (const chunkPath of chunkPaths) {
@@ -946,7 +946,7 @@ export class VideoExporter {
     // 转场预处理任务（与序列化并行）
     const transitionPreprocessTask = (async () => {
       if (transitions.length > 0) {
-        console.log(`检测到 ${transitions.length} 个转场，在主线程预处理转场帧（与 Worker 并行）...`);
+        //console.log(`检测到 ${transitions.length} 个转场，在主线程预处理转场帧（与 Worker 并行）...`);
         
         // 初始化转场渲染器
         const transitionRenderers = new Map();
@@ -957,7 +957,7 @@ export class VideoExporter {
           const transitionStartFrame = Math.floor((transition.startTime - startTime) * fps);
           const transitionEndFrame = Math.ceil((transition.endTime - startTime) * fps);
           
-          console.log(`转场 ${transition.name || 'unknown'}: 时间范围 [${transition.startTime.toFixed(2)}s, ${transition.endTime.toFixed(2)}s], 帧范围 [${transitionStartFrame}, ${transitionEndFrame})`);
+          //console.log(`转场 ${transition.name || 'unknown'}: 时间范围 [${transition.startTime.toFixed(2)}s, ${transition.endTime.toFixed(2)}s], 帧范围 [${transitionStartFrame}, ${transitionEndFrame})`);
           
           // 记录转场范围
           transitionRanges.push({
@@ -987,10 +987,10 @@ export class VideoExporter {
               renderedCount++;
             }
           }
-          console.log(`转场 ${transition.name || 'unknown'}: 渲染了 ${renderedCount} 帧 (帧范围 [${transitionStartFrame}, ${transitionEndFrame}))`);
+          //console.log(`转场 ${transition.name || 'unknown'}: 渲染了 ${renderedCount} 帧 (帧范围 [${transitionStartFrame}, ${transitionEndFrame}))`);
         }
         
-        console.log(`转场帧预处理完成，共 ${transitionFrames.size} 帧`);
+        //console.log(`转场帧预处理完成，共 ${transitionFrames.size} 帧`);
       }
     })();
     
@@ -1031,7 +1031,7 @@ export class VideoExporter {
     const cleanup = () => {
       if (isCancelled) return;
       isCancelled = true;
-      console.log('\n收到中断信号，正在终止所有 Worker...');
+      //console.log('\n收到中断信号，正在终止所有 Worker...');
       workers.forEach(worker => {
         try {
           worker.terminate();
@@ -1039,7 +1039,7 @@ export class VideoExporter {
           // 忽略终止错误
         }
       });
-      console.log('所有 Worker 已终止');
+      //console.log('所有 Worker 已终止');
     };
     
     const signalHandler = () => {
@@ -1101,7 +1101,7 @@ export class VideoExporter {
 
             // 只在总体进度变化超过 1% 时打印，避免输出过多
             if (Math.abs(overallProgress - lastOverallProgress) >= 1 || overallProgress >= 100) {
-              console.log(`\r总体进度: ${overallProgress.toFixed(1)}% (${totalCompletedFrames}/${totalWorkerFrames} 帧) | [Worker ${segmentIndex}] ${progress}%                    `);
+              //console.log(`\r总体进度: ${overallProgress.toFixed(1)}% (${totalCompletedFrames}/${totalWorkerFrames} 帧) | [Worker ${segmentIndex}] ${progress}%                    `);
               lastOverallProgress = overallProgress;
             }
 
@@ -1121,7 +1121,7 @@ export class VideoExporter {
               const framePath = path.join(tempDir, `frame_${(frameData.frameIndex + 1).toString().padStart(4, '0')}.png`);
               fs.writeFileSync(framePath, frameData.buffer);
             }
-            console.log(`段 ${result.segmentIndex} 完成，共接收 ${result.frames.length} 帧`);
+            //console.log(`段 ${result.segmentIndex} 完成，共接收 ${result.frames.length} 帧`);
             resolve(result);
           } else {
             reject(new Error(`段 ${result.segmentIndex} 渲染失败: ${result.error}`));
@@ -1146,16 +1146,16 @@ export class VideoExporter {
         return; // 如果已取消，直接返回
       }
       
-      console.log('所有段渲染完成');
+      //console.log('所有段渲染完成');
       
       // 保存转场帧到文件
       if (transitionFrames.size > 0) {
-        console.log(`保存 ${transitionFrames.size} 个转场帧到文件...`);
+        //console.log(`保存 ${transitionFrames.size} 个转场帧到文件...`);
         for (const [frameIndex, buffer] of transitionFrames) {
           const framePath = path.join(tempDir, `frame_${(frameIndex + 1).toString().padStart(4, '0')}.png`);
           await fs.writeFile(framePath, buffer);
         }
-        console.log('转场帧保存完成');
+        //console.log('转场帧保存完成');
       }
     } catch (error) {
       cleanup();
@@ -1211,7 +1211,7 @@ export class VideoExporter {
     // 转场预处理任务（与序列化并行）
     const transitionPreprocessTask = (async () => {
       if (transitions.length > 0) {
-        console.log(`检测到 ${transitions.length} 个转场，在主线程预处理转场帧（与 Worker 并行）...`);
+        //console.log(`检测到 ${transitions.length} 个转场，在主线程预处理转场帧（与 Worker 并行）...`);
         
         // 初始化转场渲染器
         const transitionRenderers = new Map();
@@ -1222,7 +1222,7 @@ export class VideoExporter {
           const transitionStartFrame = Math.floor((transition.startTime - startTime) * fps);
           const transitionEndFrame = Math.ceil((transition.endTime - startTime) * fps);
           
-          console.log(`转场 ${transition.name || 'unknown'}: 时间范围 [${transition.startTime.toFixed(2)}s, ${transition.endTime.toFixed(2)}s], 帧范围 [${transitionStartFrame}, ${transitionEndFrame})`);
+          //console.log(`转场 ${transition.name || 'unknown'}: 时间范围 [${transition.startTime.toFixed(2)}s, ${transition.endTime.toFixed(2)}s], 帧范围 [${transitionStartFrame}, ${transitionEndFrame})`);
           
           // 记录转场范围
           transitionRanges.push({
@@ -1252,10 +1252,10 @@ export class VideoExporter {
               renderedCount++;
             }
           }
-          console.log(`转场 ${transition.name || 'unknown'}: 渲染了 ${renderedCount} 帧 (帧范围 [${transitionStartFrame}, ${transitionEndFrame}))`);
+          //console.log(`转场 ${transition.name || 'unknown'}: 渲染了 ${renderedCount} 帧 (帧范围 [${transitionStartFrame}, ${transitionEndFrame}))`);
         }
         
-        console.log(`转场帧预处理完成，共 ${transitionFrames.size} 帧`);
+        //console.log(`转场帧预处理完成，共 ${transitionFrames.size} 帧`);
       }
     })();
     
@@ -1339,7 +1339,7 @@ export class VideoExporter {
     const cleanup = () => {
       if (isCancelled) return;
       isCancelled = true;
-      console.log('\n收到中断信号，正在终止所有 Worker...');
+      //  console.log('\n收到中断信号，正在终止所有 Worker...');
       workers.forEach(worker => {
         try {
           worker.terminate();
@@ -1353,7 +1353,7 @@ export class VideoExporter {
       } catch (e) {
         // 忽略关闭错误
       }
-      console.log('所有 Worker 已终止');
+      //console.log('所有 Worker 已终止');
     };
     
     const signalHandler = () => {
@@ -1394,7 +1394,7 @@ export class VideoExporter {
       const printWorkerStatus = () => {
         const now = Date.now();
         const sinceLastProgress = ((now - lastProgressTime) / 1000).toFixed(1);
-        console.log(`[WorkerStatus] 距离上次进度: ${sinceLastProgress}s, 上次Worker: ${lastProgressWorker}, completedWorkers: ${completedWorkers}/${segments.length}`);
+        //console.log(`[WorkerStatus] 距离上次进度: ${sinceLastProgress}s, 上次Worker: ${lastProgressWorker}, completedWorkers: ${completedWorkers}/${segments.length}`);
       };
 
       while (!frameBuffer.isComplete() || frameBuffer.getBufferedCount() > 0 || !transitionPreprocessCompleted || (!transitionFramesAdded && transitionFrames.size > 0)) {
@@ -1493,7 +1493,7 @@ export class VideoExporter {
 
       const promise = new Promise((resolve, reject) => {
         worker.on('message', async (result) => {
-          console.log(`[VideoExporter] Worker ${segment.segmentIndex} 收到消息: type=${result.type}, success=${result.success}`);
+          //console.log(`[VideoExporter] Worker ${segment.segmentIndex} 收到消息: type=${result.type}, success=${result.success}`);
           if (result.type === 'progress') {
             // 处理进度消息
             const { segmentIndex, progress, currentFrame, totalFrames, frameIndex } = result;

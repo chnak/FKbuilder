@@ -181,7 +181,7 @@ export class Renderer {
     for (let i = 0; i < data.data.length; i += 4) {
       if (data.data[i] > 50 || data.data[i+1] > 50 || data.data[i+2] > 50) count++;
     }
-    console.log('[Renderer] after view.draw() canvas colorful=' + count);
+    //console.log('[Renderer] after view.draw() canvas colorful=' + count);
 
     return this.canvas;
   }

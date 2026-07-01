@@ -321,14 +321,14 @@ export class HTMLElement extends BaseElement {
     for (let i = 0; i < rgba.length; i += 4) {
       if (rgba[i] > 50 || rgba[i+1] > 50 || rgba[i+2] > 50) colorful++;
     }
-    console.log('[HTMLElement] rgba.length=' + rgba.length + ' colorful=' + colorful);
+    //console.log('[HTMLElement] rgba.length=' + rgba.length + ' colorful=' + colorful);
     // Check _canvas
     const canvasData = ctx.getImageData(0, 0, width, height);
     let ccolor = 0;
     for (let i = 0; i < canvasData.data.length; i += 4) {
       if (canvasData.data[i] > 50 || canvasData.data[i+1] > 50 || canvasData.data[i+2] > 50) ccolor++;
     }
-    console.log('[HTMLElement] _canvas after putImageData colorful=' + ccolor);
+    //console.log('[HTMLElement] _canvas after putImageData colorful=' + ccolor);
 
     // 7) 销毁旧 Raster(避免叠层)
     if (this._paperItem) {

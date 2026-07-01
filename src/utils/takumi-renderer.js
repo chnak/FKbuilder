@@ -369,6 +369,7 @@ function collectImageUrls(node, urls) {
  * @param {AbortSignal} [input.signal]   - 取消渲染
  * @param {object} [input.images]        - 预取图片 { src: Buffer }
  * @param {string|false} [input.emoji='twemoji'] - emoji 风格,false 禁用
+ * @param {number} [input.timeoutMs=30000] - 渲染超时(毫秒),默认 30 秒
  * @returns {Promise<Buffer>} width*height*4 RGBA bytes
  */
 export async function renderHtmlFrame(input) {
@@ -380,6 +381,7 @@ export async function renderHtmlFrame(input) {
     html, node, stylesheets, fonts,
     timeMs, keyframes, devicePixelRatio,
     signal, images, emoji,
+    timeoutMs = 30000,  // 默认 30 秒超时
   } = input;
 
   if (!width || !height) {
@@ -440,7 +442,35 @@ export async function renderHtmlFrame(input) {
   if (keyframes) opts.keyframes = keyframes;
   if (devicePixelRatio) opts.devicePixelRatio = devicePixelRatio;
   if (images) opts.images = images;
-  if (signal) opts.signal = signal;
 
-  return await renderer.render(parsed.node, opts);
+  // 4) 超时控制:使用 AbortSignal.timeout() (Node.js 15.13+)
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+
+  // 合并用户 signal 和超时 signal
+  let finalSignal = timeoutSignal;
+  if (signal) {
+    // 使用 AbortSignal.any 合并两个 signal (Node.js 15.13+)
+    finalSignal = AbortSignal.any([signal, timeoutSignal]);
+  }
+
+  try {
+    return await renderer.render(parsed.node, { ...opts, signal: finalSignal });
+  } catch (err) {
+    // 区分超时错误和其他错误
+    if (err.name === 'AbortError') {
+      // 检查是否是因为超时(检查 timeoutSignal 是否被中止)
+      if (timeoutSignal.aborted) {
+        const timeoutErr = new Error(
+          `Takumi render timeout after ${timeoutMs}ms (HTML content may be too complex)`
+        );
+        timeoutErr.code = 'RENDER_TIMEOUT';
+        throw timeoutErr;
+      }
+      // 用户取消了渲染
+      const cancelErr = new Error('Render was cancelled by user');
+      cancelErr.code = 'RENDER_CANCELLED';
+      throw cancelErr;
+    }
+    throw err;
+  }
 }

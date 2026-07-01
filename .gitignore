@@ -28,7 +28,7 @@ Thumbs.db
 *.swp
 *.swo
 *~
-assets/
+/assets
 # Temporary files
 *.tmp
 *.temp

@@ -446,10 +446,9 @@ const rgba = await renderHtmlFrame({
 
 ## 注意事项
 
-1. **anchor 必须用 `[0, 0]`** 做全屏 HTML：默认 `[0.5, 0.5]` 会让 1280×720 元素偏移 (-640, -360)
-2. **每个场景必须独立 `createTrack()`**：多个场景合到同一 track 会导致时间累加错误
-3. **Worker 模式**：`parallel: true` 时正常,每个 Worker 独立初始化 Takumi
-4. **字体文件必须在 `fonts` 中注册**：Takumi 不自动读取系统字体(虽然默认自动注入了 Windows/macOS/Linux 字体)
-5. **CSS 动画每帧重渲染**：无动画时可考虑关闭 `autoDefaultFont` 之外的二次处理
-6. **不要多次调用 `build()`**
-7. **render 完成后调 `process.exit(0)`**：确保进程退出
+1. **每个场景必须独立 `createTrack()`**：多个场景合到同一 track 会导致时间累加错误
+2. **Worker 模式**：`parallel: true` 时正常,每个 Worker 独立初始化 Takumi
+3. **字体文件必须在 `fonts` 中注册**：Takumi 不自动读取系统字体(虽然默认自动注入了 Windows/macOS/Linux 字体)
+4. **CSS 动画每帧重渲染**：无动画时可考虑关闭 `autoDefaultFont` 之外的二次处理
+5. **不要多次调用 `build()`**
+6. **render 完成后调 `process.exit(0)`**：确保进程退出

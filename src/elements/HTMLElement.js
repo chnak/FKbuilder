@@ -271,6 +271,7 @@ export class HTMLElement extends BaseElement {
 
     // 当前帧缓存(避免同帧重复渲染)
     this._lastFrameKey = null;
+    this._lastRenderErr = null; // 渲染错误去重签名
     this._canvas = null;
     this._paperItem = null;
   }
@@ -383,7 +384,14 @@ export class HTMLElement extends BaseElement {
     try {
       rgba = await renderHtmlFrame(renderInput);
     } catch (e) {
-      console.error('[HTMLElement] Takumi 渲染失败:', e.message);
+      // 去重:同一个错误(按 message 前 80 字符)每个元素实例只警告一次
+      // 30fps × N 秒 = 每秒 30 行噪音,所以要做缓存
+      const sig = (e.message || '').slice(0, 80);
+      if (this._lastRenderErr !== sig) {
+        this._lastRenderErr = sig;
+        console.error('[HTMLElement] Takumi 渲染失败:', e.message,
+          '\n  (后续相同错误将静默,渲染占位框代替)');
+      }
       return this._renderPlaceholder(layer, state, context, width, height, p, e.message);
     }
 
